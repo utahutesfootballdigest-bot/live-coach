@@ -523,6 +523,7 @@ async def on_transcript(speaker: str, text: str, is_final: bool, speech_final: b
                 "total_evaluated": len(session_scores),
             })
 
+    print(f"[on_transcript] rep speech_final reached: roleplay_mode={roleplay_mode}, roleplay_customer={'set' if roleplay_customer else 'None'}, text={text[:40]!r}")
     if roleplay_mode and roleplay_customer:
         # Buffer rep speech — only respond after 0.6s of silence so we don't cut them off
         rep_buffer.append(text)
