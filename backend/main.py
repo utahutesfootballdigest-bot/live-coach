@@ -112,7 +112,7 @@ def _pick(options: list[str]) -> str:
         available = options
     choice = random.choice(available)
     _recent_openers.append(choice)
-    if len(_recent_openers) > 6:
+    if len(_recent_openers) > 15:
         _recent_openers.pop(0)
     return choice
 
@@ -120,67 +120,223 @@ def _pick(options: list[str]) -> str:
 def _quick_opener(text: str, current_stage: str) -> str:
     t = text.lower().strip()
 
+    # ── Emotional / situational triggers (highest priority) ──
+
     if any(w in t for w in ["break in", "broken into", "robbery", "robbed", "burglar", "stolen", "theft", "broke in"]):
         return _pick(["Oh no, I'm so sorry to hear that. I'll make sure we get you fully protected.",
-                       "That's terrible — I'm really sorry you're dealing with that. Let's make sure that doesn't happen again."])
+                       "That's terrible — I'm really sorry you're dealing with that. Let's make sure that doesn't happen again.",
+                       "I'm sorry that happened. We're gonna make sure you feel safe from here on out."])
     if any(w in t for w in ["scared", "nervous", "worried", "anxious", "afraid", "terrified", "freaked"]):
         return _pick(["I totally understand that feeling, and that's exactly why we're here to help.",
-                       "That makes complete sense — your safety is our top priority and I'll take great care of you."])
+                       "That makes complete sense — your safety is our top priority and I'll take great care of you.",
+                       "I hear you — and that's exactly why it's smart to get something in place now."])
     if any(w in t for w in ["baby", "newborn", "toddler", "infant", "pregnant", "expecting"]):
         return _pick(["Congratulations! Keeping the little one safe is exactly what we do.",
-                       "That's so exciting — we'll make sure that baby is well protected."])
+                       "That's so exciting — we'll make sure that baby is well protected.",
+                       "That's wonderful! A security system is perfect timing with a little one on the way."])
     if any(w in t for w in [" kids", "children", "my son", "my daughter", "teenager"]):
-        return _pick(["Keeping the family safe is what it's all about — I'll make sure we get everyone protected.",
-                       "That's great — we've got some awesome features that'll be perfect for your family."])
-    if any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "just purchased"]):
+        return _pick(["Keeping the family safe is what it's all about.",
+                       "That's great — we've got some awesome features that'll be perfect for your family.",
+                       "I love that. Protecting the kids is the number one reason people call us.",
+                       "Family safety is huge — I'll make sure we get you set up right."])
+    if any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "just purchased", "moving", "looking to move"]):
         return _pick(["Congrats on the new place! A new home is the perfect time to get set up.",
-                       "That's exciting — let's make sure your new place is fully protected from day one."])
+                       "That's exciting — let's make sure your new place is fully protected from day one.",
+                       "Perfect timing! Getting security set up before you're all settled in is the smartest move.",
+                       "That's great — a lot of our customers set up right when they move in."])
     if any(w in t for w in ["neighbor", "down the street", "next door", "in the area", "in my neighborhood"]):
         return _pick(["That's really unsettling when it's that close to home. I'll make sure we get you covered.",
-                       "I don't blame you — that would make anyone want to take action. Let's get you protected."])
-    if any(w in t for w in ["live alone", "by myself", "on my own"]):
+                       "I don't blame you — that would make anyone want to take action.",
+                       "That definitely hits different when it's right in your neighborhood."])
+    if any(w in t for w in ["live alone", "by myself", "on my own", "here alone", "here by myself"]):
         return _pick(["Having that extra layer of protection makes a huge difference when you're on your own.",
-                       "That's smart — peace of mind when you're on your own is so important. I'll take care of you."])
-    if any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "long hours", "deployed", "while i'm working", "while i work", "when i'm at work", "protect my family"]):
+                       "That's smart — peace of mind when you're on your own is so important.",
+                       "I hear that a lot — and that's exactly the right reason to get set up."])
+    if any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "long hours", "deployed",
+                             "while i'm working", "while i work", "when i'm at work", "protect my family",
+                             "out of town", "not home a lot"]):
         return _pick(["That makes a lot of sense — being able to keep an eye on things from anywhere is key.",
-                       "I hear that all the time. We'll make sure you have peace of mind no matter where you are."])
-    if any(w in t for w in ["expensive", "too much", "cost", "afford", "pricey", "price", "budget"]):
+                       "I hear that all the time. We'll make sure you have peace of mind no matter where you are.",
+                       "That's exactly why the smartphone access is huge — you'll see everything from your phone."])
+
+    # ── Competitor / switching triggers ──
+
+    if any(w in t for w in ["vivint", "adt", "simplisafe", "ring", "alder", "brinks", "frontpoint"]):
+        return _pick(["Good to know — I'll make sure we get you something that works even better.",
+                       "I hear that a lot. A lot of folks are switching over and loving it.",
+                       "That's helpful context — let me show you what makes Cove different.",
+                       "No problem — we get a lot of people coming over from them."])
+    if any(w in t for w in ["too expensive", "paying too much", "overcharging", "cheaper", "better deal", "better price"]):
         return _pick(["I totally hear you on that — let me see what I can do to make this work for you.",
-                       "I understand where you're coming from. Let me break it down for you."])
-    if any(w in t for w in ["talk to my", "ask my wife", "ask my husband", "spouse", "partner", "think about it", "call back", "not sure"]):
+                       "I understand where you're coming from — let's find the right fit for your budget.",
+                       "That's actually one of the biggest reasons people switch to Cove.",
+                       "I hear you — nobody wants to overpay. Let me break down what we can do."])
+    if any(w in t for w in ["contract", "locked in", "stuck with", "cancel", "cancellation"]):
+        return _pick(["Great news — we don't do contracts here, it's completely month to month.",
+                       "You'll love this — no contracts with Cove, you can cancel anytime.",
+                       "That's one of the best things about us — no contract, no commitment."])
+
+    # ── Existing system / takeover triggers ──
+
+    if any(w in t for w in ["already have", "already installed", "existing system", "previous owner", "came with the house"]):
+        return _pick(["No problem at all — we can definitely work with what you already have there.",
+                       "That's actually pretty common — a lot of our customers have existing equipment.",
+                       "Good news — we can usually keep what's already installed and just get you a new account."])
+
+    # ── Objection / hesitation triggers ──
+
+    if any(w in t for w in ["expensive", "too much", "cost", "afford", "pricey", "price", "budget", "how much"]):
+        return _pick(["I totally hear you on that — let me see what I can do to make this work.",
+                       "I understand where you're coming from. Let me break it down for you.",
+                       "That's a fair concern — let me walk you through exactly what you're getting."])
+    if any(w in t for w in ["talk to my", "ask my wife", "ask my husband", "spouse", "partner"]):
         return _pick(["Totally understandable — I'd want to check with my partner too.",
-                       "No worries, I completely get that. Let me share a few things that might help."])
+                       "No worries, I completely get that. Let me share a few things that might help the conversation."])
+    if any(w in t for w in ["think about it", "call back", "not sure", "not ready", "shopping around", "comparing"]):
+        return _pick(["No worries at all, I want you to feel good about it.",
+                       "I understand — take your time. Let me give you all the info you need.",
+                       "That's totally fair. A lot of people compare us to other companies and come back."])
+    if any(w in t for w in ["install", "set it up", "how do i", "hard to install", "complicated", "technician", "professional"]):
+        return _pick(["Great question — the good news is everything is wireless, so it's super easy.",
+                       "No worries — it's all wireless and most people have it up in about 20 minutes.",
+                       "That's one of the things people love — it's all DIY and really straightforward."])
+
+    # ── Website / checkout process triggers ──
+
+    if any(w in t for w in ["promo code", "promotion code", "coupon", "discount code"]):
+        return _pick(["I've got you covered on the promo code — I'll walk you through it.",
+                       "No worries, I'll get you the best code we have available right now.",
+                       "Perfect — I'll make sure you get the best deal before you check out."])
+    if any(w in t for w in ["won't let me", "error", "not working", "having trouble", "can't get it", "won't go through"]):
+        return _pick(["No problem — that happens sometimes. Let me walk you through it step by step.",
+                       "No worries at all, I'll help you get past that right now.",
+                       "That's okay — let's troubleshoot this together real quick."])
+    if any(w in t for w in ["payment", "debit card", "credit card", "card declined", "card information"]):
+        return _pick(["No problem — we accept any major credit or debit card.",
+                       "That's fine — just make sure it's a standard credit or debit card and we'll be good.",
+                       "No worries — let me help you get that sorted out."])
+
+    # ── Billing / monitoring questions ──
+
+    if any(w in t for w in ["monthly", "per month", "month to month", "every month", "autopay", "billing"]):
+        return _pick(["Great question — let me explain exactly how the billing works.",
+                       "I'll break that down for you — it's really straightforward.",
+                       "That's a really common question — let me walk you through it."])
+    if any(w in t for w in ["wifi", "wi-fi", "internet", "cellular", "power goes out", "no power"]):
+        return _pick(["Great question — the panel actually runs on cellular so you're still protected even without wifi.",
+                       "Love that question — the system stays connected through cellular backup.",
+                       "That's one of the best features — it works even if your power or internet goes out."])
+    if any(w in t for w in ["warranty", "break", "replacement", "defective", "stop working"]):
+        return _pick(["Great news — everything comes with a lifetime warranty on the premium plan.",
+                       "No worries on that — we've got lifetime warranty so we'll replace anything that goes bad."])
+
+    # ── Shipping / timeline questions ──
+
+    if any(w in t for w in ["shipping", "how long", "when will", "arrive", "delivery", "get here", "business days"]):
+        return _pick(["Great question — shipping is usually 3 to 7 business days.",
+                       "You'll get a tracking number as soon as it ships — usually arrives in about a week.",
+                       "Most packages arrive within a week. You'll get tracking info right away."])
+
+    # ── Stage-specific openers ──
 
     if current_stage in ("intro", "discovery"):
-        if any(w in t for w in ["never had", "no i haven", "first time", "don't have one"]):
-            return _pick(["No worries at all — like I said, I'll walk you through everything and make it super easy.",
-                           "That's totally fine — I'll take great care of you and walk you through the whole process."])
-        if any(w in t for w in ["i had", "i was with", "i used to have", "we had", "i've had"]):
-            return _pick(["Good to know — that past experience will definitely help us get you set up right.",
-                           "That's helpful to know. We'll make sure we match or beat what you had before."])
+        if any(w in t for w in ["never had", "no i haven", "first time", "don't have one", "no system"]):
+            return _pick(["No worries at all — I'll walk you through everything and make it super easy.",
+                           "That's totally fine — I'll take great care of you step by step.",
+                           "Perfect — you're in good hands, I do this all day."])
+        if any(w in t for w in ["i had", "i was with", "i used to have", "we had", "i've had", "used to"]):
+            return _pick(["Good to know — that experience will definitely help us get you set up right.",
+                           "That's helpful. We'll make sure we match or beat what you had before.",
+                           "Perfect — since you've been through this before, this should be a breeze."])
+        if any(w in t for w in ["looking", "information", "find out", "curious", "wondering", "interested"]):
+            return _pick(["Absolutely — I'll walk you through everything you need to know.",
+                           "Of course! I'll make sure you have all the info to make the best decision.",
+                           "Perfect — I'm happy to answer any questions you have."])
+
+    if current_stage == "collect_info":
+        return _pick(["Got it, thank you.",
+                       "Perfect, I've got that down.",
+                       "Alright, got it."])
 
     if current_stage == "build_system":
-        if any(w in t for w in ["sounds good", "that works", "that makes sense", "yes", "yeah", "yep", "okay", "ok", "of course", "absolutely"]):
-            return _pick(["Awesome, easy to work with — I love it. Let me keep going here.",
-                           "Love it. Alright, let me get you set up with the next piece.",
-                           "Perfect, glad that makes sense. Let me keep building this out for you."])
+        # Customer gives a number (doors, windows, etc.)
+        if any(c.isdigit() for c in t) or any(w in t for w in ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]):
+            return _pick(["Perfect, I'll get those covered for you.",
+                           "Got it — I'll make sure all of those are protected.",
+                           "Alright, I'll get that taken care of."])
+        if any(w in t for w in ["sounds good", "that works", "that makes sense", "yes", "yeah", "yep", "okay", "ok", "of course", "absolutely", "mhmm"]):
+            return _pick(["Awesome — let me keep building this out for you.",
+                           "Love it. Let me get you set up with the next piece.",
+                           "Perfect, glad that makes sense. Moving right along.",
+                           "Great, you're easy to work with — I love it."])
+        if any(w in t for w in ["what about", "do you have", "can i get", "i also need", "i want", "add"]):
+            return _pick(["Absolutely — I can definitely add that for you.",
+                           "Great thinking — let me get that added to your system.",
+                           "For sure — I'll throw that in for you."])
+        if any(w in t for w in ["don't need", "no thanks", "i'm good on", "skip", "don't want", "no i don't", "i hate"]):
+            return _pick(["No problem at all — we'll skip that one.",
+                           "Totally fine — I only want you to have what you actually need.",
+                           "Got it — moving on."])
+        if any(w in t for w in ["sliding door", "glass door", "patio door", "garage"]):
+            return _pick(["Good call — that's an important entry point to cover.",
+                           "Definitely want to get that covered — those are common entry points.",
+                           "Smart — a lot of people forget about that one."])
 
     if current_stage in ("recap", "closing"):
-        if any(w in t for w in ["sounds good", "that works", "let's do it", "yes", "yeah", "i'm ready"]):
+        if any(w in t for w in ["sounds good", "that works", "let's do it", "yes", "yeah", "i'm ready", "let's go"]):
             return _pick(["Awesome! Let me see what I can do for you on the pricing.",
-                           "Love it — let me get this wrapped up for you."])
+                           "Love it — let me get this wrapped up for you.",
+                           "Perfect — I think you're gonna love this deal."])
         if any(w in t for w in ["no thank", "i'm good", "that's it", "nothing else", "that's all", "that should be good"]):
-            return _pick(["Sounds good — I think we've got you fully covered here.",
-                           "No problem at all — personally I think we've got everything you need."])
+            return _pick(["Sounds good — I think we've got you fully covered.",
+                           "No problem — personally I think we've got everything you need.",
+                           "Perfect — I feel really good about this setup for you."])
+        if any(w in t for w in ["order complete", "placed the order", "went through", "it worked"]):
+            return _pick(["Congratulations and welcome to the Cove family!",
+                           "That's awesome — welcome to Cove! Let me share a few quick things.",
+                           "Perfect, I see it on my end — welcome to the Cove family!"])
 
-    if any(w in t for w in ["yes", "yeah", "yep", "that's right", "correct", "sure", "sounds good", "absolutely"]):
-        return _pick(["Ok great, I'll definitely help you out with that.",
-                       "Perfect, let me take care of that for you.",
-                       "Awesome, I'll get that handled for you right away."])
+    # ── Generic affirmatives (with more variety) ──
 
-    return _pick(["Ok great, I'll definitely help you out.",
-                   "Absolutely, let me take care of you.",
-                   "Perfect, I'll get you taken care of."])
+    if any(w in t for w in ["yes", "yeah", "yep", "that's right", "correct", "sure", "absolutely"]):
+        return _pick(["Perfect, let me take care of that for you.",
+                       "Awesome, I'll get that handled.",
+                       "Great — moving right along.",
+                       "Got it, no problem at all.",
+                       "Sounds good, let me keep going."])
+
+    if any(w in t for w in ["okay", "ok", "alright", "mhmm", "uh huh", "go ahead"]):
+        return _pick(["Alright, here's what we'll do.",
+                       "Perfect, let me walk you through this.",
+                       "Sounds good — here's the next step."])
+
+    # ── Questions from customer ──
+
+    if any(w in t for w in ["what is", "what's", "how does", "how do", "can i", "can you", "do you", "is there", "does it", "will it"]):
+        return _pick(["Great question — let me explain.",
+                       "That's a really common question — here's how it works.",
+                       "Good question! So here's the deal.",
+                       "Of course — let me break that down for you."])
+
+    # ── Fallback — contextual to stage ──
+
+    if current_stage == "discovery":
+        return _pick(["Thank you for sharing that — that really helps me understand what you need.",
+                       "I appreciate you telling me that — it helps me build the right system for you.",
+                       "Good to know — I'll keep that in mind as we build your system."])
+    if current_stage == "build_system":
+        return _pick(["Alright — let me keep building this out for you.",
+                       "Got it — let me add the next piece to your system.",
+                       "Perfect — let's keep going here."])
+    if current_stage in ("recap", "closing"):
+        return _pick(["Alright — let me pull everything together for you.",
+                       "Perfect — let me get you the final numbers.",
+                       "Sounds good — let me wrap this up."])
+
+    return _pick(["Absolutely, I'll take care of you.",
+                   "No problem at all — I've got you.",
+                   "Perfect — let me help you out with that.",
+                   "Of course — I'm happy to help."])
 
 
 # ── Per-connection session ────────────────────────────────────────────────

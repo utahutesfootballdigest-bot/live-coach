@@ -7,47 +7,55 @@ import httpx
 STAGE_SCRIPT: dict[str, list[str]] = {
     "intro": [
         "Are you already a Cove customer, or are you looking to get a security system?",
-        "I'll be the one to help you with that. Are you currently on the Cove website?",
-        "[If on website] Awesome! Where are you in the process right now?",
-        "[If not on website] No problem. I'll walk you through the process and help you get set up.",
+        "I'll be the one to help you with that, and I'm going to make sure you get a really good deal. Are you currently on the Cove website?",
+        "[If on website] Awesome! Where are you in the process right now — still looking at equipment, or are you on the checkout page?",
+        "[If on website with cart] Oh great, you already have some stuff in your cart? Could you tell me what equipment you've added so far?",
+        "[If not on website] No problem. I can walk you through the whole thing. Go ahead and pull up covesmart.com whenever you're ready.",
     ],
     "discovery": [
         "What has you looking into security? Did something happen, did you just move, what's going on?",
         "Have you ever had a security system before?",
-        "[If yes] Who did you have it with? Anything you liked about that system you'd like me to try to include in your new one?",
+        "[If yes] Who did you have it with? Was there anything you liked about that system that you'd want me to try and include?",
+        "[If switching from competitor] I hear that a lot — a lot of folks are making the switch. What made you start looking at other options?",
         "Who are we looking to protect — is it just you or is there anyone else living there with you?",
         "[If kids] Are we talking about little kids or teenagers?",
-        "[If pets] Are you referring to a cat or a dog? I can relate because...",
+        "[If pets] What kind — cats or dogs? I only ask because we can position the motion sensors to avoid false alarms.",
         "I understand how important it is to make sure they're safe. I'll make sure we take great care of you.",
     ],
     "collect_info": [
-        "I'm just going to get some information from you before we start building out the system. Could you please spell your first and last name?",
+        "I'm just going to get some information from you before we start building out the system. Could you please spell your first and last name for me?",
         "Thank you. And what's your best phone number?",
-        "And an email so I can send all this information over to you at the end of the call?",
+        "And your email so I can send all this information over to you by the end of the call?",
         "And before we get ahead of ourselves, I just want to verify that we have coverage. What's the address you're looking to get the security set up at?",
-        "Perfect, we actually have great coverage there so we can definitely help you out. Let's dive right in.",
+        "Perfect, we actually have fantastic coverage in your area so I can definitely help you out. Let's go ahead and build your system.",
     ],
     "build_system": [
         "How many doors go in and out of your home?",
-        "[After customer answers doors] [EXACT NUMBER] doors, we'll get you [EXACT NUMBER] door sensors to get your entry points covered. How many ground-floor windows do you have?",
-        "How many ground-floor windows do you have?",
-        "[After customer answers windows] [EXACT NUMBER] windows, we'll get you [EXACT NUMBER] window sensors as well, that way all your entry points are covered and monitored. With all those door and window sensors, obviously when the system is armed they'll trigger the alarm, but when the system is unarmed they'll activate the chime feature — that's the feature that says 'front door open' or 'bedroom window open'. Does that make sense?",
-        "On top of that, I'm also gonna throw in a free indoor camera for you. It's live, it's HD, it's recording, night vision, two-way audio with a motion sensor — so wherever you are, you have eyes and ears at all times. Does that make sense, [NAME]?",
-        "I'm also gonna get you a free hub for the system — it serves as the brain of the system that connects everything. It's cellular connected, so if your power or Wi-Fi goes down, your home is still protected and secure. It comes with 24/7 live monitoring for police, medical, and fire — so no matter what happens, we've got you covered. I'm also gonna get you a free color touchscreen panel — this serves as the user interface for navigation. Does that all make sense?",
-        "I'm also gonna get you a free yard sign and window stickers, that way everyone knows you're protected and have security. Everything also comes with smartphone access — you can arm and disarm the system through your phone, pull up the cameras, speak through them, and access the system no matter where you are.",
-        "Would you like to add a smoke detector or any additional cameras to the system?",
+        "[After customer answers doors] [EXACT NUMBER] doors — I'll get you [EXACT NUMBER] door sensors to make sure all your entry points are covered. And how many windows are there on the ground floor of your house?",
+        "How many windows are on the ground floor of your house that are accessible?",
+        "[After customer answers windows] [EXACT NUMBER] windows — I'll get you [EXACT NUMBER] window sensors as well, that way every entry point is covered and monitored. Now with all those door and window sensors, when the system is armed they'll trigger the alarm. But even when the system is unarmed, they activate the chime feature — so it'll say 'front door open' or 'back door open' anytime someone comes or goes. Does that make sense?",
+        "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
+        "[If motion detector] The motion detector covers about a 45-foot range, so one usually handles a large living area or hallway. I'll add one for you.",
+        "On top of that, I'm also going to give you a free indoor camera. It's live HD with recording, night vision, two-way audio, and a built-in motion sensor — so wherever you are, you'll always have eyes and ears on your home. Does that make sense, [NAME]?",
+        "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
+        "I'm also going to get you the hub — that's the brain of the system that connects everything. It runs on cellular, so even if your power or Wi-Fi goes down, your home is still protected 24/7 with police, medical, and fire support. And you'll get a 7-inch color touchscreen panel to navigate everything. Does that all make sense?",
+        "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, speak through them, and control everything from your phone no matter where you are.",
+        "I'm also going to give you a key fob — it's like a remote where you can arm and disarm the system without going to the panel. Would you like one or two of those?",
+        "Would you like to add a smoke detector or anything else to the system?",
     ],
     "recap": [
-        "So currently what I have here is [EXACT NUMBER] door sensors to get your entry points covered, [EXACT NUMBER] window sensors to get your windows covered, a free indoor camera to monitor the inside of your home, the hub to connect everything and run the system, color touchscreen panel for navigation, a yard sign and window stickers so everyone knows you have security, and smartphone access so you'll have full control from your phone. Personally I think we have your home fully protected, but just to be sure — is there anything else you might want to add?",
+        "Let me quickly recap what I have for you: [EXACT NUMBER] door sensors, [EXACT NUMBER] window sensors, a free indoor camera, the hub and touchscreen panel, yard sign and window stickers, smartphone access, and the key fob. Personally I believe we've got you fully protected — but is there anything else you were hoping I could add?",
         "Is there anything else you were hoping I could add to your system?",
     ],
     "closing": [
-        "Let me go ahead and build the system real quick, just give me a minute or two... Alright, it looks like I'll be able to get you a lot of extra discounts.",
-        "First, all of our systems come with no contract and some of the best customer service in the industry.",
-        "Here's how it works: we don't charge you anything for the installation. Everything is wireless, so we'll send all the equipment out to you and you'll set it up yourself. Because it's all wireless, the entire setup should take you maybe 20 minutes — super easy.",
-        "Then I'm gonna get you a bunch of extra discounts here. On the monthly monitoring cost, that'll just be ___ per month. The equipment we have for you would usually cost around $___,  but with all the discounts and promotions we have available today, I'm gonna get your total equipment cost all the way down to just ___. So to get you set up today, all you have to pay is ___ for the equipment, and from then on it'll just be ___ per month.",
+        "Alright — it looks like I'm going to be able to get you a lot of extra discounts here.",
+        "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry.",
+        "We don't charge anything for the installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself. The whole thing usually takes about 20 minutes — it's super easy. And if you need help, our tech support team will walk you through it over the phone.",
+        "We also have a 60-day risk-free trial — so you can try everything out, and if you decide it's not the right fit, you can return it for a full refund within 60 days.",
+        "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment that would usually cost $____ — with all the discounts and promotions today, I'm gonna get your total down to just $____.",
         "Does that sound like it will work for you, [NAME]?",
-        "Congratulations and welcome to the Cove family! You'll get tracking information as soon as your package ships — that's usually 3 to 7 business days. Once your equipment arrives, you'll find detailed instructions on how to set it up. If you need any help, our customer service team is top notch and we'd love to walk you through it over the phone. Is there anything else I can help you with before we end the call?",
+        "[Guide through checkout] Go ahead and scroll down — you'll need to fill in your email, monitored address, emergency contact, and create a verbal password. The verbal password is just for when you call in or when our monitoring team calls you — they'll use it to verify your identity. Let me know once you're ready to place the order.",
+        "[After order placed] Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — that's usually 3 to 7 business days. Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount. Is there anything else I can help you with?",
     ],
 }
 
@@ -154,6 +162,21 @@ SPOUSE (needs to talk to partner first):
 
 NO URGENCY (wants to call back / think about it):
 "No worries, you can definitely call us back when the time comes. Just keep in mind, the discount ends tonight, and I wouldn't want you to miss out. Is there anything else you'd like to know to help make your decision?"
+
+SHOPPING AROUND / COMPARING:
+"I totally understand — it's smart to compare. Just so you know, a lot of people compare us with the big names and end up choosing Cove because of the no-contract, the pricing, and the customer service. And with the 60-day trial, you can try it risk-free. If it's not the right fit, you send it back for a full refund."
+
+PAYMENT METHOD DECLINED:
+"Oh no problem — we accept any standard Visa, Mastercard, or Discover credit or debit card. Unfortunately we can't accept prepaid cards, Cash App cards, or PayPal. Do you have another card you could use?"
+
+EXISTING SYSTEM / TAKEOVER:
+"Great news — you can actually keep using the equipment that's already installed there. What we'll do is set you up with a new account, get you a new hub and panel, and then we'll reset the existing cameras and sensors to connect to your new account. The ones already there can still work — we just register everything under your information."
+
+AUTOPAY / BILLING DATE CONCERNS:
+"The autopay runs on the 5th of each month by default, but if you need a different billing date, you can call our customer service team after setup and they'll adjust it for you. Today you just pay for the equipment, and the monthly monitoring starts after your first month."
+
+DOESN'T WANT TO GIVE PERSONAL INFO:
+"I totally understand being careful with your information. How about this — let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."
 
 ═══════════════════════════════
 VALUE BUILDING — BUILD SYSTEM STAGE
