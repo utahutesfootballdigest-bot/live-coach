@@ -406,13 +406,16 @@ async def _delayed_roleplay_response():
 async def on_transcript(speaker: str, text: str, is_final: bool, speech_final: bool):
     global coach, customer_buffer, rep_buffer, pending_rep_buffer, _coach_trigger_task, _roleplay_trigger_task, pending_evaluation, session_scores, roleplay_customer
 
-    # In roleplay, suppress rep mic while AI audio plays to avoid speaker bleed-through
+    # In roleplay, if TTS is playing but rep is speaking with real words,
+    # they're talking over TTS or TTS already ended — release the lock
     if roleplay_mode and tts_active and speaker == "rep":
         if is_final and speech_final:
-            # Hold the final — replay it once TTS ends so the AI can respond
-            pending_rep_buffer.append(text)
-            print(f"[roleplay] held rep final during tts_active: {text[:40]!r}")
-        return
+            # Rep finished a real utterance — TTS is probably done, release the lock
+            tts_active = False
+            print(f"[roleplay] tts_active reset by rep speech_final: {text[:40]!r}")
+            # Don't hold it — let it fall through to normal processing
+        else:
+            return
 
     global _opener_shown, _intro_turns, _current_stage
 
