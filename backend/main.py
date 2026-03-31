@@ -362,7 +362,7 @@ async def _fire_roleplay_response():
         if audio_b64:
             tts_active = True
             print(f"[roleplay] tts_active=True")
-            asyncio.create_task(_tts_safety_reset(8))
+            asyncio.create_task(_tts_safety_reset(5))
         else:
             print("[roleplay] TTS failed, tts_active stays False")
         await broadcast({"type": "roleplay_speech", "text": ai_text, "audio_b64": audio_b64})
@@ -370,8 +370,11 @@ async def _fire_roleplay_response():
     except Exception:
         import traceback
         print(f"[roleplay] _fire_roleplay_response error:\n{traceback.format_exc()}")
-        # Make sure tts_active is reset so the rep can keep talking
         tts_active = False
+        # Flush any held rep speech so the conversation can continue
+        if pending_rep_buffer:
+            rep_buffer.extend(pending_rep_buffer)
+            pending_rep_buffer.clear()
 
 
 async def _tts_safety_reset(seconds: int):
@@ -388,8 +391,16 @@ async def _tts_safety_reset(seconds: int):
 
 
 async def _delayed_roleplay_response():
-    await asyncio.sleep(0.6)
-    await _fire_roleplay_response()
+    try:
+        await asyncio.sleep(0.6)
+        await _fire_roleplay_response()
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        import traceback
+        print(f"[roleplay] _delayed_roleplay_response error:\n{traceback.format_exc()}")
+        global tts_active
+        tts_active = False
 
 
 async def on_transcript(speaker: str, text: str, is_final: bool, speech_final: bool):
