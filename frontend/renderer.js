@@ -192,10 +192,12 @@ function checkStartReady() {
 document.getElementById("grant-mic-btn").addEventListener("click", requestMic);
 document.getElementById("grant-display-btn").addEventListener("click", requestDisplayAudio);
 
+let _pendingAudioMode = null; // "live" or "practice" — start capture after server confirms
+
 document.getElementById("start-btn").addEventListener("click", () => {
   if (!micStream || !displayStream) return;
   document.getElementById("setup-status").textContent = "Connecting...";
-  startAudioCapture(false);
+  _pendingAudioMode = "live";
   send({ action: "start" });
 });
 
@@ -207,7 +209,7 @@ document.getElementById("end-btn").addEventListener("click", () => {
 document.getElementById("practice-btn").addEventListener("click", () => {
   if (!micStream) return;
   document.getElementById("setup-status").textContent = "Starting practice session...";
-  startAudioCapture(true);
+  _pendingAudioMode = "practice";
   send({ action: "start_roleplay" });
 });
 
@@ -235,6 +237,12 @@ function handleStatus(state) {
     showMainScreen();
     pill.classList.remove("processing");
     statusText.textContent = "LIVE";
+    // Start audio capture now that server has queues ready
+    if (_pendingAudioMode) {
+      startAudioCapture(_pendingAudioMode === "practice");
+      console.log(`[audio] capture started (${_pendingAudioMode} mode)`);
+      _pendingAudioMode = null;
+    }
   } else if (state === "processing") {
     pill.classList.add("processing");
     statusText.textContent = "THINKING";
