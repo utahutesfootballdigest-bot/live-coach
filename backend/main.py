@@ -301,9 +301,25 @@ def _quick_opener(text: str, current_stage: str) -> str:
                            "Perfect — I'm happy to answer any questions you have."])
 
     if current_stage == "collect_info":
+        # Check if customer just gave specific info types for a tailored response
+        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", "aol", "outlook", ".com"]):
+            return _pick(["Got it, I have your email.",
+                           "Perfect, I've got that email down.",
+                           "Alright, email is saved."])
+        if any(c.isdigit() for c in t) and len([c for c in t if c.isdigit()]) >= 7:
+            return _pick(["Got it, I have your number.",
+                           "Perfect, I've got that number down.",
+                           "Alright, phone number is saved."])
+        if any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard", "way", "circle", "court"]):
+            return _pick(["Got it, let me verify coverage in your area.",
+                           "Perfect, let me check that we have coverage there.",
+                           "Alright, let me make sure we can service that area."])
         return _pick(["Got it, thank you.",
                        "Perfect, I've got that down.",
-                       "Alright, got it."])
+                       "Alright, got it.",
+                       "Thank you for that.",
+                       "Got it, appreciate that.",
+                       "Okay, I have that."])
 
     if current_stage == "build_system":
         # Customer gives a number (doors, windows, etc.)
@@ -647,7 +663,7 @@ class Session:
                 return
 
         # ── Opener ──
-        _skip_opener = self.current_stage in ("intro", "collect_info")
+        _skip_opener = self.current_stage in ("intro",)
         if speaker == "customer" and not self.opener_shown and self.coach is not None and not _skip_opener:
             if not is_final and len(text.split()) < 8:
                 pass

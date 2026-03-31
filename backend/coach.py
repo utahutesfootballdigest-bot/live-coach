@@ -271,10 +271,13 @@ Example for build_system (confirm what customer said + move to next item):
   "triggered": false
 }
 
-INTRO & COLLECT_INFO RULE: During intro and collect_info stages, there is NO separate opener bubble shown.
+INTRO RULE: During the intro stage, there is NO separate opener bubble shown.
 Your next_step IS the only thing the rep sees, so include a brief natural acknowledgement at the start
 (e.g., "Perfect,", "Got it,", "Alright,") followed immediately by the next script question — all in one line.
-Keep it conversational and fluid, like you're talking to a friend.
+
+COLLECT_INFO RULE: During collect_info, an opener bubble IS shown (e.g., "Got it, thank you." or "Perfect, I have your number.").
+Your next_step should flow directly from that opener — NO acknowledgement, just the next question.
+Example: Opener: "Got it, I have your number." → next_step: "And your email so I can send all this information over to you?"
 
 BUILD_SYSTEM STYLE: When the customer gives a number (doors, windows), confirm it back naturally:
 "[Number] doors, I'm gonna get you [number] door sensors that way all those doors are covered for you."
