@@ -618,6 +618,7 @@ async def websocket_endpoint(ws: WebSocket):
     if roleplay_mode:
         await ws.send_text(json.dumps({"type": "roleplay_mode", "active": True}))
 
+    _audio_chunk_count = 0
     try:
         while True:
             message = await ws.receive()
@@ -625,12 +626,15 @@ async def websocket_endpoint(ws: WebSocket):
                 break
 
             # Binary frame: audio data from browser
-            if "bytes" in message and message["bytes"]:
-                data = message["bytes"]
-                if len(data) < 2:
-                    continue
-                label = data[0]
-                pcm = data[1:]
+            raw_bytes = message.get("bytes")
+            if raw_bytes and len(raw_bytes) >= 2:
+                _audio_chunk_count += 1
+                if _audio_chunk_count == 1:
+                    print(f"[ws] first audio chunk received, len={len(raw_bytes)}, mic_queue={'set' if mic_queue else 'None'}")
+                elif _audio_chunk_count % 500 == 0:
+                    print(f"[ws] audio chunks: {_audio_chunk_count}")
+                label = raw_bytes[0]
+                pcm = raw_bytes[1:]
                 if label == 0x00 and mic_queue is not None:
                     mic_queue.put_nowait(pcm)
                 elif label == 0x01 and loopback_queue is not None:
