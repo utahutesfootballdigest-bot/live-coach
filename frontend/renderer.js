@@ -69,6 +69,22 @@ function float32ToInt16(float32Array) {
   return int16;
 }
 
+function resample(float32, fromRate, toRate) {
+  if (fromRate === toRate) return float32;
+  const ratio = fromRate / toRate;
+  const newLen = Math.round(float32.length / ratio);
+  const result = new Float32Array(newLen);
+  for (let i = 0; i < newLen; i++) {
+    const srcIdx = i * ratio;
+    const idx = Math.floor(srcIdx);
+    const frac = srcIdx - idx;
+    const a = float32[idx] || 0;
+    const b = float32[idx + 1] || 0;
+    result[i] = a + frac * (b - a);
+  }
+  return result;
+}
+
 async function requestMic() {
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -123,14 +139,17 @@ async function requestDisplayAudio() {
 }
 
 function startAudioCapture(micOnly) {
-  // Mic capture
+  // Mic capture — use default sample rate and resample to 16kHz
   if (micStream) {
-    micContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+    micContext = new AudioContext();
     const micSource = micContext.createMediaStreamSource(micStream);
     micProcessor = micContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    const micRate = micContext.sampleRate;
+    console.log(`[audio] mic sample rate: ${micRate}`);
     micProcessor.onaudioprocess = (e) => {
       const float32 = e.inputBuffer.getChannelData(0);
-      const int16 = float32ToInt16(float32);
+      const resampled = resample(float32, micRate, TARGET_SAMPLE_RATE);
+      const int16 = float32ToInt16(resampled);
       sendAudioChunk(0x00, int16);
     };
     micSource.connect(micProcessor);
@@ -139,12 +158,15 @@ function startAudioCapture(micOnly) {
 
   // Display/loopback capture (skip for practice/roleplay)
   if (!micOnly && displayStream && displayStream.getAudioTracks().length > 0) {
-    displayContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+    displayContext = new AudioContext();
     const displaySource = displayContext.createMediaStreamSource(displayStream);
     displayProcessor = displayContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    const displayRate = displayContext.sampleRate;
+    console.log(`[audio] display sample rate: ${displayRate}`);
     displayProcessor.onaudioprocess = (e) => {
       const float32 = e.inputBuffer.getChannelData(0);
-      const int16 = float32ToInt16(float32);
+      const resampled = resample(float32, displayRate, TARGET_SAMPLE_RATE);
+      const int16 = float32ToInt16(resampled);
       sendAudioChunk(0x01, int16);
     };
     displaySource.connect(displayProcessor);
