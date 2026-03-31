@@ -425,6 +425,7 @@ class Session:
         self.current_stage = "intro"
         self.opener_shown = False
         self.intro_turns = 0
+        self._collect_info_done: set[str] = set()
 
     async def send(self, msg: dict):
         try:
@@ -475,6 +476,7 @@ class Session:
         self.current_stage = "intro"
         self.opener_shown = False
         self.intro_turns = 0
+        self._collect_info_done = set()
 
         if not self.running:
             return
@@ -660,6 +662,44 @@ class Session:
                 self.coach._topics_done.add("had_system_before")
                 await self.send({"type": "call_guidance", "call_stage": "discovery",
                     "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
+                return
+
+        # ── Fast-track collect_info ──
+        # During collect_info, responses come rapid-fire (name, phone, email, address).
+        # Claude coaching gets cancelled before completing, so use instant hardcoded suggestions.
+        if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "collect_info":
+            self.coach.add_turn(speaker, text)
+            t = text.lower()
+
+            # Detect what info was just given and suggest the next piece
+            opener = _quick_opener(text, "collect_info")
+            self.coach.set_opener(opener)
+
+            next_step = None
+            if "full_name" not in self._collect_info_done:
+                self._collect_info_done.add("full_name")
+                next_step = "And what's your best phone number?"
+            elif "phone_number" not in self._collect_info_done:
+                self._collect_info_done.add("phone_number")
+                next_step = "And your email so I can send all this information over to you by the end of the call?"
+            elif "email" not in self._collect_info_done:
+                self._collect_info_done.add("email")
+                next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
+            elif "address" not in self._collect_info_done:
+                self._collect_info_done.add("address")
+                self.current_stage = "build_system"
+                opener = _pick(["Awesome, we have fantastic coverage in your area.",
+                                "Great news — we have great coverage out there.",
+                                "Perfect, we can definitely service that area."])
+                self.coach.set_opener(opener)
+                next_step = "Let's go ahead and build your system. How many doors go in and out of your home?"
+                self.coach._topics_done.add("full_name")
+                self.coach._topics_done.add("phone_number")
+                self.coach._topics_done.add("email")
+                self.coach._topics_done.add("address")
+
+            if next_step:
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
                 return
 
         # ── Opener ──
