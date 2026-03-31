@@ -530,14 +530,21 @@ class CoachingEngine:
         opener_note = ""
         if self._last_opener:
             opener_note = (
-                f"\n\n⚠️ OPENER ALREADY SHOWN TO REP: \"{self._last_opener}\"\n"
-                "The rep will read this opener FIRST, then read your next_step IMMEDIATELY AFTER — "
-                "as if it's ONE paragraph. Your next_step is the SECOND HALF of that paragraph.\n"
-                "DO NOT repeat ANY words, phrases, or ideas from the opener. No overlapping sentiment.\n"
-                "Example — opener: \"That makes a lot of sense — being able to keep an eye on things is key.\"\n"
-                "BAD next_step: \"That definitely makes sense. I'll get you set up...\" (repeats sentiment)\n"
-                "GOOD next_step: \"And who all are we looking to protect — is it just you or anyone else?\"\n"
-                "Go straight to the next script question. The opener already handled the warmth."
+                f"\n\n⚠️ OPENER ALREADY SHOWN: \"{self._last_opener}\"\n"
+                "The rep reads this opener, then reads your next_step RIGHT AFTER — as ONE paragraph.\n"
+                "Your next_step must START with the substance (question or script line). "
+                "NO extra acknowledgement, NO restating what the customer said, NO filler.\n"
+                "The opener already handled warmth — your job is the NEXT question or action.\n\n"
+                "EXAMPLES of what the combined paragraph should sound like:\n"
+                "Opener: \"Keeping the family safe is what it's all about.\"\n"
+                "  BAD next_step: \"I totally get it, that's exactly what a lot of parents deal with. So are we talking about little kids or teenagers?\"\n"
+                "  GOOD next_step: \"Are we talking about little kids or teenagers?\"\n\n"
+                "Opener: \"That makes a lot of sense — being able to keep an eye on things is key.\"\n"
+                "  BAD next_step: \"I understand that completely. Let me get some info from you.\"\n"
+                "  GOOD next_step: \"Let me get some information from you so I can help you get set up. Could you please give me your first and last name?\"\n\n"
+                "Opener: \"Congrats on the new place!\"\n"
+                "  BAD next_step: \"That's really exciting, a new home is a great time to think about security. Who all are we protecting?\"\n"
+                "  GOOD next_step: \"Who all are we looking to protect — is it just you or is there anyone else living there with you?\""
             )
         else:
             opener_note = (
