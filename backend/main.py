@@ -482,10 +482,11 @@ async def on_transcript(speaker: str, text: str, is_final: bool, speech_final: b
     if not is_final or coach is None:
         return
 
-    # Skip very short filler-only finals
-    stripped = text.strip()
-    if len(stripped) < 2 or stripped.lower() in ("um", "uh", "hmm", "mm", "ah", "hm"):
-        return
+    # Skip very short filler-only finals (customer only — never filter rep speech)
+    if speaker == "customer":
+        stripped = text.strip()
+        if len(stripped) < 2 or stripped.lower() in ("um", "uh", "hmm", "mm", "ah", "hm"):
+            return
 
     # ── Customer final: add turn and fire coaching ──
     if speaker == "customer":
