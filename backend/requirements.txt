@@ -1,0 +1,7 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+websockets==12.0
+pyaudiowpatch>=0.2.12
+numpy==1.26.4
+anthropic==0.40.0
+python-dotenv==1.0.1

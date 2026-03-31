@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.env.example
+node_modules/
+frontend/node_modules/
+frontend/package-lock.json
+frontend/package.json
+frontend/main.js
+frontend/preload.js
+*.log

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cove Smart — Sales Coach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Ambient background orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="logo-mark">
+        <svg width="18" height="20" viewBox="0 0 40 44" fill="none">
+          <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#coveShieldTB)" stroke="none"/>
+          <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="coveShieldTB" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#5ecfc2"/>
+              <stop offset="100%" stop-color="#3ebeb0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="app-name">COVE <span class="app-name-accent">SMART</span></span>
+      <span class="app-name-sub">Sales Coach</span>
+    </div>
+    <div class="titlebar-center" id="call-timer-display" style="display:none">
+      <span class="timer-label">CALL TIME</span>
+      <span class="timer-value" id="timer">00:00:00</span>
+    </div>
+  </div>
+
+  <!-- Call ended overlay -->
+  <div id="call-ended-screen" class="screen" style="display:none">
+    <div class="setup-card" style="text-align:center">
+      <div class="setup-logo">
+        <svg width="48" height="54" viewBox="0 0 40 44" fill="none">
+          <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#coveShieldEnded)"/>
+          <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="coveShieldEnded" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#5ecfc2"/>
+              <stop offset="100%" stop-color="#3ebeb0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <h2 style="color:var(--text-primary);font-size:20px;margin:12px 0 4px">Call Ended</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px" id="call-ended-duration"></p>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+        <button class="btn-start" id="download-transcript-btn" style="width:220px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Transcript
+        </button>
+        <button class="btn-end" id="back-to-setup-btn" style="width:220px;background:rgba(255,255,255,0.05);border:1px solid var(--panel-border);color:var(--text-muted)">
+          Back to Setup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Setup screen -->
+  <div id="setup-screen" class="screen">
+    <div class="setup-card">
+      <div class="setup-logo">
+        <svg width="48" height="54" viewBox="0 0 40 44" fill="none">
+          <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#coveShieldSetup)"/>
+          <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="coveShieldSetup" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#5ecfc2"/>
+              <stop offset="100%" stop-color="#3ebeb0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="setup-brand-text">
+          <span class="setup-brand">COVE <span class="app-name-accent">SMART</span></span>
+          <span class="setup-brand-sub">Real-Time Sales Coach</span>
+        </div>
+      </div>
+      <h1 class="setup-title">Set up your audio</h1>
+      <p class="setup-sub">Grant microphone access and share customer audio to get started.</p>
+
+      <div class="device-row">
+        <div class="device-group">
+          <label class="device-label">
+            <span class="device-label-dot rep-dot"></span>
+            YOUR MICROPHONE
+          </label>
+          <button class="btn-permission" id="grant-mic-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+            Grant Mic Access
+          </button>
+          <div class="permission-status" id="mic-status"></div>
+        </div>
+        <div class="device-group">
+          <label class="device-label">
+            <span class="device-label-dot cust-dot"></span>
+            CUSTOMER AUDIO
+          </label>
+          <button class="btn-permission" id="grant-display-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            Share Audio Source
+          </button>
+          <div class="permission-status" id="display-status"></div>
+        </div>
+      </div>
+
+      <div class="setup-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10" stroke="#a78bfa" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>To capture customer audio, click <strong>Share Audio Source</strong> and select the browser tab or app where the customer's voice is playing. Make sure to check <strong>"Share audio"</strong> in the dialog.</span>
+      </div>
+
+      <div class="setup-btn-row">
+        <button class="btn-start" id="start-btn" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Start Live Session
+        </button>
+        <button class="btn-practice" id="practice-btn" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Practice with AI
+        </button>
+      </div>
+      <div id="setup-status" class="setup-status"></div>
+    </div>
+  </div>
+
+  <!-- Main screen -->
+  <div id="main-screen" class="screen" style="display:none; flex-direction:column">
+
+    <div class="main-layout">
+
+      <!-- LEFT: Transcript -->
+      <div class="panel transcript-panel">
+        <div class="panel-header">
+          <div class="panel-header-left" style="display:flex;align-items:center;gap:10px">
+            <span class="panel-title">LIVE TRANSCRIPT</span>
+            <div class="practice-badge" id="practice-badge" style="display:none">PRACTICE</div>
+          </div>
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot"></span>
+            <span id="status-text">LIVE</span>
+          </div>
+        </div>
+        <div class="transcript-body" id="transcript-body">
+          <div class="transcript-placeholder">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="1.5"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Waiting for speech...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Rebuttals -->
+      <div class="panel coaching-panel">
+        <div class="panel-header">
+          <div class="panel-header-left" style="display:flex;align-items:center;gap:14px">
+            <span class="panel-title">REBUTTAL SUGGESTIONS</span>
+            <div class="session-score-badge" id="session-score-badge" style="display:none">
+              <span class="score-badge-label">SESSION</span>
+              <span class="score-badge-value" id="session-score-avg">--</span>
+            </div>
+          </div>
+          <button class="btn-end" id="end-btn">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="1"/></svg>
+            End Call
+          </button>
+        </div>
+
+        <!-- Stage progress bar -->
+        <div class="stage-bar">
+          <div class="stage-pill" id="stage-intro">INTRO</div>
+          <div class="stage-sep">›</div>
+          <div class="stage-pill" id="stage-discovery">DISCOVERY</div>
+          <div class="stage-sep">›</div>
+          <div class="stage-pill" id="stage-collect_info">INFO</div>
+          <div class="stage-sep">›</div>
+          <div class="stage-pill" id="stage-build_system">BUILD</div>
+          <div class="stage-sep">›</div>
+          <div class="stage-pill" id="stage-recap">RECAP</div>
+          <div class="stage-sep">›</div>
+          <div class="stage-pill" id="stage-closing">CLOSING</div>
+        </div>
+
+        <!-- Opener bubble (shows instantly while customer still speaking) -->
+        <div class="opener-card" id="opener-card" style="display:none">
+          <div class="opener-label">SAY FIRST</div>
+          <div class="opener-text" id="opener-text"></div>
+        </div>
+
+        <!-- Next step card (shows when coaching completes) -->
+        <div class="next-step-card" id="next-step-card" style="display:none">
+          <div class="next-step-label">THEN</div>
+          <div class="next-step-text" id="next-step-text"></div>
+        </div>
+
+        <div id="coaching-idle" class="coaching-idle">
+          <div class="idle-graphic">
+            <svg width="60" height="68" viewBox="0 0 40 44" fill="none">
+              <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#coveShieldIdle)"/>
+              <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
+              <defs>
+                <linearGradient id="coveShieldIdle" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#5ecfc2" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#3ebeb0" stop-opacity="0.3"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="idle-text">Ready to handle objections</div>
+          <div class="idle-sub">Rebuttal suggestions will fire the moment a customer pushes back.</div>
+        </div>
+
+        <div id="coaching-content" class="coaching-content" style="display:none">
+          <div class="objection-card">
+            <div class="objection-card-inner">
+              <div class="objection-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#ff4757" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/></svg>
+                <span class="objection-label">OBJECTION DETECTED</span>
+              </div>
+              <div class="objection-type" id="objection-type"></div>
+              <div class="objection-summary" id="objection-summary"></div>
+            </div>
+          </div>
+
+          <div class="suggestions-label">HOW TO RESPOND</div>
+          <div class="suggestions-list" id="suggestions-list"></div>
+
+          <div class="suggestions-label" style="margin-top:8px">MOVE FORWARD</div>
+          <div class="transitions-list" id="transitions-list"></div>
+
+          <div class="score-card" id="score-card" style="display:none">
+            <div class="score-card-top">
+              <div class="score-card-left">
+                <div class="score-card-label">REP SCORE</div>
+                <div class="score-card-value" id="score-card-value">--</div>
+              </div>
+              <div class="score-card-bars" id="score-card-bars"></div>
+            </div>
+            <div class="score-card-feedback" id="score-card-feedback"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
