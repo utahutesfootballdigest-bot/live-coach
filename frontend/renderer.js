@@ -12,6 +12,7 @@ let lastFinalEl = null;
 let lastFinalSpeaker = null;
 let roleplaying = false;
 let transcriptLog = [];
+let userRequestedStop = false;  // only true when user clicks End Call
 
 // ── Audio state ──────────────────────────────────────────────────────────
 let micStream = null;
@@ -264,6 +265,7 @@ document.getElementById("start-btn").addEventListener("click", () => {
 });
 
 document.getElementById("end-btn").addEventListener("click", () => {
+  userRequestedStop = true;
   send({ action: "stop" });
   stopAudioCapture();
 });
@@ -309,8 +311,15 @@ async function handleStatus(state) {
     pill.classList.add("processing");
     statusText.textContent = "THINKING";
   } else if (state === "idle") {
-    if (transcriptLog.length > 0) {
+    if (userRequestedStop && transcriptLog.length > 0) {
       showCallEndedScreen();
+      userRequestedStop = false;
+    } else if (transcriptLog.length > 0) {
+      // Unexpected idle (server restart, WS reconnect) — don't kill the session.
+      // Try to restart so the rep doesn't lose their call.
+      console.log("[ws] unexpected idle during active call — attempting to restart session");
+      _pendingAudioMode = "live";
+      send({ action: "start" });
     } else {
       showSetupScreen();
     }
@@ -348,6 +357,7 @@ function showSetupScreen() {
   resetTranscript();
   showCoachingIdle();
   checkStartReady();
+  userRequestedStop = false;
 }
 
 // ── Timer ─────────────────────────────────────────────────────────────────
