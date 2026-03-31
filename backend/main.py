@@ -404,7 +404,7 @@ async def _delayed_roleplay_response():
 
 
 async def on_transcript(speaker: str, text: str, is_final: bool, speech_final: bool):
-    global coach, customer_buffer, rep_buffer, pending_rep_buffer, _coach_trigger_task, _roleplay_trigger_task, pending_evaluation, session_scores, roleplay_customer
+    global coach, customer_buffer, rep_buffer, pending_rep_buffer, _coach_trigger_task, _roleplay_trigger_task, pending_evaluation, session_scores, roleplay_customer, tts_active
 
     # In roleplay, if TTS is playing but rep is speaking with real words,
     # they're talking over TTS or TTS already ended — release the lock
