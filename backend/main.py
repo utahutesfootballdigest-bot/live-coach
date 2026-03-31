@@ -68,52 +68,99 @@ async def _tts(text: str, voice: str = "aura-asteria-en") -> str | None:
 
 
 import re as _re
-_AFFIRMATIVE_PATTERN = _re.compile(
-    r"^(perfect[!.,]*\s*|awesome[!.,]*\s*|great[!.,]*\s*|love it[!.,]*\s*|"
-    r"got it[!.,]*\s*|ok(?:ay)?[!.,]*\s*|sure thing[!.,]*\s*|sounds good[!.,]*\s*|"
-    r"absolutely[!.,]*\s*|no worries[!.,]*\s*|no problem[!.,]*\s*|"
-    r"that's great[!.,]*\s*|that's awesome[!.,]*\s*|that's perfect[!.,]*\s*|"
-    r"nice[!.,]*\s*|wonderful[!.,]*\s*|excellent[!.,]*\s*|fantastic[!.,]*\s*|"
-    r"i totally hear you[!.,]*\s*|i hear you[!.,]*\s*|i understand[!.,]*\s*|"
-    r"totally understandable[!.,]*\s*|that makes sense[!.,]*\s*|"
-    r"that's totally fine[!.,]*\s*|that's helpful[!.,]*\s*|good to know[!.,]*\s*)",
+
+# Aggressive pattern to strip ANY leading acknowledgement/warmth from next_step
+# when an opener was already shown. This runs unconditionally when opener exists.
+_LEADING_FLUFF_PATTERN = _re.compile(
+    r"^("
+    # Single-word affirmatives
+    r"perfect|awesome|great|amazing|wonderful|excellent|fantastic|absolutely|"
+    r"beautiful|brilliant|nice|cool|sure|definitely|alright|right|"
+    # Short phrases
+    r"love it|love that|got it|got that|sounds good|sounds great|sure thing|"
+    r"no worries|no problem|no worries at all|of course|for sure|you bet|"
+    # "That's X" patterns
+    r"that's great|that's awesome|that's perfect|that's wonderful|that's helpful|"
+    r"that's good|that's fair|that's smart|that's exciting|that's so exciting|"
+    r"that's a great question|that's a good question|that's a really good question|"
+    r"that's totally fine|that's really good|that's really helpful|"
+    # "I X" patterns
+    r"i totally hear you|i hear you|i hear you on that|i hear that|"
+    r"i understand|i totally understand|i completely understand|"
+    r"i appreciate that|i appreciate you sharing that|"
+    r"i love that|i love it|i love to hear that|"
+    # "Good/great to X" patterns
+    r"good to know|good to hear|great to know|great to hear|"
+    r"glad to hear that|good stuff|"
+    # Congratulatory
+    r"congrats|congratulations|congrats on the new place|"
+    # Empathy phrases
+    r"totally understandable|that makes sense|that makes complete sense|"
+    r"i totally understand that feeling|"
+    # "Ok" variants
+    r"ok(?:ay)?|ok great|okay great"
+    r")"
+    # Eat trailing punctuation and whitespace
+    r"[!.,;:\-—–\s]*",
     _re.IGNORECASE,
 )
 
-_AFFIRMATIVE_STARTERS = {
-    "perfect", "awesome", "great", "love it", "got it", "okay", "ok",
-    "sure thing", "sounds good", "absolutely", "no worries", "no problem",
-    "nice to meet you", "that's great", "that's awesome", "that's perfect",
-    "wonderful", "excellent", "fantastic", "congrats", "congratulations",
-    "i totally hear you", "i hear you", "i understand", "totally understandable",
-    "that makes sense", "that's totally fine", "that's helpful", "good to know",
-    "congrats on the new place", "no worries at all", "that's so exciting",
-    "i totally understand that feeling", "that makes complete sense",
-}
+# Secondary pattern: strip full leading sentences that are pure acknowledgement
+# e.g. "I totally hear you on that, and honestly that's a really smart way to think about it."
+_LEADING_SENTENCE_FLUFF = _re.compile(
+    r"^[^.!?]*?\b("
+    r"hear you|understand|appreciate|makes sense|good to know|glad to hear|"
+    r"totally get that|completely get that|smart move|great idea|love that|"
+    r"no worries|no problem|i can help|i'll help|i'll take care|let me help"
+    r")\b[^.!?]*?[.!?]\s*",
+    _re.IGNORECASE,
+)
 
-def _dedup_affirmative(opener: str, next_step: str) -> str:
+
+def _strip_fluff_for_opener(opener: str, next_step: str) -> str:
+    """Strip leading affirmative/acknowledgement fluff from next_step when an
+    opener was already shown. The rep reads opener then next_step as one
+    paragraph — so next_step must jump straight to substance."""
     if not opener or not next_step:
         return next_step
-    opener_lower = opener.lower().strip().rstrip("!.,")
-    if not any(opener_lower.startswith(a) for a in _AFFIRMATIVE_STARTERS):
-        return next_step
-    cleaned = _AFFIRMATIVE_PATTERN.sub("", next_step, count=1).strip()
+
+    # Pass 1: strip known affirmative starters (may need multiple passes)
+    cleaned = next_step
+    for _ in range(3):
+        attempt = _LEADING_FLUFF_PATTERN.sub("", cleaned, count=1).strip()
+        if attempt == cleaned or not attempt:
+            break
+        cleaned = attempt
+
+    # Pass 2: if it still starts with a warm-up sentence, strip it
+    attempt = _LEADING_SENTENCE_FLUFF.sub("", cleaned, count=1).strip()
+    if attempt:
+        cleaned = attempt
+
+    # Fix capitalization
     if cleaned and cleaned[0].islower():
         cleaned = cleaned[0].upper() + cleaned[1:]
+
     return cleaned if cleaned else next_step
 
 
-# Track recently used openers globally (fine to share across sessions)
-_recent_openers: list[str] = []
+# Per-session opener tracking — NEVER repeat an opener within a session.
+# The global list is reset when session starts. Within a session, once an
+# opener is used it's gone forever.
+_session_used_openers: set[str] = set()
+
+def _reset_opener_tracking():
+    """Call when a new session starts."""
+    _session_used_openers.clear()
 
 def _pick(options: list[str]) -> str:
-    available = [o for o in options if o not in _recent_openers]
+    available = [o for o in options if o not in _session_used_openers]
     if not available:
+        # All used in this session — pick least recently by falling back,
+        # but this should be rare given the large pool
         available = options
     choice = random.choice(available)
-    _recent_openers.append(choice)
-    if len(_recent_openers) > 15:
-        _recent_openers.pop(0)
+    _session_used_openers.add(choice)
     return choice
 
 
@@ -374,6 +421,7 @@ class Session:
     async def start_live(self):
         if self.running:
             return
+        _reset_opener_tracking()
         self.roleplay_mode = False
         self.mic_queue = asyncio.Queue()
         self.loopback_queue = asyncio.Queue()
@@ -386,6 +434,7 @@ class Session:
     async def start_roleplay(self):
         if self.running:
             return
+        _reset_opener_tracking()
         self.roleplay_mode = True
         self.mic_queue = asyncio.Queue()
         self.coach = CoachingEngine(ANTHROPIC_API_KEY)
@@ -472,7 +521,7 @@ class Session:
 
             if raw_next:
                 opener_used = self.coach._last_opener if self.coach else ""
-                cleaned_next = _dedup_affirmative(opener_used, raw_next)
+                cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
                 suggestion["next_step"] = cleaned_next
             else:
                 cleaned_next = raw_next
