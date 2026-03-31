@@ -138,39 +138,101 @@ async function requestDisplayAudio() {
   }
 }
 
-function startAudioCapture(micOnly) {
-  // Mic capture — use default sample rate and resample to 16kHz
+async function startAudioCapture(micOnly) {
+  // Mic capture — use AudioWorklet if available, fallback to ScriptProcessor
   if (micStream) {
     micContext = new AudioContext();
     const micSource = micContext.createMediaStreamSource(micStream);
-    micProcessor = micContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
     const micRate = micContext.sampleRate;
     console.log(`[audio] mic sample rate: ${micRate}`);
-    micProcessor.onaudioprocess = (e) => {
-      const float32 = e.inputBuffer.getChannelData(0);
-      const resampled = resample(float32, micRate, TARGET_SAMPLE_RATE);
-      const int16 = float32ToInt16(resampled);
-      sendAudioChunk(0x00, int16);
-    };
-    micSource.connect(micProcessor);
-    micProcessor.connect(micContext.destination);
+
+    if (micContext.audioWorklet) {
+      try {
+        await micContext.audioWorklet.addModule("pcm-worklet.js");
+        const workletNode = new AudioWorkletNode(micContext, "pcm-capture", {
+          parameterData: { targetRate: TARGET_SAMPLE_RATE },
+        });
+        workletNode.port.onmessage = (e) => {
+          const float32 = e.data;
+          const resampled = resample(float32, micRate, TARGET_SAMPLE_RATE);
+          const int16 = float32ToInt16(resampled);
+          sendAudioChunk(0x00, int16);
+        };
+        micSource.connect(workletNode);
+        workletNode.connect(micContext.destination);
+        micProcessor = workletNode;
+        console.log("[audio] mic using AudioWorklet");
+      } catch (err) {
+        console.warn("[audio] AudioWorklet failed, falling back to ScriptProcessor:", err);
+        micProcessor = micContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+        micProcessor.onaudioprocess = (e) => {
+          const float32 = e.inputBuffer.getChannelData(0);
+          const resampled = resample(float32, micRate, TARGET_SAMPLE_RATE);
+          const int16 = float32ToInt16(resampled);
+          sendAudioChunk(0x00, int16);
+        };
+        micSource.connect(micProcessor);
+        micProcessor.connect(micContext.destination);
+      }
+    } else {
+      micProcessor = micContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+      micProcessor.onaudioprocess = (e) => {
+        const float32 = e.inputBuffer.getChannelData(0);
+        const resampled = resample(float32, micRate, TARGET_SAMPLE_RATE);
+        const int16 = float32ToInt16(resampled);
+        sendAudioChunk(0x00, int16);
+      };
+      micSource.connect(micProcessor);
+      micProcessor.connect(micContext.destination);
+    }
   }
 
   // Display/loopback capture (skip for practice/roleplay)
   if (!micOnly && displayStream && displayStream.getAudioTracks().length > 0) {
     displayContext = new AudioContext();
     const displaySource = displayContext.createMediaStreamSource(displayStream);
-    displayProcessor = displayContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
     const displayRate = displayContext.sampleRate;
     console.log(`[audio] display sample rate: ${displayRate}`);
-    displayProcessor.onaudioprocess = (e) => {
-      const float32 = e.inputBuffer.getChannelData(0);
-      const resampled = resample(float32, displayRate, TARGET_SAMPLE_RATE);
-      const int16 = float32ToInt16(resampled);
-      sendAudioChunk(0x01, int16);
-    };
-    displaySource.connect(displayProcessor);
-    displayProcessor.connect(displayContext.destination);
+
+    if (displayContext.audioWorklet) {
+      try {
+        await displayContext.audioWorklet.addModule("pcm-worklet.js");
+        const workletNode = new AudioWorkletNode(displayContext, "pcm-capture", {
+          parameterData: { targetRate: TARGET_SAMPLE_RATE },
+        });
+        workletNode.port.onmessage = (e) => {
+          const float32 = e.data;
+          const resampled = resample(float32, displayRate, TARGET_SAMPLE_RATE);
+          const int16 = float32ToInt16(resampled);
+          sendAudioChunk(0x01, int16);
+        };
+        displaySource.connect(workletNode);
+        workletNode.connect(displayContext.destination);
+        displayProcessor = workletNode;
+        console.log("[audio] display using AudioWorklet");
+      } catch (err) {
+        console.warn("[audio] AudioWorklet failed for display, falling back:", err);
+        displayProcessor = displayContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+        displayProcessor.onaudioprocess = (e) => {
+          const float32 = e.inputBuffer.getChannelData(0);
+          const resampled = resample(float32, displayRate, TARGET_SAMPLE_RATE);
+          const int16 = float32ToInt16(resampled);
+          sendAudioChunk(0x01, int16);
+        };
+        displaySource.connect(displayProcessor);
+        displayProcessor.connect(displayContext.destination);
+      }
+    } else {
+      displayProcessor = displayContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+      displayProcessor.onaudioprocess = (e) => {
+        const float32 = e.inputBuffer.getChannelData(0);
+        const resampled = resample(float32, displayRate, TARGET_SAMPLE_RATE);
+        const int16 = float32ToInt16(resampled);
+        sendAudioChunk(0x01, int16);
+      };
+      displaySource.connect(displayProcessor);
+      displayProcessor.connect(displayContext.destination);
+    }
   }
 }
 
@@ -229,7 +291,7 @@ function handleMessage(msg) {
 
 // ── Status ────────────────────────────────────────────────────────────────
 
-function handleStatus(state) {
+async function handleStatus(state) {
   const pill = document.getElementById("status-pill");
   const statusText = document.getElementById("status-text");
 
@@ -239,7 +301,7 @@ function handleStatus(state) {
     statusText.textContent = "LIVE";
     // Start audio capture now that server has queues ready
     if (_pendingAudioMode) {
-      startAudioCapture(_pendingAudioMode === "practice");
+      await startAudioCapture(_pendingAudioMode === "practice");
       console.log(`[audio] capture started (${_pendingAudioMode} mode)`);
       _pendingAudioMode = null;
     }

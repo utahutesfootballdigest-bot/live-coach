@@ -397,12 +397,15 @@ class Session:
     # ── Transcript callback ──
 
     async def _on_transcript(self, speaker: str, text: str, is_final: bool, speech_final: bool):
-        # In roleplay, if TTS is playing but rep is speaking, release the lock
+        # In roleplay, if TTS is playing but rep is speaking, release the lock.
+        # Always show transcript in UI; only skip coaching/roleplay processing.
         if self.roleplay_mode and self.tts_active and speaker == "rep":
+            await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
             if is_final and speech_final:
                 self.tts_active = False
-            else:
-                return
+                # Buffer this text so it's processed after TTS ends
+                self.pending_rep_buffer.append(text)
+            return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
 
@@ -468,10 +471,13 @@ class Session:
             return
 
         # ── Rep final ──
+        # Always add rep finals to coach history, even without speech_final.
+        # speech_final only fires after 1.2s silence, so in fast conversation
+        # many rep segments were being silently dropped.
+        self.coach.add_turn(speaker, text)
+
         if not speech_final:
             return
-
-        self.coach.add_turn(speaker, text)
 
         if self.pending_evaluation:
             ev = self.pending_evaluation

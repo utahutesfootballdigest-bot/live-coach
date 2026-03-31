@@ -6,7 +6,7 @@ from typing import Callable, Awaitable
 
 DEEPGRAM_URL = (
     "wss://api.deepgram.com/v1/listen"
-    "?model=nova-2"
+    "?model=nova-3"
     "&language=en-US"
     "&encoding=linear16"
     "&sample_rate=16000"
