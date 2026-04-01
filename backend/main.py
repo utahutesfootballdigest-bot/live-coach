@@ -471,6 +471,45 @@ def _stage_transition(stage: str) -> str:
     return transitions.get(stage, "")
 
 
+def _extract_name(text: str) -> str:
+    """Extract just the name from customer speech like 'my name is joe bonnie'
+    or 'yeah my first name is joe and my last name is bonnie'."""
+    t = text.lower().strip()
+
+    # Try to extract after "my name is" / "name is" / "it's" / "i'm"
+    for prefix in ["my name is ", "my first name is ", "first name is ", "name is ",
+                    "it's ", "i'm ", "this is "]:
+        if prefix in t:
+            after = text[t.index(prefix) + len(prefix):].strip()
+            # Remove filler words
+            after = after.replace(" and my last name is ", " ").replace(" last name is ", " ")
+            after = after.replace(" and my last name ", " ").replace(" last name ", " ")
+            # Take the name words (stop at non-name words)
+            _STOP_WORDS = {"and", "my", "the", "so", "but", "yeah", "yes", "that", "is",
+                           "it", "i", "we", "at", "on", "in", "from", "with"}
+            words = []
+            for w in after.split():
+                clean = w.strip(".,!?")
+                if clean.lower() in _STOP_WORDS and len(words) >= 2:
+                    break
+                if clean.isalpha() and len(clean) >= 2:
+                    words.append(clean.capitalize())
+                if len(words) >= 3:  # max 3 name parts
+                    break
+            if words:
+                return " ".join(words)
+
+    # Fallback: if short text (≤4 words), might just be the name
+    parts = text.strip().split()
+    if len(parts) <= 4:
+        words = [w.capitalize() for w in parts if w.isalpha() and len(w) >= 2
+                 and w.lower() not in {"my", "is", "the", "yeah", "yes", "it", "its"}]
+        if words:
+            return " ".join(words)
+
+    return text.strip()
+
+
 def _customer_mentioned_kids(coach) -> bool:
     """Check if customer mentioned kids but hasn't specified ages yet.
     Returns False if customer explicitly says they DON'T have kids."""
@@ -885,15 +924,22 @@ class Session:
         allowed_stages = set(_STAGE_ORDER[:cur_idx + 1])
 
         topics = {}
-        # Discovery + collect_info topics
+        # Collect_info items — ONLY from _collect_info_done (not _topics_done)
+        # This prevents Claude's aggressive topic tracking from auto-checking
+        _COLLECT_KEYS = {"full_name", "phone_number", "email", "address"}
         for internal_key, checklist_key in self._TOPIC_TO_CHECKLIST.items():
             if checklist_key in self._rep_overrides:
                 continue
             stage_for = self._STAGE_FOR_KEY.get(checklist_key)
             if stage_for and stage_for not in allowed_stages:
-                continue  # don't check items in future stages
-            if internal_key in self.coach._topics_done or internal_key in self._collect_info_done:
-                topics[checklist_key] = True
+                continue
+            if checklist_key in _COLLECT_KEYS:
+                # Only mark if the fast-track actually confirmed this info
+                if internal_key in self._collect_info_done:
+                    topics[checklist_key] = True
+            else:
+                if internal_key in self.coach._topics_done:
+                    topics[checklist_key] = True
         # Build system equipment
         for internal_key, checklist_key in self._EQUIP_TO_CHECKLIST.items():
             if checklist_key in self._rep_overrides:
@@ -1304,12 +1350,17 @@ class Session:
             if "full_name" not in self._collect_info_done:
                 if _has_name_words or (not _has_phone_digits and not _has_email and not _has_address):
                     self._collect_info_done.add("full_name")
-                    self._profile["name"] = text.strip()
+                    self._profile["name"] = _extract_name(text)
                     next_step = "And what's your best phone number?"
             elif "phone_number" not in self._collect_info_done:
                 if _has_phone_digits:
                     self._collect_info_done.add("phone_number")
-                    self._profile["phone"] = text.strip()
+                    # Extract just the digits
+                    digits = "".join(c for c in text if c.isdigit())
+                    if len(digits) == 10:
+                        self._profile["phone"] = f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+                    else:
+                        self._profile["phone"] = digits
                     next_step = "And your email so I can send all this information over to you by the end of the call?"
             elif "email" not in self._collect_info_done:
                 if _has_email:
