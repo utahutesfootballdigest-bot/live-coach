@@ -659,6 +659,61 @@ html, body {
   color: rgba(62, 190, 176, 0.4);
 }
 
+/* ── Customer Profile ───────────────────────────────────────────────────── */
+.customer-profile {
+  margin: 4px 16px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.profile-header {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.profile-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  width: 48px;
+  flex-shrink: 0;
+}
+.profile-input {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 0;
+  outline: none;
+  font-family: inherit;
+}
+.profile-input:focus {
+  border-bottom-color: var(--accent);
+}
+.profile-input::placeholder {
+  color: var(--text-dim);
+}
+.profile-equipment {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ── Next Step Card ──────────────────────────────────────────────────────── */
 .opener-card {
   display: flex;

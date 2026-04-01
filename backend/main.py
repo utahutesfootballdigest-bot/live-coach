@@ -312,7 +312,9 @@ def _quick_opener(text: str, current_stage: str) -> str:
     # ── Stage-specific openers ──
 
     if current_stage in ("intro", "discovery"):
-        if any(w in t for w in ["never had", "no i haven", "first time", "don't have one", "no system"]):
+        if any(w in t for w in ["never had", "no i haven", "first time", "don't have one", "no system",
+                                 "no never", "no this is", "nope", "this would be my first",
+                                 "no not yet", "never before"]):
             return _pick(["No worries at all — I'll walk you through everything and make it super easy.",
                            "That's totally fine — I'll take great care of you step by step.",
                            "Perfect — you're in good hands, I do this all day."])
@@ -415,9 +417,9 @@ def _quick_opener(text: str, current_stage: str) -> str:
     # ── Fallback — contextual to stage ──
 
     if current_stage == "discovery":
-        return _pick(["Thank you for sharing that — that really helps me understand what you need.",
-                       "I appreciate you telling me that — it helps me build the right system for you.",
-                       "Good to know — I'll keep that in mind as we build your system."])
+        return _pick(["That's great to know — thank you for sharing that.",
+                       "I appreciate that — it helps me understand what you're looking for.",
+                       "Good to know — that's really helpful."])
     if current_stage == "build_system":
         return _pick(["Alright — let me keep building this out for you.",
                        "Got it — let me add the next piece to your system.",
@@ -670,27 +672,31 @@ def _fallback_next_step(stage: str, coach) -> str:
     elif stage == "closing":
         name = coach.customer_name or ""
         suffix = f", {name}" if name else ""
-        # Closing is a monologue — first 5 items flow together, then ask for commitment
-        if "no_contract" not in done:
-            done.add("no_contract")
-            done.add("wireless_install")  # bundle with no_contract — rep delivers together
-            result = "It looks like I'm going to be able to get you a lot of extra discounts here. First, here at Cove we have no contracts — it's completely month to month. And we don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."
-        elif "trial_60" not in done:
-            done.add("trial_60")
-            result = "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days."
-        elif "monthly_price" not in done:
-            done.add("monthly_price")
-            done.add("equip_total")  # bundle pricing together
-            result = "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."
-        elif "ask_commitment" not in done:
-            done.add("ask_commitment")
+        # Closing is a monologue — 3 sections flow together without waiting for responses
+        if "closing_pitch" not in done:
+            done.add("closing_pitch")
+            result = ("It looks like I'm going to be able to get you a lot of extra discounts here. "
+                      "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
+                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. "
+                      "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund.")
+        elif "closing_pricing" not in done:
+            done.add("closing_pricing")
+            result = ("On the monthly monitoring, for the first six months it'll just be $29.99 per month. "
+                      "After that, it goes to the standard rate of $32.99. "
+                      "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price.")
+        elif "closing_commitment" not in done:
+            done.add("closing_commitment")
             result = f"Does that sound like it will work for you{suffix}?"
-        elif "guide_checkout" not in done:
-            done.add("guide_checkout")
+        elif "closing_checkout" not in done:
+            done.add("closing_checkout")
             result = f"Go ahead and put your payment info in{suffix}. Let me know once you've placed the order and I'll confirm on my side."
-        elif "order_confirmed" not in done:
-            done.add("order_confirmed")
-            result = f"Congratulations and welcome to the Cove family{suffix}! You'll get tracking info as soon as your package ships — usually 3 to 7 business days. If you need a technician, we have a third-party service starting at $129. And if you have home insurance, request an alarm certificate from us for a discount. Is there anything else I can help you with?"
+        elif "closing_welcome" not in done:
+            done.add("closing_welcome")
+            result = (f"Congratulations and welcome to the Cove family{suffix}! "
+                      "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
+                      "Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. "
+                      "And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount. "
+                      "Is there anything else I can help you with?")
 
     # Prevent exact same fallback from firing twice in a row
     if result and result == _last_fallback:
@@ -724,6 +730,7 @@ class Session:
         self.intro_turns = 0
         self._collect_info_done: set[str] = set()
         self._rep_overrides: set[str] = set()  # items the rep unchecked — don't auto-recheck
+        self._profile: dict = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
 
     async def send(self, msg: dict):
         try:
@@ -853,10 +860,9 @@ class Session:
         "outdoor_camera": "build_system", "panel_hub": "build_system",
         "yard_sign": "build_system",
         "recap_done": "recap", "anything_else": "recap",
-        "no_contract": "closing", "wireless_install": "closing",
-        "trial_60": "closing", "monthly_price": "closing",
-        "equip_total": "closing", "ask_commitment": "closing",
-        "guide_checkout": "closing", "order_confirmed": "closing",
+        "closing_pitch": "closing", "closing_pricing": "closing",
+        "closing_commitment": "closing", "closing_checkout": "closing",
+        "closing_welcome": "closing",
     }
 
     async def send_checklist(self):
@@ -895,6 +901,48 @@ class Session:
             topics["_show_kids_age"] = True
 
         await self.send({"type": "checklist_update", "topics": topics})
+
+    async def send_profile(self):
+        """Broadcast current customer profile to the frontend."""
+        await self.send({"type": "profile_update", **self._profile})
+
+    async def update_profile_field(self, field: str, value: str):
+        """Rep edited a profile field."""
+        if field in self._profile:
+            self._profile[field] = value
+            print(f"[profile] rep edited {field}: {value[:30]}")
+
+    def _build_equipment_list(self) -> list[str]:
+        """Build readable equipment list from coach state."""
+        if not self.coach:
+            return []
+        items = []
+        equip = self.coach._equipment_mentioned
+        # Build from what's been covered
+        for e in equip:
+            if e == "door sensor":
+                items.append("Door sensors")
+            elif e == "window sensor":
+                items.append("Window sensors")
+            elif e == "chime":
+                pass  # not a separate item
+            elif e == "camera":
+                items.append("1 free indoor camera")
+            elif e == "outdoor camera":
+                items.append("Outdoor/doorbell camera")
+            elif e == "panel":
+                items.append("Hub + 7\" touchscreen panel")
+            elif e == "monitoring":
+                pass  # part of panel
+            elif e == "yard sign":
+                items.append("Yard sign + window stickers")
+            elif e == "smartphone":
+                items.append("Smartphone access")
+            elif e == "motion sensor":
+                items.append("Motion detector")
+            elif e == "smoke detector":
+                items.append("Smoke detector")
+        return items
 
     async def toggle_topic(self, topic: str, checked: bool):
         """Rep manually checked/unchecked a checklist item."""
@@ -967,14 +1015,11 @@ class Session:
             "panel_hub": ("build_system", "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7."),
             "yard_sign": ("build_system", "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."),
             # Closing
-            "no_contract": ("closing", "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry."),
-            "wireless_install": ("closing", "We don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
-            "trial_60": ("closing", "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days."),
-            "monthly_price": ("closing", "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99."),
-            "equip_total": ("closing", "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."),
-            "ask_commitment": ("closing", "Does that sound like it will work for you?"),
-            "guide_checkout": ("closing", "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side."),
-            "order_confirmed": ("closing", "Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — usually 3 to 7 business days."),
+            "closing_pitch": ("closing", "It looks like I'm going to be able to get you a lot of extra discounts here. First, here at Cove we have no contracts — it's completely month to month. We don't charge anything for installation — everything is wireless, ships right to you, takes about 20 minutes to set up. And we have a 60-day risk-free trial — if it's not the right fit, full refund."),
+            "closing_pricing": ("closing", "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to $32.99. And the equipment — with all the discounts today, I'm gonna get your total down to a great price."),
+            "closing_commitment": ("closing", "Does that sound like it will work for you?"),
+            "closing_checkout": ("closing", "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side."),
+            "closing_welcome": ("closing", "Congratulations and welcome to the Cove family! Tracking info ships in 3-7 business days. Technician available at $129 if needed. And request an alarm certificate for a home insurance discount."),
             # Discovery extras
             "kids_age": ("discovery", "Are we talking about little kids or teenagers?"),
             # Recap
@@ -1115,6 +1160,9 @@ class Session:
 
             await self.send({"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next})
             await self.send_checklist()
+            # Update profile equipment list
+            self._profile["equipment"] = self._build_equipment_list()
+            await self.send_profile()
 
             if suggestion.get("triggered"):
                 await self.send({"type": "coaching", **suggestion})
@@ -1248,19 +1296,22 @@ class Session:
             if "full_name" not in self._collect_info_done:
                 if _has_name_words or (not _has_phone_digits and not _has_email and not _has_address):
                     self._collect_info_done.add("full_name")
+                    self._profile["name"] = text.strip()
                     next_step = "And what's your best phone number?"
             elif "phone_number" not in self._collect_info_done:
                 if _has_phone_digits:
                     self._collect_info_done.add("phone_number")
+                    self._profile["phone"] = text.strip()
                     next_step = "And your email so I can send all this information over to you by the end of the call?"
-                # If they're still spelling their name or giving partial info, don't advance
             elif "email" not in self._collect_info_done:
                 if _has_email:
                     self._collect_info_done.add("email")
+                    self._profile["email"] = text.strip()
                     next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:
                     self._collect_info_done.add("address")
+                    self._profile["address"] = text.strip()
                     self.current_stage = "build_system"
                     opener = _pick(["Awesome, we have fantastic coverage in your area.",
                                     "Great news — we have great coverage out there.",
@@ -1275,6 +1326,7 @@ class Session:
             if next_step:
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
                 await self.send_checklist()
+                await self.send_profile()
                 return
 
         # ── Opener ──
@@ -1316,22 +1368,22 @@ class Session:
         if self.current_stage == "closing" and is_final:
             t = text.lower()
             _closing_detected = []
-            if any(w in t for w in ["no contract", "month to month", "cancel anytime"]):
-                _closing_detected.append("no_contract")
-            if any(w in t for w in ["wireless", "ships to you", "twenty minutes", "20 minutes", "set it up yourself", "no installation"]):
-                _closing_detected.append("wireless_install")
-            if any(w in t for w in ["sixty day", "60 day", "risk free", "risk-free", "full refund"]):
-                _closing_detected.append("trial_60")
-            if any(w in t for w in ["29.99", "twenty nine", "32.99", "thirty two", "per month", "monthly monitoring"]):
-                _closing_detected.append("monthly_price")
-            if any(w in t for w in ["total", "discounts", "promotions", "equipment cost", "hundred"]):
-                _closing_detected.append("equip_total")
+            if any(w in t for w in ["no contract", "month to month", "cancel anytime", "wireless",
+                                     "twenty minutes", "20 minutes", "sixty day", "60 day",
+                                     "risk free", "risk-free", "full refund"]):
+                _closing_detected.append("closing_pitch")
+            if any(w in t for w in ["29.99", "twenty nine", "32.99", "thirty two",
+                                     "per month", "monthly monitoring", "total", "discounts",
+                                     "promotions", "equipment cost", "hundred"]):
+                _closing_detected.append("closing_pricing")
             if any(w in t for w in ["work for you", "sound good", "does that work", "gonna work"]):
-                _closing_detected.append("ask_commitment")
-            if any(w in t for w in ["scroll down", "fill in your email", "verbal password", "emergency contact", "card info", "card number", "checkout"]):
-                _closing_detected.append("guide_checkout")
-            if any(w in t for w in ["congratulations", "welcome to the cove", "welcome to cove", "tracking info", "package ships"]):
-                _closing_detected.append("order_confirmed")
+                _closing_detected.append("closing_commitment")
+            if any(w in t for w in ["payment info", "card info", "card number",
+                                     "checkout", "place the order", "placed the order"]):
+                _closing_detected.append("closing_checkout")
+            if any(w in t for w in ["congratulations", "welcome to the cove", "welcome to cove",
+                                     "tracking info", "package ships", "alarm certificate"]):
+                _closing_detected.append("closing_welcome")
             if _closing_detected:
                 for item in _closing_detected:
                     if item not in self._rep_overrides:
@@ -1423,6 +1475,8 @@ async def websocket_endpoint(ws: WebSocket):
                             session.rep_buffer.extend(session.pending_rep_buffer)
                             session.pending_rep_buffer.clear()
                             asyncio.create_task(session._fire_roleplay_response())
+                    elif action == "update_profile":
+                        await session.update_profile_field(msg.get("field", ""), msg.get("value", ""))
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:

@@ -289,6 +289,7 @@ function handleMessage(msg) {
     case "roleplay_speech": handleRoleplaySpeech(msg); break;
     case "call_guidance":      handleCallGuidance(msg); break;
     case "checklist_update":   handleChecklistUpdate(msg); break;
+    case "profile_update":     handleProfileUpdate(msg); break;
   }
 }
 
@@ -632,14 +633,11 @@ const STAGE_CHECKLIST = {
     { key: "_section_recap", label: "--- RECAP COMPLETE ---", section: true },
   ],
   closing: [
-    { key: "no_contract",       label: "No contract — month to month" },
-    { key: "wireless_install",   label: "Wireless install — ships to you, ~20 min setup" },
-    { key: "trial_60",           label: "60-day risk-free trial — full refund" },
-    { key: "monthly_price",      label: "Monthly: $29.99 first 6 mo → $32.99 after" },
-    { key: "equip_total",        label: "Equipment total with discounts" },
-    { key: "ask_commitment",     label: "\"Does that work for you, [name]?\"" },
-    { key: "guide_checkout",     label: "Guide through checkout" },
-    { key: "order_confirmed",    label: "Order confirmed — welcome to Cove!" },
+    { key: "closing_pitch",      label: "No contract + wireless + 60-day trial" },
+    { key: "closing_pricing",    label: "Monthly pricing + equipment total" },
+    { key: "closing_commitment", label: "\"Does that work for you?\"" },
+    { key: "closing_checkout",   label: "Payment info + confirm order" },
+    { key: "closing_welcome",    label: "Welcome to Cove — shipping, setup, insurance tip" },
   ],
 };
 
@@ -834,10 +832,39 @@ function showCoachingIdle() {
   document.getElementById("transitions-list").innerHTML = "";
   document.getElementById("score-card").style.display = "none";
   document.getElementById("stage-checklist").style.display = "none";
+  document.getElementById("customer-profile").style.display = "none";
+  ["profile-name", "profile-phone", "profile-email", "profile-address"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("profile-equipment").textContent = "—";
   _currentChecklist = {};
   _currentCallStage = null;
   _viewingStage = null;
 }
+
+// ── Customer Profile ─────────────────────────────────────────────────────
+
+function handleProfileUpdate(msg) {
+  const panel = document.getElementById("customer-profile");
+  panel.style.display = "block";
+
+  if (msg.name) document.getElementById("profile-name").value = msg.name;
+  if (msg.phone) document.getElementById("profile-phone").value = msg.phone;
+  if (msg.email) document.getElementById("profile-email").value = msg.email;
+  if (msg.address) document.getElementById("profile-address").value = msg.address;
+  if (msg.equipment) {
+    document.getElementById("profile-equipment").textContent = msg.equipment.join(", ") || "—";
+  }
+}
+
+// Rep edits profile fields — send updates to backend
+["profile-name", "profile-phone", "profile-email", "profile-address"].forEach(id => {
+  document.getElementById(id).addEventListener("change", () => {
+    const field = id.replace("profile-", "");
+    const value = document.getElementById(id).value;
+    send({ action: "update_profile", field, value });
+  });
+});
 
 // ── Transcript Download ───────────────────────────────────────────────────
 
