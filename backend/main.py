@@ -145,9 +145,10 @@ def _strip_fluff_for_opener(opener: str, next_step: str) -> str:
 
 
 # Per-session opener tracking — NEVER repeat an opener within a session.
-# The global list is reset when session starts. Within a session, once an
-# opener is used it's gone forever.
-_session_used_openers: set[str] = set()
+# The global list is reset when session starts. Tracks usage ORDER so when
+# all options are exhausted, the least-recently-used one is picked instead
+# of a random repeat.
+_session_used_openers: list[str] = []
 
 def _reset_opener_tracking():
     """Call when a new session starts."""
@@ -156,11 +157,18 @@ def _reset_opener_tracking():
 def _pick(options: list[str]) -> str:
     available = [o for o in options if o not in _session_used_openers]
     if not available:
-        # All used in this session — pick least recently by falling back,
-        # but this should be rare given the large pool
+        # All used — pick the least-recently-used option (earliest in the list)
+        for used in _session_used_openers:
+            if used in options:
+                choice = used
+                # Move to end of list (mark as most recently used)
+                _session_used_openers.remove(choice)
+                _session_used_openers.append(choice)
+                return choice
+        # Shouldn't happen, but fallback
         available = options
     choice = random.choice(available)
-    _session_used_openers.add(choice)
+    _session_used_openers.append(choice)
     return choice
 
 
@@ -1260,10 +1268,25 @@ class Session:
                 # P0 FIX: Fallback for empty Then — generate a stage-appropriate
                 # next step so the rep never sees an opener with no follow-up.
                 cleaned_next = _fallback_next_step(new_stage, self.coach)
-                if cleaned_next:
-                    suggestion["next_step"] = cleaned_next
-                # If fallback is empty, don't show anything — the rep will
-                # click section-complete when ready to advance.
+                if not cleaned_next:
+                    # All items in current stage done — try next stage's first item
+                    _next_stages = {"intro": "discovery", "discovery": "collect_info",
+                                    "collect_info": "build_system", "build_system": "recap",
+                                    "recap": "closing"}
+                    _ns = _next_stages.get(new_stage, "")
+                    if _ns:
+                        cleaned_next = _fallback_next_step(_ns, self.coach)
+                if not cleaned_next:
+                    # Last resort: generic stage-appropriate prompt
+                    cleaned_next = {
+                        "intro": "Are you already a Cove customer, or are you looking to get a security system?",
+                        "discovery": "Is there anything else about your situation I should know before we move on?",
+                        "collect_info": "Let me verify I have everything — is there anything I missed?",
+                        "build_system": "Is there anything else you'd like to add to the system?",
+                        "recap": "Does everything look good? Is there anything else you'd like me to add?",
+                        "closing": "Does that sound like it will work for you?",
+                    }.get(new_stage, "Is there anything else I can help you with?")
+                suggestion["next_step"] = cleaned_next
 
             if self.coach and self.coach.customer_name and cleaned_next:
                 cleaned_next = cleaned_next.replace("[NAME]", self.coach.customer_name)
@@ -1283,7 +1306,12 @@ class Session:
             if cleaned_next and self.coach:
                 self.coach.track_equipment_from_text(cleaned_next)
 
-            await self.send({"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next})
+            # Always include opener so frontend never shows a Then without a Say First
+            opener_used = self.coach._last_opener if self.coach else ""
+            guidance_msg = {"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next}
+            if opener_used:
+                guidance_msg["opener"] = opener_used
+            await self.send(guidance_msg)
             await self.send_checklist()
             # Update profile equipment list
             self._profile["equipment"] = self._build_equipment_list()

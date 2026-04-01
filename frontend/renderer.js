@@ -838,6 +838,12 @@ function handleCallGuidance(msg) {
     const nextStepEl = document.getElementById("next-step-text");
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
+    // Ensure opener card is visible when next_step arrives — never show
+    // a "Then" bubble without a "Say First" bubble above it
+    const openerCard = document.getElementById("opener-card");
+    if (openerCard.style.display === "none" && document.getElementById("opener-text").textContent) {
+      openerCard.style.display = "flex";
+    }
   }
 }
 
