@@ -1312,16 +1312,19 @@ class Session:
                     self.coach._topics_done.add("existing_customer")
                     await self.send({"type": "call_guidance", "call_stage": "discovery",
                         "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
+                    await self.send_checklist()
                     return
                 self.coach._topics_done.add("existing_customer")
                 await self.send({"type": "call_guidance", "call_stage": "intro",
                     "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
+                await self.send_checklist()
                 return
             if self.intro_turns == 2:
                 self.current_stage = "discovery"
                 self.coach._topics_done.add("existing_customer")
                 await self.send({"type": "call_guidance", "call_stage": "discovery",
                     "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
+                await self.send_checklist()
                 return
 
         # ── Fast-track collect_info ──
