@@ -438,6 +438,7 @@ class CoachingEngine:
                 if topic not in self._topics_done:
                     if any(phrase in t for phrase in rules["rep_asks"]):
                         self._topics_done.add(topic)
+                        self._sync_topic_aliases(topic)
                         print(f"[coach] topic DONE (rep asked): {topic}")
         # Track customer facts and mark topics done when customer answers
         if speaker == "customer":
@@ -446,6 +447,7 @@ class CoachingEngine:
                 if topic not in self._topics_done and rules["customer_answers"]:
                     if any(phrase in t for phrase in rules["customer_answers"]):
                         self._topics_done.add(topic)
+                        self._sync_topic_aliases(topic)
                         print(f"[coach] topic DONE (customer answered): {topic}")
             # Try to extract customer's first name
             if not self.customer_name:
@@ -502,6 +504,22 @@ class CoachingEngine:
         if topic and topic not in self._topics_done:
             self._topics_done.add(topic)
             print(f"[coach] topic synced from equipment: {topic}")
+
+    # QUESTION_TOPICS keys ↔ _STAGE_ITEM_ORDER keys that refer to the same thing
+    _TOPIC_ALIASES = {
+        "how_many_doors": "door_sensors",
+        "door_sensors": "how_many_doors",
+        "how_many_windows": "window_sensors",
+        "window_sensors": "how_many_windows",
+    }
+
+    def _sync_topic_aliases(self, topic: str):
+        """When a topic is marked done, also mark its alias so both key systems
+        (QUESTION_TOPICS and _STAGE_ITEM_ORDER) stay in sync."""
+        alias = self._TOPIC_ALIASES.get(topic)
+        if alias and alias not in self._topics_done:
+            self._topics_done.add(alias)
+            print(f"[coach] topic alias synced: {topic} -> {alias}")
 
     def check_repeated_topic(self, next_step: str) -> str | None:
         """Return the topic name if next_step is RE-ASKING a question already done.

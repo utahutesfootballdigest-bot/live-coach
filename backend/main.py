@@ -1579,6 +1579,12 @@ class Session:
                 await self.send_checklist()
                 await self.send_profile()
                 return
+            else:
+                # Customer said something during collect_info that didn't match
+                # the expected info type (e.g. "yes sir" confirming a spelling).
+                # Suppress Claude coaching to prevent it jumping ahead to
+                # build_system while we're still collecting info.
+                return
 
         # ── Opener ──
         # Only show opener on speech_final (complete utterance) to prevent
