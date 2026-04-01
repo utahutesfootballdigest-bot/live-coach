@@ -817,6 +817,42 @@ _STAGE_ITEM_ORDER = {
 }
 
 
+def _build_context_from_transcript(checked_topic: str, coach) -> str:
+    """Scan recent transcript for context related to a just-checked build_system item.
+    Returns a natural acknowledgement prefix like '2 door sensors — got it.' or empty string."""
+    _SPOKEN_NUMBERS = {
+        "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+        "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+        "eleven": "11", "twelve": "12",
+    }
+    # What to look for in customer speech per topic
+    _TOPIC_CONTEXT = {
+        "door_sensors": {"label": "door sensors", "look_for_number": True},
+        "window_sensors": {"label": "window sensors", "look_for_number": True},
+        "extra_equip": {"label": None, "look_for_number": False},
+        "indoor_camera": {"label": None, "look_for_number": False},
+        "outdoor_camera": {"label": None, "look_for_number": False},
+    }
+    config = _TOPIC_CONTEXT.get(checked_topic)
+    if not config or not config.get("look_for_number"):
+        return ""
+    # Scan last 6 turns of customer speech for a number
+    for turn in reversed(coach._history[-12:]):
+        if turn["speaker"] != "customer":
+            continue
+        t = turn["text"].lower()
+        # Try spoken numbers first
+        for word, digit in _SPOKEN_NUMBERS.items():
+            if word in t.split():
+                return f"{digit.capitalize()} {config['label']} — got it."
+        # Try actual digits
+        import re as _re2
+        nums = _re2.findall(r'\d+', t)
+        if nums:
+            return f"{nums[0]} {config['label']} — got it."
+    return ""
+
+
 def _fallback_next_step(stage: str, coach) -> str:
     """Find the first unchecked item in the current stage and return its prompt.
     Simple, predictable, always gives the rep the right next question."""
@@ -1127,9 +1163,12 @@ class Session:
             if checked:
                 if internal not in self.coach._equipment_mentioned:
                     self.coach._equipment_mentioned.append(internal)
+                # Also mark in _topics_done so _fallback_next_step skips this item
+                self.coach._topics_done.add(topic)
             else:
                 if internal in self.coach._equipment_mentioned:
                     self.coach._equipment_mentioned.remove(internal)
+                self.coach._topics_done.discard(topic)
                 self.coach._topics_done.discard("_build_recap")
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} equip: {topic} -> {internal}")
         else:
@@ -1140,16 +1179,42 @@ class Session:
                 self.coach._topics_done.discard(topic)
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} custom: {topic}")
 
-        # If checking, update checklist AND show the next unchecked item
+        # If checking, cancel any in-flight Claude coaching (it doesn't know
+        # about this check yet and would overwrite our prompt), then show the
+        # next unchecked item.
         if checked:
+            if self._coach_task and not self._coach_task.done():
+                self._coach_task.cancel()
+                print(f"[checklist] cancelled in-flight coaching after rep check")
             await self.send_checklist()
+
+            # For build_system items, scan transcript for context (e.g., customer
+            # said "just two" doors) so the next prompt flows naturally.
+            context_prefix = ""
+            if self.current_stage == "build_system" and self.coach and self.coach._history:
+                context_prefix = _build_context_from_transcript(topic, self.coach)
+
             # Show next prompt so the rep always knows what to ask next
             next_prompt = _fallback_next_step(self.current_stage, self.coach)
+            if not next_prompt:
+                # Current stage fully done — try next stage
+                _next_stages = {"intro": "discovery", "discovery": "collect_info",
+                                "collect_info": "build_system", "build_system": "recap",
+                                "recap": "closing"}
+                _ns = _next_stages.get(self.current_stage, "")
+                if _ns:
+                    next_prompt = _fallback_next_step(_ns, self.coach)
             if next_prompt:
+                if context_prefix:
+                    next_prompt = context_prefix + " " + next_prompt
                 if self.coach and self.coach.customer_name:
                     next_prompt = next_prompt.replace("[NAME]", self.coach.customer_name)
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                 "next_step": next_prompt})
+                opener = self.coach._last_opener if self.coach else ""
+                guidance = {"type": "call_guidance", "call_stage": self.current_stage,
+                            "next_step": next_prompt}
+                if opener:
+                    guidance["opener"] = opener
+                await self.send(guidance)
             return
 
         # If unchecking, show the prompt for the unchecked item directly

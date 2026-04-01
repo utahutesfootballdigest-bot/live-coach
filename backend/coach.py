@@ -431,6 +431,7 @@ class CoachingEngine:
                 if equip not in self._equipment_mentioned:
                     if any(kw in t for kw in keywords):
                         self._equipment_mentioned.append(equip)
+                        self._sync_equipment_to_topics(equip)
                         print(f"[coach] equipment tracked: {equip}")
             # Mark topics done when rep asks
             for topic, rules in QUESTION_TOPICS.items():
@@ -479,6 +480,29 @@ class CoachingEngine:
         "motion sensor": ["motion sensor", "motion detect"],
     }
 
+    # Map equipment names → _STAGE_ITEM_ORDER keys so _topics_done stays in sync
+    _EQUIP_TO_TOPIC = {
+        "door sensor": "door_sensors",
+        "window sensor": "window_sensors",
+        "camera": "indoor_camera",
+        "outdoor camera": "outdoor_camera",
+        "panel": "panel_hub",
+        "monitoring": "panel_hub",
+        "chime": "door_sensors",
+        "yard sign": "yard_sign",
+        "smartphone": "yard_sign",
+        "smoke detector": "extra_equip",
+        "motion sensor": "extra_equip",
+    }
+
+    def _sync_equipment_to_topics(self, equip: str):
+        """When equipment is tracked, also mark the corresponding topic as done
+        so _fallback_next_step skips it."""
+        topic = self._EQUIP_TO_TOPIC.get(equip)
+        if topic and topic not in self._topics_done:
+            self._topics_done.add(topic)
+            print(f"[coach] topic synced from equipment: {topic}")
+
     def check_repeated_topic(self, next_step: str) -> str | None:
         """Return the topic name if next_step is RE-ASKING a question already done.
         Only blocks if the next_step is actually asking the question (contains a question
@@ -514,6 +538,7 @@ class CoachingEngine:
             if equip not in self._equipment_mentioned:
                 if any(kw in t for kw in keywords):
                     self._equipment_mentioned.append(equip)
+                    self._sync_equipment_to_topics(equip)
                     print(f"[coach] equipment tracked (from suggestion): {equip}")
 
     def mark_addressed(self, objection_type: str):
