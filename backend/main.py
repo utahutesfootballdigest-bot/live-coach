@@ -1244,8 +1244,11 @@ class Session:
             new_idx = _STAGE_ORDER.index(new_stage) if new_stage in _STAGE_ORDER else 0
             cur_idx = _STAGE_ORDER.index(self.current_stage) if self.current_stage in _STAGE_ORDER else 0
             if new_idx < cur_idx:
+                # Claude tried to go backwards — block it and use fallback instead
                 new_stage = self.current_stage
                 suggestion["call_stage"] = new_stage
+                suggestion["next_step"] = ""  # discard backward-looking content
+                print(f"[coach] BLOCKED stage regression to {suggestion.get('call_stage')}, staying at {self.current_stage}")
             else:
                 self.current_stage = new_stage
 
@@ -1417,6 +1420,9 @@ class Session:
         # IMPORTANT: Validate what the customer actually said before advancing.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "collect_info":
             self.coach.add_turn(speaker, text)
+            self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
+            if self._coach_task and not self._coach_task.done():
+                self._coach_task.cancel()
             t = text.lower()
 
             # Detect what TYPE of info the customer just gave
