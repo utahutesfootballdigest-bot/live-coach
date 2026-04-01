@@ -1586,6 +1586,132 @@ class Session:
                 # build_system while we're still collecting info.
                 return
 
+        # ── Fast-track build_system ──
+        # Like collect_info fast-track: detect what the rep just asked, match
+        # the customer's response, mark the item done, and show the next prompt
+        # immediately — don't wait for Claude.
+        if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "build_system":
+            t = text.lower()
+            # Parse number from customer speech
+            _SPOKEN_NUMS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+                            "eleven": 11, "twelve": 12}
+            _cust_number = None
+            for word, val in _SPOKEN_NUMS.items():
+                if word in t.split():
+                    _cust_number = val
+                    break
+            if _cust_number is None:
+                import re as _re3
+                _nums = _re3.findall(r'\d+', t)
+                if _nums:
+                    _cust_number = int(_nums[0])
+
+            # Figure out what item the rep is currently asking about from recent rep speech
+            _last_rep_texts = []
+            for h in reversed(self.coach._history[-8:]):
+                if h["speaker"] == "rep":
+                    _last_rep_texts.append(h["text"].lower())
+                    if len(_last_rep_texts) >= 3:
+                        break
+            _recent_rep = " ".join(_last_rep_texts)
+
+            _asking_doors = any(w in _recent_rep for w in ["how many doors", "doors go in and out"])
+            _asking_windows = any(w in _recent_rep for w in ["how many windows", "windows on the ground", "ground floor"])
+            _asking_extras = any(w in _recent_rep for w in ["motion detector", "glass break", "carbon monoxide", "co detector"])
+            _asking_camera = any(w in _recent_rep for w in ["indoor camera", "free indoor", "free camera"])
+            _asking_outdoor = any(w in _recent_rep for w in ["outdoor camera", "doorbell camera", "solar"])
+            _pitching_item = any(w in _recent_rep for w in ["does that make sense", "does that sound good", "would you like"])
+
+            # Detect yes/no/ok responses
+            _is_yes = any(w in t for w in ["yes", "yeah", "yep", "sure", "absolutely", "okay", "ok",
+                                            "sounds good", "that works", "makes sense", "mhmm", "of course"])
+            _is_no = any(w in t for w in ["no", "nope", "don't need", "don't want", "i'm good",
+                                           "skip", "no thanks", "not really", "not right now"])
+
+            build_handled = False
+            next_step = None
+            name = self.coach.customer_name or ""
+            ctx = _get_discovery_context(self.coach)
+
+            if _asking_doors and _cust_number is not None and "door_sensors" not in self.coach._topics_done:
+                # Customer gave door count
+                self.coach._topics_done.add("door_sensors")
+                self.coach._topics_done.add("how_many_doors")
+                if "door sensor" not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append("door sensor")
+                suffix = f", {name}" if name else ""
+                next_step = (f"{_cust_number} doors — I'll get you {_cust_number} door sensors so all your entry points are covered. "
+                             f"And how many windows are on the ground floor of your house that are accessible{suffix}?")
+                build_handled = True
+
+            elif _asking_windows and _cust_number is not None and "window_sensors" not in self.coach._topics_done:
+                # Customer gave window count
+                self.coach._topics_done.add("window_sensors")
+                self.coach._topics_done.add("how_many_windows")
+                if "window sensor" not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append("window sensor")
+                # Include chime pitch with door+window confirmation
+                chime = _personalize_chime(ctx, name)
+                next_step = (f"{_cust_number} windows — I'll get you {_cust_number} window sensors as well, "
+                             f"that way every entry point is covered and monitored. {chime}")
+                build_handled = True
+
+            elif _asking_extras and "extra_equip" not in self.coach._topics_done:
+                self.coach._topics_done.add("extra_equip")
+                if "motion sensor" not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append("motion sensor")
+                if _is_yes:
+                    next_step = _fallback_next_step("build_system", self.coach)
+                else:
+                    next_step = _fallback_next_step("build_system", self.coach)
+                build_handled = True
+
+            elif (_asking_camera or _asking_outdoor or _pitching_item) and (_is_yes or _is_no):
+                # Customer responding to an equipment pitch
+                if _asking_camera and "indoor_camera" not in self.coach._topics_done:
+                    self.coach._topics_done.add("indoor_camera")
+                    if "camera" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("camera")
+                    build_handled = True
+                elif _asking_outdoor and "outdoor_camera" not in self.coach._topics_done:
+                    self.coach._topics_done.add("outdoor_camera")
+                    if "outdoor camera" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("outdoor camera")
+                    build_handled = True
+                elif _pitching_item:
+                    # Generic "does that make sense" — find first unchecked item that
+                    # was just being presented and mark it done
+                    for _item in ["indoor_camera", "outdoor_camera", "panel_hub", "yard_sign"]:
+                        if _item not in self.coach._topics_done:
+                            self.coach._topics_done.add(_item)
+                            build_handled = True
+                            break
+                if build_handled:
+                    next_step = _fallback_next_step("build_system", self.coach)
+
+            if build_handled:
+                self.coach.add_turn(speaker, text)
+                self.customer_buffer = []
+                if self._coach_task and not self._coach_task.done():
+                    self._coach_task.cancel()
+                opener = _quick_opener(text, "build_system")
+                self.coach.set_opener(opener)
+                if not next_step:
+                    next_step = _fallback_next_step("build_system", self.coach)
+                if not next_step:
+                    # build_system done — move to recap
+                    next_step = _fallback_next_step("recap", self.coach)
+                if next_step and name:
+                    next_step = next_step.replace("[NAME]", name)
+                if next_step:
+                    next_step = _trim_long_suggestion(next_step)
+                    self.coach.track_equipment_from_text(next_step)
+                    await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                     "opener": opener, "next_step": next_step})
+                await self.send_checklist()
+                return
+
         # ── Opener ──
         # Only show opener on speech_final (complete utterance) to prevent
         # the Say First from changing mid-speech as interim results come in.
@@ -1627,6 +1753,39 @@ class Session:
         # speech_final only fires after 1.2s silence, so in fast conversation
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
+
+        # ── Auto-detect build_system items from rep speech ──
+        if self.current_stage == "build_system" and is_final:
+            t = text.lower()
+            _build_detected = []
+            if any(w in t for w in ["door sensor", "door sensors"]):
+                _build_detected.append(("door_sensors", "door sensor"))
+            if any(w in t for w in ["window sensor", "window sensors"]):
+                _build_detected.append(("window_sensors", "window sensor"))
+            if any(w in t for w in ["motion detector", "glass break", "carbon monoxide", "co detector"]):
+                _build_detected.append(("extra_equip", "motion sensor"))
+            if any(w in t for w in ["indoor camera", "free camera", "free indoor"]):
+                _build_detected.append(("indoor_camera", "camera"))
+            if any(w in t for w in ["outdoor camera", "doorbell camera", "solar camera"]):
+                _build_detected.append(("outdoor_camera", "outdoor camera"))
+            if any(w in t for w in ["touchscreen", "panel", "cellular", "24/7 monitoring"]):
+                _build_detected.append(("panel_hub", "panel"))
+            if any(w in t for w in ["yard sign", "window sticker", "smartphone access", "app access"]):
+                _build_detected.append(("yard_sign", "yard sign"))
+            if _build_detected:
+                for topic_key, equip_key in _build_detected:
+                    if topic_key not in self._rep_overrides:
+                        self.coach._topics_done.add(topic_key)
+                        if equip_key not in self.coach._equipment_mentioned:
+                            self.coach._equipment_mentioned.append(equip_key)
+                await self.send_checklist()
+                if speech_final:
+                    next_build = _fallback_next_step("build_system", self.coach)
+                    if next_build:
+                        if self.coach.customer_name:
+                            next_build = next_build.replace("[NAME]", self.coach.customer_name)
+                        await self.send({"type": "call_guidance", "call_stage": "build_system",
+                                         "next_step": next_build})
 
         # ── Auto-detect closing items from rep speech ──
         if self.current_stage == "closing" and is_final:
