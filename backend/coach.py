@@ -644,7 +644,14 @@ class CoachingEngine:
             return {"triggered": False}
         except Exception as e:
             import traceback
-            print(f"[coach] error: {e}\n{traceback.format_exc()}")
+            # Log response body for HTTP errors to diagnose 400s
+            resp_body = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    resp_body = e.response.text[:500]
+                except Exception:
+                    pass
+            print(f"[coach] error: {e}\n{resp_body}\n{traceback.format_exc()}")
             return {"triggered": False}
 
     async def evaluate_response(self, objection_type: str, objection_summary: str, rep_response: str) -> dict | None:

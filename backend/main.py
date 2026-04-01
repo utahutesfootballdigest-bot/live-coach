@@ -167,6 +167,18 @@ def _pick(options: list[str]) -> str:
 def _quick_opener(text: str, current_stage: str) -> str:
     t = text.lower().strip()
 
+    # ── Context guard: during discovery, if the customer is describing a prior
+    # system, don't let "monthly", "bill", "contract", "expensive" etc. trigger
+    # billing/objection openers — they're talking about their OLD provider. ──
+    _prior_system_context = current_stage in ("intro", "discovery") and any(
+        w in t for w in ["i had", "i was with", "we had", "i used to", "i've had",
+                         "previous", "old system", "last system", "before",
+                         "liked about", "i liked", "didn't like", "the thing about",
+                         "it was okay", "it was fine", "nothing special",
+                         "was pretty good", "was decent", "pretty good but",
+                         "were pretty good", "cameras were", "was too long",
+                         "was too high"])
+
     # ── Emotional / situational triggers (highest priority) ──
 
     if any(w in t for w in ["break in", "broken into", "robbery", "robbed", "burglar", "stolen", "theft", "broke in"]):
@@ -213,12 +225,12 @@ def _quick_opener(text: str, current_stage: str) -> str:
                        "I hear that a lot. A lot of folks are switching over and loving it.",
                        "That's helpful context — let me show you what makes Cove different.",
                        "No problem — we get a lot of people coming over from them."])
-    if any(w in t for w in ["too expensive", "paying too much", "overcharging", "cheaper", "better deal", "better price"]):
+    if not _prior_system_context and any(w in t for w in ["too expensive", "paying too much", "overcharging", "cheaper", "better deal", "better price"]):
         return _pick(["I totally hear you on that — let me see what I can do to make this work for you.",
                        "I understand where you're coming from — let's find the right fit for your budget.",
                        "That's actually one of the biggest reasons people switch to Cove.",
                        "I hear you — nobody wants to overpay. Let me break down what we can do."])
-    if any(w in t for w in ["contract", "locked in", "stuck with", "cancel", "cancellation"]):
+    if not _prior_system_context and any(w in t for w in ["contract", "locked in", "stuck with", "cancel", "cancellation"]):
         return _pick(["Great news — we don't do contracts here, it's completely month to month.",
                        "You'll love this — no contracts with Cove, you can cancel anytime.",
                        "That's one of the best things about us — no contract, no commitment."])
@@ -232,7 +244,7 @@ def _quick_opener(text: str, current_stage: str) -> str:
 
     # ── Objection / hesitation triggers ──
 
-    if any(w in t for w in ["expensive", "too much", "cost", "afford", "pricey", "price", "budget", "how much"]):
+    if not _prior_system_context and any(w in t for w in ["expensive", "too much", "cost", "afford", "pricey", "price", "budget", "how much"]):
         return _pick(["I totally hear you on that — let me see what I can do to make this work.",
                        "I understand where you're coming from. Let me break it down for you.",
                        "That's a fair concern — let me walk you through exactly what you're getting."])
@@ -265,7 +277,7 @@ def _quick_opener(text: str, current_stage: str) -> str:
 
     # ── Billing / monitoring questions ──
 
-    if any(w in t for w in ["monthly", "per month", "month to month", "every month", "autopay", "billing"]):
+    if not _prior_system_context and any(w in t for w in ["monthly", "per month", "month to month", "every month", "autopay", "billing"]):
         return _pick(["Great question — let me explain exactly how the billing works.",
                        "I'll break that down for you — it's really straightforward.",
                        "That's a really common question — let me walk you through it."])
@@ -326,12 +338,18 @@ def _quick_opener(text: str, current_stage: str) -> str:
         if any(c.isdigit() for c in t) or any(w in t for w in ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]):
             return _pick(["Perfect, I'll get those covered for you.",
                            "Got it — I'll make sure all of those are protected.",
-                           "Alright, I'll get that taken care of."])
+                           "Alright, I'll get that taken care of.",
+                           "Great — I'll get those added to your system.",
+                           "Perfect — let me get that set up for you.",
+                           "Awesome, I'll get those locked in."])
         if any(w in t for w in ["sounds good", "that works", "that makes sense", "yes", "yeah", "yep", "okay", "ok", "of course", "absolutely", "mhmm"]):
             return _pick(["Awesome — let me keep building this out for you.",
                            "Love it. Let me get you set up with the next piece.",
                            "Perfect, glad that makes sense. Moving right along.",
-                           "Great, you're easy to work with — I love it."])
+                           "Great, you're easy to work with — I love it.",
+                           "Alright — let me show you the next piece.",
+                           "Perfect — let me keep going here.",
+                           "Great — on to the next one."])
         if any(w in t for w in ["what about", "do you have", "can i get", "i also need", "i want", "add"]):
             return _pick(["Absolutely — I can definitely add that for you.",
                            "Great thinking — let me get that added to your system.",
@@ -400,6 +418,81 @@ def _quick_opener(text: str, current_stage: str) -> str:
                    "No problem at all — I've got you.",
                    "Perfect — let me help you out with that.",
                    "Of course — I'm happy to help."])
+
+
+# ── Fallback next steps when Claude returns empty ─────────────────────────
+
+def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
+    """Trim overly long suggestions to keep them readable for the rep.
+    Cuts at the nearest sentence boundary before max_words."""
+    if not text:
+        return text
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    # Find the last sentence-ending punctuation before max_words
+    truncated = " ".join(words[:max_words])
+    # Try to cut at last sentence boundary
+    for end in [". ", "? ", "! "]:
+        last_pos = truncated.rfind(end)
+        if last_pos > len(truncated) // 2:  # don't cut too short
+            return truncated[:last_pos + 1]
+    # Fallback: cut at max_words and add "..."
+    return truncated
+
+
+def _fallback_next_step(stage: str, coach) -> str:
+    """Generate a stage-appropriate fallback when Claude returns no next_step.
+    This prevents the rep from seeing an opener bubble with no follow-up."""
+    if not coach:
+        return ""
+
+    done = coach._topics_done
+
+    if stage == "discovery":
+        # Find first unanswered discovery topic
+        if "why_security" not in done:
+            return "What has you looking into security? Did something happen, or did you just decide it was time?"
+        if "had_system_before" not in done:
+            return "Have you ever had a security system before?"
+        if "who_protecting" not in done:
+            return "Who are we looking to protect — is it just you or is there anyone else living there with you?"
+        # All discovery done → bridge to collect_info
+        return "Let me get some information from you before we start building out the system. Could you please spell your first and last name for me?"
+
+    if stage == "collect_info":
+        if "full_name" not in done:
+            return "Could you please spell your first and last name for me?"
+        if "phone_number" not in done:
+            return "And what's your best phone number?"
+        if "email" not in done:
+            return "And your email so I can send all this information over to you?"
+        if "address" not in done:
+            return "What's the address you're looking to get the security set up at?"
+        return "Let's go ahead and build your system. How many doors go in and out of your home?"
+
+    if stage == "build_system":
+        equip = coach._equipment_mentioned
+        if "door sensor" not in equip:
+            return "How many doors go in and out of your home?"
+        if "window sensor" not in equip:
+            return "How many windows are on the ground floor of your house that are accessible?"
+        if "camera" not in equip:
+            name = coach.customer_name or ""
+            suffix = f", {name}" if name else ""
+            return f"I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense{suffix}?"
+        if "panel" not in equip:
+            return "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7. Does that make sense?"
+        if "yard sign" not in equip:
+            return "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."
+        return "Is there anything else you'd like to add to your system?"
+
+    if stage in ("recap", "closing"):
+        name = coach.customer_name or ""
+        suffix = f", {name}" if name else ""
+        return f"Does that sound like it will work for you{suffix}?"
+
+    return ""
 
 
 # ── Per-connection session ────────────────────────────────────────────────
@@ -542,10 +635,21 @@ class Session:
                 cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
                 suggestion["next_step"] = cleaned_next
             else:
-                cleaned_next = raw_next
+                # P0 FIX: Fallback for empty Then — generate a stage-appropriate
+                # next step so the rep never sees an opener with no follow-up.
+                cleaned_next = _fallback_next_step(new_stage, self.coach)
+                if cleaned_next:
+                    suggestion["next_step"] = cleaned_next
 
             if self.coach and self.coach.customer_name and cleaned_next:
                 cleaned_next = cleaned_next.replace("[NAME]", self.coach.customer_name)
+                suggestion["next_step"] = cleaned_next
+
+            # P1 FIX: Trim overly long suggestions so the rep can read them
+            # P2 FIX: Remove "$____" placeholders that Claude sometimes outputs
+            if cleaned_next:
+                cleaned_next = _trim_long_suggestion(cleaned_next)
+                cleaned_next = cleaned_next.replace("$____", "your discounted price")
                 suggestion["next_step"] = cleaned_next
 
             if cleaned_next and self.coach:
