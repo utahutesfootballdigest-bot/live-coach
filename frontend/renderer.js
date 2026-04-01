@@ -680,11 +680,27 @@ function renderChecklist(stage) {
       transcriptLog.push({ speaker: "system", text: `[REP ${action}: ${label}]` });
       // Tell backend the rep toggled this topic
       send({ action: "toggle_topic", topic: key, checked: nowChecked });
-      // If this is a section-complete checkbox, advance to next stage
+      // If this is a section-complete checkbox
       if (section && nowChecked) {
         _advanceToNextStage(stage);
       }
-      // Auto-advance: if all non-section, non-conditional-hidden items are checked, advance
+      // If UNCHECKING a section-complete, uncheck all items in the NEXT stage
+      if (section && !nowChecked) {
+        const curIdx = STAGE_ORDER.indexOf(stage);
+        if (curIdx >= 0 && curIdx < STAGE_ORDER.length - 1) {
+          const nextStage = STAGE_ORDER[curIdx + 1];
+          const nextItems = STAGE_CHECKLIST[nextStage];
+          if (nextItems) {
+            nextItems.forEach(item => {
+              _currentChecklist[item.key] = false;
+              send({ action: "toggle_topic", topic: item.key, checked: false });
+            });
+            // Reset the stage back
+            send({ action: "advance_stage", stage: stage });
+          }
+        }
+      }
+      // Auto-advance: only from REP checking items (not from section toggles)
       if (nowChecked && !section) {
         _checkAutoAdvance(stage);
       }
@@ -765,10 +781,8 @@ function handleChecklistUpdate(msg) {
           row.classList.toggle("checked", _currentChecklist[key]);
         }
       });
-      // Check if AI checking items completed a stage
-      if (_currentCallStage) {
-        _checkAutoAdvance(_currentCallStage);
-      }
+      // NOTE: Do NOT auto-advance from AI checks — only rep manual checks
+      // should trigger stage advancement. AI checks are often premature.
     }
   }
 }
@@ -790,6 +804,9 @@ function handleCallGuidance(msg) {
   const { call_stage, opener, next_step } = msg;
 
   if (call_stage) {
+    // Always show profile panel during active calls
+    document.getElementById("customer-profile").style.display = "flex";
+
     const stageChanged = _currentCallStage !== call_stage;
     _currentCallStage = call_stage;
     STAGE_ORDER.forEach((stage) => {

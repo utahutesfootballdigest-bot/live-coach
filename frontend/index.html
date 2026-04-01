@@ -190,21 +190,25 @@
           <div class="stage-pill" id="stage-closing">CLOSING</div>
         </div>
 
+        <!-- Customer profile — always visible, editable by rep -->
+        <div class="customer-profile" id="customer-profile" style="display:none">
+          <div class="profile-section">
+            <div class="profile-header">CUSTOMER</div>
+            <div class="profile-fields">
+              <div class="profile-row"><span class="profile-label">Name</span><input class="profile-input" id="profile-name" placeholder="—"></div>
+              <div class="profile-row"><span class="profile-label">Phone</span><input class="profile-input" id="profile-phone" placeholder="—"></div>
+              <div class="profile-row"><span class="profile-label">Email</span><input class="profile-input" id="profile-email" placeholder="—"></div>
+              <div class="profile-row"><span class="profile-label">Address</span><input class="profile-input" id="profile-address" placeholder="—"></div>
+            </div>
+          </div>
+          <div class="profile-section">
+            <div class="profile-header">SYSTEM BUILD</div>
+            <div class="profile-equipment" id="profile-equipment">—</div>
+          </div>
+        </div>
+
         <!-- Stage checklist — AI checks items off, rep can override -->
         <div class="stage-checklist" id="stage-checklist" style="display:none"></div>
-
-        <!-- Customer profile — editable by rep -->
-        <div class="customer-profile" id="customer-profile" style="display:none">
-          <div class="profile-header">CUSTOMER PROFILE</div>
-          <div class="profile-fields">
-            <div class="profile-row"><span class="profile-label">Name</span><input class="profile-input" id="profile-name" placeholder="—"></div>
-            <div class="profile-row"><span class="profile-label">Phone</span><input class="profile-input" id="profile-phone" placeholder="—"></div>
-            <div class="profile-row"><span class="profile-label">Email</span><input class="profile-input" id="profile-email" placeholder="—"></div>
-            <div class="profile-row"><span class="profile-label">Address</span><input class="profile-input" id="profile-address" placeholder="—"></div>
-          </div>
-          <div class="profile-header" style="margin-top:6px">SYSTEM BUILD</div>
-          <div class="profile-equipment" id="profile-equipment">—</div>
-        </div>
 
         <!-- Opener bubble (shows instantly while customer still speaking) -->
         <div class="opener-card" id="opener-card" style="display:none">

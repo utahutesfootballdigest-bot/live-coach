@@ -472,10 +472,18 @@ def _stage_transition(stage: str) -> str:
 
 
 def _customer_mentioned_kids(coach) -> bool:
-    """Check if customer mentioned kids but hasn't specified ages yet."""
+    """Check if customer mentioned kids but hasn't specified ages yet.
+    Returns False if customer explicitly says they DON'T have kids."""
     if not coach or not coach._customer_facts:
         return False
     all_text = " ".join(coach._customer_facts).lower()
+    # Check for negative mentions first — "don't have kids", "no kids", etc.
+    no_kids = any(w in all_text for w in [
+        "don't have kids", "don't have children", "no kids", "no children",
+        "don't have any kids", "we don't have", "i don't have",
+    ])
+    if no_kids:
+        return False
     has_kids = any(w in all_text for w in ["kids", "children", "my son", "my daughter", "kid", "child"])
     # Already specified age?
     has_age = any(w in all_text for w in [
