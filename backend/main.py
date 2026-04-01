@@ -895,60 +895,46 @@ class Session:
             return
 
         # If unchecking, show the prompt for the unchecked item directly
-            # Find which stage this topic belongs to and get its prompt
-            prompt = self._COLLECT_INFO_PROMPTS.get(topic, "")
-            stage_for_item = self.current_stage
+        _ALL_PROMPTS = {
+            # Discovery
+            "why_security": ("discovery", "What has you looking into security? Did something happen, or did you just decide it was time?"),
+            "had_system_before": ("discovery", "Have you ever had a security system before?"),
+            "who_protecting": ("discovery", "Who are we looking to protect — is it just you or is there anyone else living there with you?"),
+            "on_website": ("discovery", "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready."),
+            # Collect info
+            "full_name": ("collect_info", "Could you please spell your first and last name for me?"),
+            "phone_number": ("collect_info", "And what's your best phone number?"),
+            "email": ("collect_info", "And your email so I can send all this information over to you?"),
+            "address": ("collect_info", "What's the address you're looking to get the security set up at?"),
+            # Build system
+            "door_sensors": ("build_system", "How many doors go in and out of your home?"),
+            "window_sensors": ("build_system", "How many windows are on the ground floor of your house that are accessible?"),
+            "extra_equip": ("build_system", "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?"),
+            "indoor_camera": ("build_system", "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense?"),
+            "outdoor_camera": ("build_system", "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?"),
+            "panel_hub": ("build_system", "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7."),
+            "yard_sign": ("build_system", "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."),
+            # Closing
+            "no_contract": ("closing", "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry."),
+            "wireless_install": ("closing", "We don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
+            "trial_60": ("closing", "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days."),
+            "monthly_price": ("closing", "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99."),
+            "equip_total": ("closing", "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."),
+            "ask_commitment": ("closing", "Does that sound like it will work for you?"),
+            "guide_checkout": ("closing", "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side."),
+            "order_confirmed": ("closing", "Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — usually 3 to 7 business days."),
+        }
 
-            # Discovery items
-            _DISCOVERY_PROMPTS = {
-                "why_security": "What has you looking into security? Did something happen, or did you just decide it was time?",
-                "had_system_before": "Have you ever had a security system before?",
-                "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
-                "on_website": "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready.",
-            }
-            # Build system items
-            _BUILD_PROMPTS = {
-                "door_sensors": "How many doors go in and out of your home?",
-                "window_sensors": "How many windows are on the ground floor of your house that are accessible?",
-                "extra_equip": "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
-                "indoor_camera": "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense?",
-                "outdoor_camera": "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
-                "panel_hub": "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7.",
-                "yard_sign": "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone.",
-            }
-            # Closing items — sequential flow
-            _CLOSING_PROMPTS = {
-                "no_contract": "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry.",
-                "wireless_install": "We don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. If you need help, our tech support team will walk you through it over the phone.",
-                "trial_60": "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days.",
-                "monthly_price": "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99.",
-                "equip_total": "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price.",
-                "ask_commitment": "Does that sound like it will work for you?",
-                "guide_checkout": "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side.",
-                "order_confirmed": "Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — that's usually 3 to 7 business days. Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount.",
-            }
-
-            if topic in _DISCOVERY_PROMPTS:
-                prompt = _DISCOVERY_PROMPTS[topic]
-                stage_for_item = "discovery"
-            elif topic in self._COLLECT_INFO_PROMPTS:
-                prompt = self._COLLECT_INFO_PROMPTS[topic]
-                stage_for_item = "collect_info"
-            elif topic in _BUILD_PROMPTS:
-                prompt = _BUILD_PROMPTS[topic]
-                stage_for_item = "build_system"
-            elif topic in _CLOSING_PROMPTS:
-                prompt = _CLOSING_PROMPTS[topic]
-                stage_for_item = "closing"
-
-            if prompt:
-                if self.coach and self.coach.customer_name:
-                    prompt = prompt.replace("[NAME]", self.coach.customer_name)
-                # Only update the Then box — no Say First, so we don't flood
-                # the opener bubble when the rep is rapidly toggling checkboxes
-                await self.send({"type": "call_guidance", "call_stage": stage_for_item,
-                                 "next_step": prompt})
-                await self.send_checklist()
+        if topic in _ALL_PROMPTS:
+            stage_for_item, prompt = _ALL_PROMPTS[topic]
+            if self.coach and self.coach.customer_name:
+                prompt = prompt.replace("[NAME]", self.coach.customer_name)
+            await self.send({"type": "call_guidance", "call_stage": stage_for_item,
+                             "next_step": prompt})
+        # Force-send the unchecked state immediately so it can't be overridden
+        # by a concurrent send_checklist from Claude's coaching
+        await self.send({"type": "checklist_update", "topics": {topic: False}})
+        await self.send_checklist()
 
     # ── Go Back (rep manually rewinds one step) ──
 
