@@ -377,6 +377,14 @@ QUESTION_TOPICS = {
         "customer_answers": [],
         "output_detect": ["how many windows", "windows on the ground", "ground floor windows"],
     },
+    "on_website": {
+        "rep_asks": ["on the website", "on the cove website", "on covesmart", "pull up the website",
+                     "are you on the site", "on the site right now"],
+        "customer_answers": ["yes i'm on", "yeah i'm on", "i'm on the website", "i'm looking at it",
+                             "i have it up", "i have it pulled up", "not yet", "not on the website",
+                             "no i'm not", "i can pull it up", "i'll pull it up", "let me pull it up"],
+        "output_detect": ["on the website", "on the cove website", "on covesmart", "pull up the website"],
+    },
 }
 
 

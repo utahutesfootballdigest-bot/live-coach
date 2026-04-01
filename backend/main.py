@@ -466,6 +466,9 @@ def _fallback_next_step(stage: str, coach) -> str:
         elif "who_protecting" not in done:
             done.add("who_protecting")
             result = "Who are we looking to protect — is it just you or is there anyone else living there with you?"
+        elif "on_website" not in done:
+            done.add("on_website")
+            result = "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready — I'll walk you through the whole thing."
         elif "_discovery_bridge" not in done:
             # All discovery done → bridge to collect_info (fire only once)
             done.add("_discovery_bridge")
@@ -513,12 +516,41 @@ def _fallback_next_step(stage: str, coach) -> str:
             done.add("_build_recap")
             result = "Is there anything else you'd like to add to your system?"
 
-    elif stage in ("recap", "closing"):
+    elif stage == "recap":
         name = coach.customer_name or ""
         suffix = f", {name}" if name else ""
-        if "_closing_ask" not in done:
-            done.add("_closing_ask")
+        if "_recap_ask" not in done:
+            done.add("_recap_ask")
+            result = f"Is there anything else you were hoping I could add{suffix}?"
+
+    elif stage == "closing":
+        name = coach.customer_name or ""
+        suffix = f", {name}" if name else ""
+        # Closing follows a strict sequential flow
+        if "no_contract" not in done:
+            done.add("no_contract")
+            result = "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry."
+        elif "wireless_install" not in done:
+            done.add("wireless_install")
+            result = "We don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. If you need help, our tech support team will walk you through it."
+        elif "trial_60" not in done:
+            done.add("trial_60")
+            result = "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days."
+        elif "monthly_price" not in done:
+            done.add("monthly_price")
+            result = "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99."
+        elif "equip_total" not in done:
+            done.add("equip_total")
+            result = "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."
+        elif "ask_commitment" not in done:
+            done.add("ask_commitment")
             result = f"Does that sound like it will work for you{suffix}?"
+        elif "guide_checkout" not in done:
+            done.add("guide_checkout")
+            result = f"Go ahead and scroll down{suffix} — you'll need to fill in your email, monitored address, emergency contact, and create a verbal password. The verbal password is just for when you call in or when our monitoring team calls you. Let me know once you're ready to place the order."
+        elif "order_confirmed" not in done:
+            done.add("order_confirmed")
+            result = f"Congratulations and welcome to the Cove family{suffix}! You'll get tracking info as soon as your package ships — usually 3 to 7 business days. If you need a technician, we have a third-party service starting at $129. And if you have home insurance, request an alarm certificate from us for a discount."
 
     # Prevent exact same fallback from firing twice in a row
     if result and result == _last_fallback:
@@ -648,6 +680,7 @@ class Session:
         "why_security": "why_security",
         "had_system_before": "had_system_before",
         "who_protecting": "who_protecting",
+        "on_website": "on_website",
         "prior_provider": "had_system_before",  # counts as part of "had system"
         "kids_age": "who_protecting",  # counts as part of "who protecting"
         "full_name": "full_name",
@@ -744,6 +777,7 @@ class Session:
                 "why_security": "What has you looking into security? Did something happen, or did you just decide it was time?",
                 "had_system_before": "Have you ever had a security system before?",
                 "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
+                "on_website": "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready.",
             }
             # Build system items
             _BUILD_PROMPTS = {
@@ -755,6 +789,17 @@ class Session:
                 "panel_hub": "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7.",
                 "yard_sign": "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone.",
             }
+            # Closing items — sequential flow
+            _CLOSING_PROMPTS = {
+                "no_contract": "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry.",
+                "wireless_install": "We don't charge anything for installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. If you need help, our tech support team will walk you through it over the phone.",
+                "trial_60": "We also have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund within 60 days.",
+                "monthly_price": "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99.",
+                "equip_total": "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price.",
+                "ask_commitment": "Does that sound like it will work for you?",
+                "guide_checkout": "Go ahead and scroll down — you'll need to fill in your email, monitored address, emergency contact, and create a verbal password. The verbal password is just for when you call in or when our monitoring team calls you — they'll use it to verify your identity. Let me know once you're ready to place the order.",
+                "order_confirmed": "Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — that's usually 3 to 7 business days. Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount.",
+            }
 
             if topic in _DISCOVERY_PROMPTS:
                 prompt = _DISCOVERY_PROMPTS[topic]
@@ -765,6 +810,9 @@ class Session:
             elif topic in _BUILD_PROMPTS:
                 prompt = _BUILD_PROMPTS[topic]
                 stage_for_item = "build_system"
+            elif topic in _CLOSING_PROMPTS:
+                prompt = _CLOSING_PROMPTS[topic]
+                stage_for_item = "closing"
 
             if prompt:
                 if self.coach and self.coach.customer_name:

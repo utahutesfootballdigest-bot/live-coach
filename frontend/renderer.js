@@ -601,6 +601,7 @@ const STAGE_CHECKLIST = {
     { key: "why_security",      label: "What has you looking into security?" },
     { key: "had_system_before",  label: "Have you ever had a security system before?" },
     { key: "who_protecting",     label: "Who all are we looking to protect?" },
+    { key: "on_website",         label: "Are you on the Cove website?" },
   ],
   collect_info: [
     { key: "full_name",     label: "Full name" },
@@ -618,10 +619,14 @@ const STAGE_CHECKLIST = {
     { key: "yard_sign",      label: "Yard sign, stickers, & smartphone access" },
   ],
   closing: [
-    { key: "no_contract",   label: "No contract — month to month" },
-    { key: "monthly_price", label: "Monthly monitoring ($29.99 → $32.99)" },
-    { key: "equip_total",   label: "Equipment total & discounts" },
-    { key: "trial_60",      label: "60-day risk-free trial" },
+    { key: "no_contract",       label: "No contract — month to month" },
+    { key: "wireless_install",   label: "Wireless install — ships to you, ~20 min setup" },
+    { key: "trial_60",           label: "60-day risk-free trial — full refund" },
+    { key: "monthly_price",      label: "Monthly: $29.99 first 6 mo → $32.99 after" },
+    { key: "equip_total",        label: "Equipment total with discounts" },
+    { key: "ask_commitment",     label: "\"Does that work for you, [name]?\"" },
+    { key: "guide_checkout",     label: "Guide through checkout (email, address, password)" },
+    { key: "order_confirmed",    label: "Order confirmed — welcome to Cove!" },
   ],
 };
 
@@ -729,6 +734,7 @@ function handleCallGuidance(msg) {
   const { call_stage, opener, next_step } = msg;
 
   if (call_stage) {
+    const stageChanged = _currentCallStage !== call_stage;
     _currentCallStage = call_stage;
     STAGE_ORDER.forEach((stage) => {
       const el = document.getElementById(`stage-${stage}`);
@@ -739,8 +745,11 @@ function handleCallGuidance(msg) {
       if (idx < activeIdx) el.classList.add("stage-done");
       else if (idx === activeIdx) el.classList.add("stage-active");
     });
-    // Show checklist for active stage (unless rep is viewing a different one)
-    if (!_viewingStage || _viewingStage === call_stage || !document.getElementById("stage-checklist").children.length) {
+    // Auto-advance checklist to new stage when the stage changes
+    // Rep can still click back to a previous stage anytime
+    if (stageChanged) {
+      renderChecklist(call_stage);
+    } else if (!_viewingStage || !document.getElementById("stage-checklist").children.length) {
       renderChecklist(call_stage);
     }
     updateStagePillViewState();
