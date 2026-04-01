@@ -551,6 +551,7 @@ class Session:
         self.opener_shown = False
         self.intro_turns = 0
         self._collect_info_done: set[str] = set()
+        self._rep_overrides: set[str] = set()  # items the rep unchecked — don't auto-recheck
 
     async def send(self, msg: dict):
         try:
@@ -602,6 +603,7 @@ class Session:
         self.opener_shown = False
         self.intro_turns = 0
         self._collect_info_done = set()
+        self._rep_overrides = set()
 
         if not self.running:
             return
@@ -666,25 +668,37 @@ class Session:
     }
 
     async def send_checklist(self):
-        """Broadcast current checklist state to the frontend."""
+        """Broadcast current checklist state to the frontend.
+        Respects rep overrides — if the rep unchecked an item, don't re-check it
+        until the rep explicitly checks it again."""
         if not self.coach:
             return
         topics = {}
         # Discovery + collect_info topics
         for internal_key, checklist_key in self._TOPIC_TO_CHECKLIST.items():
+            if checklist_key in self._rep_overrides:
+                continue  # rep said this isn't done — respect that
             if internal_key in self.coach._topics_done or internal_key in self._collect_info_done:
                 topics[checklist_key] = True
         # Build system equipment
         for internal_key, checklist_key in self._EQUIP_TO_CHECKLIST.items():
+            if checklist_key in self._rep_overrides:
+                continue  # rep said this isn't done — respect that
             if internal_key in self.coach._equipment_mentioned:
                 topics[checklist_key] = True
-        # Closing items tracked by rep turns in transcript
         await self.send({"type": "checklist_update", "topics": topics})
 
     async def toggle_topic(self, topic: str, checked: bool):
         """Rep manually checked/unchecked a checklist item."""
         if not self.coach:
             return
+
+        # Track rep overrides — if rep unchecks, don't let AI auto-recheck
+        if not checked:
+            self._rep_overrides.add(topic)
+        else:
+            self._rep_overrides.discard(topic)
+
         # Map frontend key back to internal keys
         reverse_topic = {v: k for k, v in self._TOPIC_TO_CHECKLIST.items()}
         reverse_equip = {v: k for k, v in self._EQUIP_TO_CHECKLIST.items()}
@@ -719,15 +733,45 @@ class Session:
                 self.coach._topics_done.discard(topic)
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} custom: {topic}")
 
-        # If unchecking, re-send the right suggestion for this item
+        # If unchecking, show the prompt for the unchecked item directly
         if not checked:
-            fallback = _fallback_next_step(self.current_stage, self.coach)
-            if fallback:
-                opener = "Let me get that again."
-                if self.coach.customer_name:
-                    fallback = fallback.replace("[NAME]", self.coach.customer_name)
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                 "opener": opener, "next_step": fallback})
+            # Find which stage this topic belongs to and get its prompt
+            prompt = self._COLLECT_INFO_PROMPTS.get(topic, "")
+            stage_for_item = self.current_stage
+
+            # Discovery items
+            _DISCOVERY_PROMPTS = {
+                "why_security": "What has you looking into security? Did something happen, or did you just decide it was time?",
+                "had_system_before": "Have you ever had a security system before?",
+                "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
+            }
+            # Build system items
+            _BUILD_PROMPTS = {
+                "door_sensors": "How many doors go in and out of your home?",
+                "window_sensors": "How many windows are on the ground floor of your house that are accessible?",
+                "extra_equip": "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
+                "indoor_camera": "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense?",
+                "outdoor_camera": "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
+                "panel_hub": "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7.",
+                "yard_sign": "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone.",
+            }
+
+            if topic in _DISCOVERY_PROMPTS:
+                prompt = _DISCOVERY_PROMPTS[topic]
+                stage_for_item = "discovery"
+            elif topic in self._COLLECT_INFO_PROMPTS:
+                prompt = self._COLLECT_INFO_PROMPTS[topic]
+                stage_for_item = "collect_info"
+            elif topic in _BUILD_PROMPTS:
+                prompt = _BUILD_PROMPTS[topic]
+                stage_for_item = "build_system"
+
+            if prompt:
+                if self.coach and self.coach.customer_name:
+                    prompt = prompt.replace("[NAME]", self.coach.customer_name)
+                await self.send({"type": "call_guidance", "call_stage": stage_for_item,
+                                 "opener": "Let me get that again.", "next_step": prompt})
+                await self.send_checklist()
 
     # ── Go Back (rep manually rewinds one step) ──
 
@@ -962,36 +1006,49 @@ class Session:
         # ── Fast-track collect_info ──
         # During collect_info, responses come rapid-fire (name, phone, email, address).
         # Claude coaching gets cancelled before completing, so use instant hardcoded suggestions.
+        # IMPORTANT: Validate what the customer actually said before advancing.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "collect_info":
             self.coach.add_turn(speaker, text)
             t = text.lower()
 
-            # Detect what info was just given and suggest the next piece
+            # Detect what TYPE of info the customer just gave
+            _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (len(t.split()) <= 4 and t.replace(" ", "").isalpha())
+            _has_phone_digits = sum(c.isdigit() for c in t) >= 7
+            _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook", "dot com"])
+            _has_address = any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard",
+                                                 "way", "circle", "court", "north", "south", "east", "west"]) or sum(c.isdigit() for c in t) >= 4
+
+            # Only advance if the customer gave the expected info type
             opener = _quick_opener(text, "collect_info")
             self.coach.set_opener(opener)
-
             next_step = None
+
             if "full_name" not in self._collect_info_done:
-                self._collect_info_done.add("full_name")
-                next_step = "And what's your best phone number?"
+                if _has_name_words or (not _has_phone_digits and not _has_email and not _has_address):
+                    self._collect_info_done.add("full_name")
+                    next_step = "And what's your best phone number?"
             elif "phone_number" not in self._collect_info_done:
-                self._collect_info_done.add("phone_number")
-                next_step = "And your email so I can send all this information over to you by the end of the call?"
+                if _has_phone_digits:
+                    self._collect_info_done.add("phone_number")
+                    next_step = "And your email so I can send all this information over to you by the end of the call?"
+                # If they're still spelling their name or giving partial info, don't advance
             elif "email" not in self._collect_info_done:
-                self._collect_info_done.add("email")
-                next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
+                if _has_email:
+                    self._collect_info_done.add("email")
+                    next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
-                self._collect_info_done.add("address")
-                self.current_stage = "build_system"
-                opener = _pick(["Awesome, we have fantastic coverage in your area.",
-                                "Great news — we have great coverage out there.",
-                                "Perfect, we can definitely service that area."])
-                self.coach.set_opener(opener)
-                next_step = "Let's go ahead and build your system. How many doors go in and out of your home?"
-                self.coach._topics_done.add("full_name")
-                self.coach._topics_done.add("phone_number")
-                self.coach._topics_done.add("email")
-                self.coach._topics_done.add("address")
+                if _has_address:
+                    self._collect_info_done.add("address")
+                    self.current_stage = "build_system"
+                    opener = _pick(["Awesome, we have fantastic coverage in your area.",
+                                    "Great news — we have great coverage out there.",
+                                    "Perfect, we can definitely service that area."])
+                    self.coach.set_opener(opener)
+                    next_step = "Let's go ahead and build your system. How many doors go in and out of your home?"
+                    self.coach._topics_done.add("full_name")
+                    self.coach._topics_done.add("phone_number")
+                    self.coach._topics_done.add("email")
+                    self.coach._topics_done.add("address")
 
             if next_step:
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
