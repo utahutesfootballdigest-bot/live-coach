@@ -270,6 +270,10 @@ document.getElementById("end-btn").addEventListener("click", () => {
   stopAudioCapture();
 });
 
+document.getElementById("go-back-btn").addEventListener("click", () => {
+  send({ action: "go_back" });
+});
+
 document.getElementById("practice-btn").addEventListener("click", () => {
   if (!micStream) return;
   document.getElementById("setup-status").textContent = "Starting practice session...";
@@ -621,6 +625,10 @@ function handleCallGuidance(msg) {
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
   }
+
+  // Show the back button whenever guidance is visible
+  const hasGuidance = opener || next_step;
+  document.getElementById("go-back-row").style.display = hasGuidance ? "flex" : "none";
 }
 
 function showCoachingIdle() {
@@ -629,6 +637,7 @@ function showCoachingIdle() {
   document.getElementById("suggestions-list").innerHTML = "";
   document.getElementById("transitions-list").innerHTML = "";
   document.getElementById("score-card").style.display = "none";
+  document.getElementById("go-back-row").style.display = "none";
 }
 
 // ── Transcript Download ───────────────────────────────────────────────────

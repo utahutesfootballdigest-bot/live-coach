@@ -639,6 +639,67 @@ class Session:
         await self.send({"type": "status", "state": "idle"})
         await self.send({"type": "roleplay_mode", "active": False})
 
+    # ── Go Back (rep manually rewinds one step) ──
+
+    _COLLECT_INFO_SEQUENCE = ["full_name", "phone_number", "email", "address"]
+    _COLLECT_INFO_PROMPTS = {
+        "full_name": "Could you please spell your first and last name for me?",
+        "phone_number": "And what's your best phone number?",
+        "email": "And your email so I can send all this information over to you?",
+        "address": "What's the address you're looking to get the security set up at?",
+    }
+
+    async def go_back(self):
+        """Rep pressed the back button — rewind one step in the current stage."""
+        if not self.coach:
+            return
+
+        # In collect_info or just entered build_system: rewind collect_info sequence
+        if self.current_stage in ("collect_info", "build_system"):
+            # Find the last item that was marked done
+            done_items = [k for k in self._COLLECT_INFO_SEQUENCE if k in self._collect_info_done]
+            if done_items:
+                last = done_items[-1]
+                self._collect_info_done.discard(last)
+                if self.coach:
+                    self.coach._topics_done.discard(last)
+                # If we were in build_system, go back to collect_info
+                if self.current_stage == "build_system":
+                    self.current_stage = "collect_info"
+                prompt = self._COLLECT_INFO_PROMPTS[last]
+                print(f"[go_back] rewound to {last}: {prompt[:40]}")
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                 "opener": "Let me get that again.", "next_step": prompt})
+                return
+
+        # In build_system: rewind equipment
+        if self.current_stage == "build_system" and self.coach:
+            equip = self.coach._equipment_mentioned
+            if equip:
+                removed = equip.pop()
+                print(f"[go_back] rewound equipment: removed {removed}")
+                fallback = _fallback_next_step("build_system", self.coach)
+                if fallback:
+                    await self.send({"type": "call_guidance", "call_stage": "build_system",
+                                     "opener": "Let me go back to that.", "next_step": fallback})
+                return
+
+        # In discovery: rewind topic
+        if self.current_stage == "discovery" and self.coach:
+            discovery_topics = ["who_protecting", "had_system_before", "why_security"]
+            for topic in discovery_topics:
+                if topic in self.coach._topics_done:
+                    self.coach._topics_done.discard(topic)
+                    self.coach._topics_done.discard("_discovery_bridge")
+                    fallback = _fallback_next_step("discovery", self.coach)
+                    if fallback:
+                        print(f"[go_back] rewound discovery topic: {topic}")
+                        await self.send({"type": "call_guidance", "call_stage": "discovery",
+                                         "opener": "Let me go back.", "next_step": fallback})
+                    return
+
+        print("[go_back] nothing to rewind")
+
     # ── Coaching ──
 
     async def _fire_coaching(self):
@@ -955,6 +1016,8 @@ async def websocket_endpoint(ws: WebSocket):
                             session.rep_buffer.extend(session.pending_rep_buffer)
                             session.pending_rep_buffer.clear()
                             asyncio.create_task(session._fire_roleplay_response())
+                    elif action == "go_back":
+                        await session.go_back()
                     elif action == "stop":
                         await session.stop()
                 except Exception:
