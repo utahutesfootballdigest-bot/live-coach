@@ -223,7 +223,8 @@ def _quick_opener(text: str, current_stage: str) -> str:
     # ── Website response ──
 
     if any(w in t for w in ["not on the website", "not on the site", "should i be", "i'm not on",
-                             "haven't pulled it up", "no i'm not", "not yet", "not on it"]):
+                             "haven't pulled it up", "no i'm not", "not yet", "not on it",
+                             "no sir", "no ma'am", "no i am not", "no not yet"]):
         return "No problem! Could you go ahead and pull up covesmart.com so I can walk you through the process?"
     if any(w in t for w in ["i'm on the website", "i'm on it", "i have it pulled up", "i have it up",
                              "yes i'm on", "yeah i'm on", "i got it pulled up", "i'm looking at it",
@@ -1193,6 +1194,10 @@ class Session:
                 cleaned_next = _fallback_next_step(new_stage, self.coach)
                 if cleaned_next:
                     suggestion["next_step"] = cleaned_next
+                else:
+                    # All items done in this stage — prompt to move on
+                    cleaned_next = f"All {new_stage.replace('_', ' ')} items covered — check off the section to move forward."
+                    suggestion["next_step"] = cleaned_next
 
             if self.coach and self.coach.customer_name and cleaned_next:
                 cleaned_next = cleaned_next.replace("[NAME]", self.coach.customer_name)
@@ -1301,7 +1306,10 @@ class Session:
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro" and self.intro_turns < 2:
             self.intro_turns += 1
             self.coach.add_turn(speaker, text)
-            self.customer_buffer.append(text)
+            self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
+            # Cancel any pending coaching task to prevent it overwriting our guidance
+            if self._coach_task and not self._coach_task.done():
+                self._coach_task.cancel()
             t = text.lower()
             _wants_system = any(w in t for w in [
                 "looking to get", "looking for", "interested in", "i want", "i need",

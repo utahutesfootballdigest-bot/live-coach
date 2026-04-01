@@ -700,10 +700,8 @@ function renderChecklist(stage) {
           }
         }
       }
-      // Auto-advance: only from REP checking items (not from section toggles)
-      if (nowChecked && !section) {
-        _checkAutoAdvance(stage);
-      }
+      // NOTE: No auto-advance — rep must click section-complete manually.
+      // Auto-advance was too aggressive with AI checking items in bulk.
     });
 
     const lbl = document.createElement("span");
