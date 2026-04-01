@@ -446,6 +446,23 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
 _last_fallback: str = ""  # prevent the same fallback from firing twice in a row
 
 
+def _customer_mentioned_kids(coach) -> bool:
+    """Check if customer mentioned kids but hasn't specified ages yet."""
+    if not coach or not coach._customer_facts:
+        return False
+    all_text = " ".join(coach._customer_facts).lower()
+    has_kids = any(w in all_text for w in ["kids", "children", "my son", "my daughter", "kid", "child"])
+    # Already specified age?
+    has_age = any(w in all_text for w in [
+        "little kids", "little ones", "toddler", "teenager", "teenagers",
+        "three and", "four and", "five and", "six and", "seven and", "eight and",
+        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+        "year old", "years old", "elementary", "middle school", "high school",
+        "baby", "newborn", "infant",
+    ])
+    return has_kids and not has_age
+
+
 def _get_discovery_context(coach) -> dict:
     """Extract personalization context from discovery phase customer facts."""
     if not coach or not coach._customer_facts:
@@ -537,6 +554,9 @@ def _fallback_next_step(stage: str, coach) -> str:
         elif "who_protecting" not in done:
             done.add("who_protecting")
             result = "Who are we looking to protect — is it just you or is there anyone else living there with you?"
+        elif "kids_age" not in done and _customer_mentioned_kids(coach):
+            done.add("kids_age")
+            result = "Are we talking about little kids or teenagers?"
         elif "on_website" not in done:
             done.add("on_website")
             result = "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready — I'll walk you through the whole thing."
@@ -1179,11 +1199,11 @@ class Session:
                 return
 
         # ── Opener ──
+        # Only show opener on speech_final (complete utterance) to prevent
+        # the Say First from changing mid-speech as interim results come in.
         _skip_opener = self.current_stage in ("intro",)
         if speaker == "customer" and not self.opener_shown and self.coach is not None and not _skip_opener:
-            if not is_final and len(text.split()) < 8:
-                pass
-            else:
+            if is_final and speech_final:
                 opener = _quick_opener(text, self.current_stage)
                 self.opener_shown = True
                 self.coach.set_opener(opener)
@@ -1212,6 +1232,32 @@ class Session:
         # speech_final only fires after 1.2s silence, so in fast conversation
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
+
+        # ── Auto-detect closing items from rep speech ──
+        if self.current_stage == "closing" and is_final:
+            t = text.lower()
+            _closing_detected = []
+            if any(w in t for w in ["no contract", "month to month", "cancel anytime"]):
+                _closing_detected.append("no_contract")
+            if any(w in t for w in ["wireless", "ships to you", "twenty minutes", "20 minutes", "set it up yourself", "no installation"]):
+                _closing_detected.append("wireless_install")
+            if any(w in t for w in ["sixty day", "60 day", "risk free", "risk-free", "full refund"]):
+                _closing_detected.append("trial_60")
+            if any(w in t for w in ["29.99", "twenty nine", "32.99", "thirty two", "per month", "monthly monitoring"]):
+                _closing_detected.append("monthly_price")
+            if any(w in t for w in ["total", "discounts", "promotions", "equipment cost", "hundred"]):
+                _closing_detected.append("equip_total")
+            if any(w in t for w in ["work for you", "sound good", "does that work", "gonna work"]):
+                _closing_detected.append("ask_commitment")
+            if any(w in t for w in ["scroll down", "fill in your email", "verbal password", "emergency contact", "card info", "card number", "checkout"]):
+                _closing_detected.append("guide_checkout")
+            if any(w in t for w in ["congratulations", "welcome to the cove", "welcome to cove", "tracking info", "package ships"]):
+                _closing_detected.append("order_confirmed")
+            if _closing_detected:
+                for item in _closing_detected:
+                    if item not in self._rep_overrides:
+                        self.coach._topics_done.add(item)
+                await self.send_checklist()
 
         if not speech_final:
             return
