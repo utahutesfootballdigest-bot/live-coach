@@ -482,6 +482,42 @@ def _stage_transition(stage: str) -> str:
     return transitions.get(stage, "")
 
 
+def _spoken_to_digits(text: str) -> str:
+    """Convert spoken number words to digit string.
+    'zero nine three eight' -> '0938', 'eight zero one' -> '801'"""
+    _WORD_TO_DIGIT = {
+        "zero": "0", "oh": "0", "one": "1", "two": "2", "three": "3",
+        "four": "4", "five": "5", "six": "6", "seven": "7",
+        "eight": "8", "nine": "9",
+    }
+    result = []
+    for word in text.lower().split():
+        if word in _WORD_TO_DIGIT:
+            result.append(_WORD_TO_DIGIT[word])
+        elif word.isdigit():
+            result.append(word)
+        # Skip non-digit words
+    return "".join(result)
+
+
+def _extract_email(text: str) -> str:
+    """Extract email from spoken text like 'joe at gmail dot com'."""
+    t = text.lower().strip()
+    # Replace spoken email patterns
+    t = t.replace(" at ", "@").replace(" dot ", ".")
+    # Remove filler
+    for filler in ["my email is ", "it's ", "it is ", "yeah ", "yes "]:
+        if t.startswith(filler):
+            t = t[len(filler):]
+    # Remove spaces around @ and .
+    parts = t.split()
+    result = ""
+    for p in parts:
+        if "@" in p or "." in p or p.isalnum():
+            result += p
+    return result.strip() if "@" in result else text.strip()
+
+
 def _extract_name(text: str) -> str:
     """Extract just the name from customer speech like 'my name is joe bonnie'
     or 'yeah my first name is joe and my last name is bonnie'."""
@@ -492,9 +528,10 @@ def _extract_name(text: str) -> str:
                     "it's ", "i'm ", "this is "]:
         if prefix in t:
             after = text[t.index(prefix) + len(prefix):].strip()
-            # Remove filler words
-            after = after.replace(" and my last name is ", " ").replace(" last name is ", " ")
-            after = after.replace(" and my last name ", " ").replace(" last name ", " ")
+            # Remove filler words between first and last name
+            for filler in [" and my last name is ", " my last name is ", " last name is ",
+                           " and my last name ", " my last name ", " last name "]:
+                after = after.replace(filler, " ")
             # Take the name words (stop at non-name words)
             _STOP_WORDS = {"and", "my", "the", "so", "but", "yeah", "yes", "that", "is",
                            "it", "i", "we", "at", "on", "in", "from", "with"}
@@ -1296,11 +1333,19 @@ class Session:
             t = text.lower()
 
             # Detect what TYPE of info the customer just gave
+            # Count digits — both actual digits AND spoken number words
+            _SPOKEN_DIGITS = {"zero", "one", "two", "three", "four", "five",
+                              "six", "seven", "eight", "nine", "oh"}
+            _digit_count = sum(c.isdigit() for c in t)
+            _digit_count += sum(1 for w in t.split() if w in _SPOKEN_DIGITS)
+
             _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (len(t.split()) <= 4 and t.replace(" ", "").isalpha())
-            _has_phone_digits = sum(c.isdigit() for c in t) >= 7
-            _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook", "dot com"])
+            _has_phone_digits = _digit_count >= 7
+            _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook",
+                                                           "dot com", "at gmail", "at yahoo", "at hotmail",
+                                                           "at aol", "at outlook"])
             _has_address = any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard",
-                                                 "way", "circle", "court", "north", "south", "east", "west"]) or sum(c.isdigit() for c in t) >= 4
+                                                 "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
 
             # Only advance if the customer gave the expected info type
             opener = _quick_opener(text, "collect_info")
@@ -1315,22 +1360,31 @@ class Session:
             elif "phone_number" not in self._collect_info_done:
                 if _has_phone_digits:
                     self._collect_info_done.add("phone_number")
-                    # Extract just the digits
-                    digits = "".join(c for c in text if c.isdigit())
+                    # Extract digits from both numerals and spoken words
+                    digits = _spoken_to_digits(text)
+                    if not digits:
+                        digits = "".join(c for c in text if c.isdigit())
                     if len(digits) == 10:
                         self._profile["phone"] = f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
-                    else:
+                    elif len(digits) >= 7:
                         self._profile["phone"] = digits
+                    else:
+                        self._profile["phone"] = text.strip()
                     next_step = "And your email so I can send all this information over to you by the end of the call?"
             elif "email" not in self._collect_info_done:
                 if _has_email:
                     self._collect_info_done.add("email")
-                    self._profile["email"] = text.strip()
+                    self._profile["email"] = _extract_email(text)
                     next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:
                     self._collect_info_done.add("address")
-                    self._profile["address"] = text.strip()
+                    # Clean up address — capitalize words, remove filler
+                    addr = text.strip()
+                    for filler in ["the address is ", "it is ", "it's ", "this is ", "we're at ", "i'm at "]:
+                        if addr.lower().startswith(filler):
+                            addr = addr[len(filler):]
+                    self._profile["address"] = addr.strip().title()
                     self.current_stage = "build_system"
                     opener = _pick(["Awesome, we have fantastic coverage in your area.",
                                     "Great news — we have great coverage out there.",
