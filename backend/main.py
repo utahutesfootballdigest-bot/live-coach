@@ -577,13 +577,20 @@ def _extract_email(text: str) -> str:
                     "yeah it's ", "yes it's ", "yeah ", "yes ", "sure it's "]:
         if t.startswith(filler):
             t = t[len(filler):]
-    # Fix common speech-to-text splits: "g mail" -> "gmail", "hot mail" -> "hotmail"
+    # Fix common speech-to-text splits and stutters
     t = t.replace("g mail", "gmail").replace("hot mail", "hotmail")
     t = t.replace("out look", "outlook").replace("ya hoo", "yahoo")
+    # Fix stutters: "g gmail" -> "gmail", "y yahoo" -> "yahoo"
+    t = t.replace("g gmail", "gmail").replace("y yahoo", "yahoo")
+    t = t.replace("h hotmail", "hotmail").replace("o outlook", "outlook")
     # Replace spoken email patterns
     t = t.replace(" at ", "@").replace(" dot ", ".")
     # Remove remaining spaces (email has no spaces)
     result = t.replace(" ", "")
+    # Final dedup: "ggmail" -> "gmail", "yyahoo" -> "yahoo"
+    for domain in ["gmail", "yahoo", "hotmail", "outlook", "aol"]:
+        while domain[0] + domain in result:
+            result = result.replace(domain[0] + domain, domain)
     return result if "@" in result else text.strip()
 
 
@@ -1135,9 +1142,16 @@ class Session:
                 self.coach._topics_done.discard(topic)
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} custom: {topic}")
 
-        # If checking, just silently update the checklist — no guidance change
+        # If checking, update checklist AND show the next unchecked item
         if checked:
             await self.send_checklist()
+            # Show next prompt so the rep always knows what to ask next
+            next_prompt = _fallback_next_step(self.current_stage, self.coach)
+            if next_prompt:
+                if self.coach and self.coach.customer_name:
+                    next_prompt = next_prompt.replace("[NAME]", self.coach.customer_name)
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                 "next_step": next_prompt})
             return
 
         # If unchecking, show the prompt for the unchecked item directly
