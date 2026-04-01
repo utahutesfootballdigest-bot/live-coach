@@ -270,10 +270,6 @@ document.getElementById("end-btn").addEventListener("click", () => {
   stopAudioCapture();
 });
 
-document.getElementById("go-back-btn").addEventListener("click", () => {
-  send({ action: "go_back" });
-});
-
 document.getElementById("practice-btn").addEventListener("click", () => {
   if (!micStream) return;
   document.getElementById("setup-status").textContent = "Starting practice session...";
@@ -291,7 +287,8 @@ function handleMessage(msg) {
     case "score_update":    handleScoreUpdate(msg); break;
     case "roleplay_mode":   handleRoleplayMode(msg.active); break;
     case "roleplay_speech": handleRoleplaySpeech(msg); break;
-    case "call_guidance":   handleCallGuidance(msg); break;
+    case "call_guidance":      handleCallGuidance(msg); break;
+    case "checklist_update":   handleChecklistUpdate(msg); break;
   }
 }
 
@@ -598,10 +595,107 @@ function handleRoleplaySpeech(msg) {
 
 const STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "recap", "closing"];
 
+// ── Stage Checklist ──────────────────────────────────────────────────────
+const STAGE_CHECKLIST = {
+  discovery: [
+    { key: "why_security",      label: "What has you looking into security?" },
+    { key: "had_system_before",  label: "Have you ever had a security system before?" },
+    { key: "who_protecting",     label: "Who all are we looking to protect?" },
+  ],
+  collect_info: [
+    { key: "full_name",     label: "Full name" },
+    { key: "phone_number",  label: "Phone number" },
+    { key: "email",         label: "Email" },
+    { key: "address",       label: "Address" },
+  ],
+  build_system: [
+    { key: "door_sensors",   label: "Door sensors" },
+    { key: "window_sensors", label: "Window sensors" },
+    { key: "extra_equip",    label: "Motion / glass break / CO detector" },
+    { key: "indoor_camera",  label: "Free indoor camera" },
+    { key: "outdoor_camera", label: "Outdoor / doorbell camera" },
+    { key: "panel_hub",      label: "Panel, hub, & cellular backup" },
+    { key: "yard_sign",      label: "Yard sign, stickers, & smartphone access" },
+  ],
+  closing: [
+    { key: "no_contract",   label: "No contract — month to month" },
+    { key: "monthly_price", label: "Monthly monitoring ($29.99 → $32.99)" },
+    { key: "equip_total",   label: "Equipment total & discounts" },
+    { key: "trial_60",      label: "60-day risk-free trial" },
+  ],
+};
+
+let _currentChecklist = {};  // key → boolean
+
+function renderChecklist(stage) {
+  const container = document.getElementById("stage-checklist");
+  const items = STAGE_CHECKLIST[stage];
+  if (!items) {
+    container.style.display = "none";
+    return;
+  }
+  container.innerHTML = "";
+  container.style.display = "flex";
+
+  items.forEach(({ key, label }) => {
+    const checked = !!_currentChecklist[key];
+    const row = document.createElement("label");
+    row.className = "checklist-item" + (checked ? " checked" : "");
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = checked;
+    cb.addEventListener("change", () => {
+      const nowChecked = cb.checked;
+      _currentChecklist[key] = nowChecked;
+      row.classList.toggle("checked", nowChecked);
+      // Tell backend the rep toggled this topic
+      send({ action: "toggle_topic", topic: key, checked: nowChecked });
+    });
+
+    const lbl = document.createElement("span");
+    lbl.className = "checklist-label";
+    lbl.textContent = label;
+
+    row.appendChild(cb);
+    row.appendChild(lbl);
+    container.appendChild(row);
+  });
+}
+
+function handleChecklistUpdate(msg) {
+  // Backend sends { type: "checklist_update", topics: { key: bool, ... } }
+  if (msg.topics) {
+    Object.assign(_currentChecklist, msg.topics);
+    // Re-render if checklist is visible
+    const container = document.getElementById("stage-checklist");
+    if (container.style.display !== "none" && container.children.length > 0) {
+      // Update checkboxes without full re-render
+      Array.from(container.children).forEach((row) => {
+        const cb = row.querySelector("input[type=checkbox]");
+        if (!cb) return;
+        const key = Object.keys(STAGE_CHECKLIST).reduce((found, stage) => {
+          if (found) return found;
+          const items = STAGE_CHECKLIST[stage];
+          const idx = Array.from(container.children).indexOf(row);
+          return items && items[idx] ? items[idx].key : null;
+        }, null);
+        if (key && _currentChecklist[key] !== undefined) {
+          cb.checked = _currentChecklist[key];
+          row.classList.toggle("checked", _currentChecklist[key]);
+        }
+      });
+    }
+  }
+}
+
+let _currentCallStage = null;
+
 function handleCallGuidance(msg) {
   const { call_stage, opener, next_step } = msg;
 
   if (call_stage) {
+    _currentCallStage = call_stage;
     STAGE_ORDER.forEach((stage) => {
       const el = document.getElementById(`stage-${stage}`);
       if (!el) return;
@@ -611,6 +705,8 @@ function handleCallGuidance(msg) {
       if (idx < activeIdx) el.classList.add("stage-done");
       else if (idx === activeIdx) el.classList.add("stage-active");
     });
+    // Render checklist for this stage
+    renderChecklist(call_stage);
   }
 
   if (opener) {
@@ -625,10 +721,6 @@ function handleCallGuidance(msg) {
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
   }
-
-  // Show the back button whenever guidance is visible
-  const hasGuidance = opener || next_step;
-  document.getElementById("go-back-row").style.display = hasGuidance ? "flex" : "none";
 }
 
 function showCoachingIdle() {
@@ -637,7 +729,9 @@ function showCoachingIdle() {
   document.getElementById("suggestions-list").innerHTML = "";
   document.getElementById("transitions-list").innerHTML = "";
   document.getElementById("score-card").style.display = "none";
-  document.getElementById("go-back-row").style.display = "none";
+  document.getElementById("stage-checklist").style.display = "none";
+  _currentChecklist = {};
+  _currentCallStage = null;
 }
 
 // ── Transcript Download ───────────────────────────────────────────────────

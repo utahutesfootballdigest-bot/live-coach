@@ -639,6 +639,96 @@ class Session:
         await self.send({"type": "status", "state": "idle"})
         await self.send({"type": "roleplay_mode", "active": False})
 
+    # ── Checklist state broadcast ──
+
+    # Maps internal topic/equipment keys to frontend checklist keys
+    _TOPIC_TO_CHECKLIST = {
+        "why_security": "why_security",
+        "had_system_before": "had_system_before",
+        "who_protecting": "who_protecting",
+        "prior_provider": "had_system_before",  # counts as part of "had system"
+        "kids_age": "who_protecting",  # counts as part of "who protecting"
+        "full_name": "full_name",
+        "phone_number": "phone_number",
+        "email": "email",
+        "address": "address",
+    }
+    _EQUIP_TO_CHECKLIST = {
+        "door sensor": "door_sensors",
+        "window sensor": "window_sensors",
+        "motion sensor": "extra_equip",
+        "camera": "indoor_camera",
+        "panel": "panel_hub",
+        "monitoring": "panel_hub",
+        "yard sign": "yard_sign",
+        "smartphone": "yard_sign",
+        "smoke detector": "extra_equip",
+    }
+
+    async def send_checklist(self):
+        """Broadcast current checklist state to the frontend."""
+        if not self.coach:
+            return
+        topics = {}
+        # Discovery + collect_info topics
+        for internal_key, checklist_key in self._TOPIC_TO_CHECKLIST.items():
+            if internal_key in self.coach._topics_done or internal_key in self._collect_info_done:
+                topics[checklist_key] = True
+        # Build system equipment
+        for internal_key, checklist_key in self._EQUIP_TO_CHECKLIST.items():
+            if internal_key in self.coach._equipment_mentioned:
+                topics[checklist_key] = True
+        # Closing items tracked by rep turns in transcript
+        await self.send({"type": "checklist_update", "topics": topics})
+
+    async def toggle_topic(self, topic: str, checked: bool):
+        """Rep manually checked/unchecked a checklist item."""
+        if not self.coach:
+            return
+        # Map frontend key back to internal keys
+        reverse_topic = {v: k for k, v in self._TOPIC_TO_CHECKLIST.items()}
+        reverse_equip = {v: k for k, v in self._EQUIP_TO_CHECKLIST.items()}
+
+        if topic in reverse_topic:
+            internal = reverse_topic[topic]
+            if checked:
+                self.coach._topics_done.add(internal)
+                self._collect_info_done.add(internal)
+            else:
+                self.coach._topics_done.discard(internal)
+                self._collect_info_done.discard(internal)
+                # Also clear bridge sentinels so fallback can re-fire
+                self.coach._topics_done.discard("_discovery_bridge")
+                self.coach._topics_done.discard("_collect_bridge")
+            print(f"[checklist] rep {'checked' if checked else 'unchecked'} topic: {topic} -> {internal}")
+        elif topic in reverse_equip:
+            internal = reverse_equip[topic]
+            if checked:
+                if internal not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append(internal)
+            else:
+                if internal in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.remove(internal)
+                self.coach._topics_done.discard("_build_recap")
+            print(f"[checklist] rep {'checked' if checked else 'unchecked'} equip: {topic} -> {internal}")
+        else:
+            # Closing items or custom keys — just track in topics_done
+            if checked:
+                self.coach._topics_done.add(topic)
+            else:
+                self.coach._topics_done.discard(topic)
+            print(f"[checklist] rep {'checked' if checked else 'unchecked'} custom: {topic}")
+
+        # If unchecking, re-send the right suggestion for this item
+        if not checked:
+            fallback = _fallback_next_step(self.current_stage, self.coach)
+            if fallback:
+                opener = "Let me get that again."
+                if self.coach.customer_name:
+                    fallback = fallback.replace("[NAME]", self.coach.customer_name)
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                 "opener": opener, "next_step": fallback})
+
     # ── Go Back (rep manually rewinds one step) ──
 
     _COLLECT_INFO_SEQUENCE = ["full_name", "phone_number", "email", "address"]
@@ -756,6 +846,7 @@ class Session:
                 self.coach.track_equipment_from_text(cleaned_next)
 
             await self.send({"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next})
+            await self.send_checklist()
 
             if suggestion.get("triggered"):
                 await self.send({"type": "coaching", **suggestion})
@@ -904,6 +995,7 @@ class Session:
 
             if next_step:
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
+                await self.send_checklist()
                 return
 
         # ── Opener ──
@@ -1018,6 +1110,8 @@ async def websocket_endpoint(ws: WebSocket):
                             asyncio.create_task(session._fire_roleplay_response())
                     elif action == "go_back":
                         await session.go_back()
+                    elif action == "toggle_topic":
+                        await session.toggle_topic(msg.get("topic", ""), msg.get("checked", False))
                     elif action == "stop":
                         await session.stop()
                 except Exception:
