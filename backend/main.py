@@ -316,7 +316,8 @@ def _quick_opener(text: str, current_stage: str) -> str:
 
     if current_stage == "collect_info":
         # Check if customer just gave specific info types for a tailored response
-        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", "aol", "outlook", ".com"]):
+        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", "aol", "outlook", ".com", "dot com",
+                                 "at gmail", "at yahoo", "at hotmail", "at aol", "at outlook"]):
             return _pick(["Got it, I have your email.",
                            "Perfect, I've got that email down.",
                            "Alright, email is saved."])
@@ -332,8 +333,7 @@ def _quick_opener(text: str, current_stage: str) -> str:
                        "Perfect, I've got that down.",
                        "Alright, got it.",
                        "Thank you for that.",
-                       "Got it, appreciate that.",
-                       "Okay, I have that."])
+                       "Got it, appreciate that."])
 
     if current_stage == "build_system":
         # Customer gives a number (doors, windows, etc.)
@@ -445,6 +445,77 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
 
 _last_fallback: str = ""  # prevent the same fallback from firing twice in a row
 
+
+def _get_discovery_context(coach) -> dict:
+    """Extract personalization context from discovery phase customer facts."""
+    if not coach or not coach._customer_facts:
+        return {}
+    all_text = " ".join(coach._customer_facts).lower()
+    ctx = {}
+    if any(w in all_text for w in ["little kids", "little ones", "toddler", "three and five",
+                                     "young kids", "small kids", "six and seven", "four and six"]):
+        ctx["kids"] = "little"
+    elif any(w in all_text for w in ["teenager", "thirteen", "fifteen", "seventeen", "sixteen", "fourteen"]):
+        ctx["kids"] = "teens"
+    elif any(w in all_text for w in ["kids", "children", "my son", "my daughter", "kid"]):
+        ctx["kids"] = "kids"
+    if any(w in all_text for w in ["baby", "newborn", "infant", "new baby"]):
+        ctx["baby"] = True
+    if any(w in all_text for w in ["wife", "husband", "spouse", "girlfriend", "boyfriend", "partner"]):
+        ctx["spouse"] = True
+    if any(w in all_text for w in ["dog", "cat", "pet", "dogs", "cats", "pets"]):
+        ctx["pets"] = True
+    if any(w in all_text for w in ["break in", "broken into", "robbery", "burglar", "stolen", "theft"]):
+        ctx["break_in"] = True
+    if any(w in all_text for w in ["travel", "work nights", "night shift", "gone a lot", "away from home",
+                                     "out of town", "not home", "at work"]):
+        ctx["away_often"] = True
+    if any(w in all_text for w in ["just moved", "new house", "new home", "new place", "just bought"]):
+        ctx["just_moved"] = True
+    if any(w in all_text for w in ["live alone", "by myself", "on my own", "just me"]):
+        ctx["lives_alone"] = True
+    return ctx
+
+
+def _personalize_chime(ctx: dict, name: str) -> str:
+    """Generate a personalized chime feature description."""
+    suffix = f", {name}" if name else ""
+    if ctx.get("kids") == "little":
+        return f"With you having little ones, the chime feature is huge — even when the system's unarmed, it'll say 'front door open' every time a door opens. So if one of your kids were to get outside without you knowing, you'd be alerted right away. Crisis averted. Does that make sense{suffix}?"
+    if ctx.get("kids") == "teens":
+        return f"With teenagers in the house, the chime feature is really helpful — even when the system's unarmed, it'll say 'front door open' or 'back door open' anytime someone comes or goes. So if one of your teenagers tries to sneak out, not that they would, you'll know right away. Does that make sense{suffix}?"
+    if ctx.get("baby"):
+        return f"With a baby at home, the chime feature gives you that extra peace of mind — even when the system's unarmed, it'll say 'front door open' anytime someone comes or goes. You'll always know who's entering or leaving. Does that make sense{suffix}?"
+    if ctx.get("spouse") and ctx.get("away_often"):
+        return f"The chime feature is great for when you're away — even when the system's unarmed, it'll say 'front door open' or 'back door open' anytime someone comes or goes. That way you always know what's happening at home. Does that make sense{suffix}?"
+    return f"Now with all those door and window sensors, when the system is armed they'll trigger the alarm. But even when the system is unarmed, they activate the chime feature — so it'll say 'front door open' or 'back door open' anytime someone comes or goes. Does that make sense{suffix}?"
+
+
+def _personalize_camera(ctx: dict, name: str) -> str:
+    """Generate a personalized indoor camera description."""
+    suffix = f", {name}" if name else ""
+    base = "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor."
+    if ctx.get("kids"):
+        return f"{base} With your kids at home, you'll always have eyes and ears on the house — so whether you're at work or running errands, you can check in anytime right from your phone. Does that make sense{suffix}?"
+    if ctx.get("baby"):
+        return f"{base} With a new baby at home, this is perfect — you can check in on them from anywhere, hear what's going on, and even talk through the camera. Does that make sense{suffix}?"
+    if ctx.get("away_often"):
+        return f"{base} Since you travel a lot, this is huge — you'll always be able to pull up your camera right on your phone and see what's going on at home no matter where you are. Does that make sense{suffix}?"
+    if ctx.get("lives_alone"):
+        return f"{base} Living on your own, having that extra set of eyes gives you real peace of mind — you can check in on your place from anywhere. Does that make sense{suffix}?"
+    return f"{base} So wherever you are, you'll always have eyes and ears on your home. Does that make sense{suffix}?"
+
+
+def _personalize_panel(ctx: dict, name: str) -> str:
+    """Generate a personalized panel/hub description."""
+    suffix = f", {name}" if name else ""
+    base = "I'm also going to get you the hub — that's the brain of the system that connects everything. It runs on cellular, so even if your power or Wi-Fi goes down, your home is still protected 24/7 with police, medical, and fire support. And you'll get a 7-inch color touchscreen panel to navigate everything."
+    if ctx.get("kids"):
+        return f"{base} With kids in the house, knowing you've got 24/7 backup even during a power outage is huge. Does that make sense{suffix}?"
+    if ctx.get("break_in"):
+        return f"{base} Given what happened in your neighborhood, having that cellular backup means your home is always protected — even if someone cuts your power or internet. Does that make sense{suffix}?"
+    return f"{base} Does that make sense{suffix}?"
+
 def _fallback_next_step(stage: str, coach) -> str:
     """Generate a stage-appropriate fallback when Claude returns no next_step.
     This prevents the rep from seeing an opener bubble with no follow-up.
@@ -494,27 +565,31 @@ def _fallback_next_step(stage: str, coach) -> str:
 
     elif stage == "build_system":
         equip = coach._equipment_mentioned
+        name = coach.customer_name or ""
+        ctx = _get_discovery_context(coach)
         if "door sensor" not in equip:
             equip.append("door sensor")
             result = "How many doors go in and out of your home?"
         elif "window sensor" not in equip:
             equip.append("window sensor")
             result = "How many windows are on the ground floor of your house that are accessible?"
+        elif "chime" not in equip:
+            equip.append("chime")
+            result = _personalize_chime(ctx, name)
         elif "camera" not in equip:
             equip.append("camera")
-            name = coach.customer_name or ""
-            suffix = f", {name}" if name else ""
-            result = f"I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense{suffix}?"
+            result = _personalize_camera(ctx, name)
         elif "panel" not in equip:
             equip.append("panel")
-            result = "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7. Does that make sense?"
+            result = _personalize_panel(ctx, name)
         elif "yard sign" not in equip:
             equip.append("yard sign")
             equip.append("smartphone")
-            result = "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."
+            result = "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are."
         elif "_build_recap" not in done:
             done.add("_build_recap")
-            result = "Is there anything else you'd like to add to your system?"
+            suffix = f", {name}" if name else ""
+            result = f"Is there anything else you'd like to add to your system{suffix}?"
 
     elif stage == "recap":
         name = coach.customer_name or ""

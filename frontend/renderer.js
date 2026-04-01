@@ -363,7 +363,11 @@ function showSetupScreen() {
 
 // ── Timer ─────────────────────────────────────────────────────────────────
 
+let _timerRunning = false;
+
 function startTimer() {
+  if (_timerRunning) return;  // Don't reset if already running
+  _timerRunning = true;
   callSeconds = 0;
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
@@ -376,6 +380,7 @@ function startTimer() {
 }
 
 function stopTimer() {
+  _timerRunning = false;
   clearInterval(timerInterval);
   document.getElementById("timer").textContent = "00:00:00";
 }
