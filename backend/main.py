@@ -483,7 +483,7 @@ def _stage_transition(stage: str) -> str:
 
 
 def _spoken_to_digits(text: str) -> str:
-    """Convert spoken number words to digit string.
+    """Convert spoken number words to digit string for phone numbers.
     'zero nine three eight' -> '0938', 'eight zero one' -> '801'"""
     _WORD_TO_DIGIT = {
         "zero": "0", "oh": "0", "one": "1", "two": "2", "three": "3",
@@ -496,26 +496,95 @@ def _spoken_to_digits(text: str) -> str:
             result.append(_WORD_TO_DIGIT[word])
         elif word.isdigit():
             result.append(word)
-        # Skip non-digit words
     return "".join(result)
+
+
+def _spoken_numbers_to_numerals(text: str) -> str:
+    """Convert spoken numbers in addresses to numerals.
+    'six five zero east eight hundred south' -> '650 East 800 South'
+    Handles single digits, teens, tens, hundreds."""
+    _ONES = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
+             "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9}
+    _TEENS = {"ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+              "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+              "eighteen": 18, "nineteen": 19}
+    _TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+             "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+    _ALL_NUM_WORDS = set(_ONES) | set(_TEENS) | set(_TENS) | {"hundred", "thousand", "oh"}
+
+    words = text.lower().split()
+    result = []
+    i = 0
+    while i < len(words):
+        w = words[i]
+        if w not in _ALL_NUM_WORDS:
+            result.append(words[i])  # preserve original case from text
+            i += 1
+            continue
+
+        # Accumulate number — concatenate single digits, combine tens+ones
+        digits_str = ""
+        while i < len(words):
+            w = words[i]
+            if w in _ONES:
+                if i + 1 < len(words) and words[i + 1] == "hundred":
+                    digits_str += str(_ONES[w] * 100)
+                    i += 2
+                else:
+                    digits_str += str(_ONES[w])
+                    i += 1
+            elif w == "oh":
+                digits_str += "0"
+                i += 1
+            elif w in _TEENS:
+                digits_str += str(_TEENS[w])
+                i += 1
+            elif w in _TENS:
+                val = _TENS[w]
+                # Check if next word is a ones digit (e.g., "twenty three" = 23)
+                if i + 1 < len(words) and words[i + 1] in _ONES:
+                    val += _ONES[words[i + 1]]
+                    i += 2
+                else:
+                    i += 1
+                digits_str += str(val)
+            elif w == "hundred" and digits_str:
+                # standalone "hundred" after digits
+                digits_str += "00"
+                i += 1
+            elif w == "thousand" and digits_str:
+                digits_str += "000"
+                i += 1
+            else:
+                break
+        result.append(digits_str)
+
+    # Title-case non-number words
+    final = []
+    for r in result:
+        if r.isdigit():
+            final.append(r)
+        else:
+            final.append(r.capitalize() if r.lower() not in ("n", "s", "e", "w") else r.upper())
+    return " ".join(final)
 
 
 def _extract_email(text: str) -> str:
     """Extract email from spoken text like 'joe at gmail dot com'."""
     t = text.lower().strip()
-    # Replace spoken email patterns
-    t = t.replace(" at ", "@").replace(" dot ", ".")
-    # Remove filler
-    for filler in ["my email is ", "it's ", "it is ", "yeah ", "yes "]:
+    # Remove filler prefixes first
+    for filler in ["my email is ", "email is ", "the email is ", "it's ", "it is ",
+                    "yeah it's ", "yes it's ", "yeah ", "yes ", "sure it's "]:
         if t.startswith(filler):
             t = t[len(filler):]
-    # Remove spaces around @ and .
-    parts = t.split()
-    result = ""
-    for p in parts:
-        if "@" in p or "." in p or p.isalnum():
-            result += p
-    return result.strip() if "@" in result else text.strip()
+    # Fix common speech-to-text splits: "g mail" -> "gmail", "hot mail" -> "hotmail"
+    t = t.replace("g mail", "gmail").replace("hot mail", "hotmail")
+    t = t.replace("out look", "outlook").replace("ya hoo", "yahoo")
+    # Replace spoken email patterns
+    t = t.replace(" at ", "@").replace(" dot ", ".")
+    # Remove remaining spaces (email has no spaces)
+    result = t.replace(" ", "")
+    return result if "@" in result else text.strip()
 
 
 def _extract_name(text: str) -> str:
@@ -892,6 +961,7 @@ class Session:
 
     # Maps internal topic/equipment keys to frontend checklist keys
     _TOPIC_TO_CHECKLIST = {
+        "existing_customer": "existing_customer",
         "why_security": "why_security",
         "had_system_before": "had_system_before",
         "who_protecting": "who_protecting",
@@ -1382,12 +1452,14 @@ class Session:
             elif "address" not in self._collect_info_done:
                 if _has_address:
                     self._collect_info_done.add("address")
-                    # Clean up address — capitalize words, remove filler
+                    # Clean up address — remove filler, convert spoken numbers
                     addr = text.strip()
-                    for filler in ["the address is ", "it is ", "it's ", "this is ", "we're at ", "i'm at "]:
+                    for filler in ["the address is ", "address is ", "it is ", "it's ",
+                                   "this is ", "we're at ", "i'm at ", "yeah it's ",
+                                   "yeah ", "yes "]:
                         if addr.lower().startswith(filler):
                             addr = addr[len(filler):]
-                    self._profile["address"] = addr.strip().title()
+                    self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     self.current_stage = "build_system"
                     opener = _pick(["Awesome, we have fantastic coverage in your area.",
                                     "Great news — we have great coverage out there.",
