@@ -606,13 +606,16 @@ const STAGE_CHECKLIST = {
     { key: "why_security",      label: "What has you looking into security?" },
     { key: "had_system_before",  label: "Have you ever had a security system before?" },
     { key: "who_protecting",     label: "Who all are we looking to protect?" },
+    { key: "kids_age",           label: "Little kids or teenagers?" },
     { key: "on_website",         label: "Are you on the Cove website?" },
+    { key: "_section_discovery", label: "--- DISCOVERY COMPLETE ---", section: true },
   ],
   collect_info: [
     { key: "full_name",     label: "Full name" },
     { key: "phone_number",  label: "Phone number" },
     { key: "email",         label: "Email" },
     { key: "address",       label: "Address" },
+    { key: "_section_collect_info", label: "--- INFO COMPLETE ---", section: true },
   ],
   build_system: [
     { key: "door_sensors",   label: "Door sensors" },
@@ -622,6 +625,12 @@ const STAGE_CHECKLIST = {
     { key: "outdoor_camera", label: "Outdoor / doorbell camera" },
     { key: "panel_hub",      label: "Panel, hub, & cellular backup" },
     { key: "yard_sign",      label: "Yard sign, stickers, & smartphone access" },
+    { key: "_section_build_system", label: "--- BUILD COMPLETE ---", section: true },
+  ],
+  recap: [
+    { key: "recap_done",     label: "Recap all equipment with customer" },
+    { key: "anything_else",  label: "\"Anything else you'd like to add?\"" },
+    { key: "_section_recap", label: "--- RECAP COMPLETE ---", section: true },
   ],
   closing: [
     { key: "no_contract",       label: "No contract — month to month" },
@@ -630,7 +639,7 @@ const STAGE_CHECKLIST = {
     { key: "monthly_price",      label: "Monthly: $29.99 first 6 mo → $32.99 after" },
     { key: "equip_total",        label: "Equipment total with discounts" },
     { key: "ask_commitment",     label: "\"Does that work for you, [name]?\"" },
-    { key: "guide_checkout",     label: "Guide through checkout (email, address, password)" },
+    { key: "guide_checkout",     label: "Guide through checkout" },
     { key: "order_confirmed",    label: "Order confirmed — welcome to Cove!" },
   ],
 };
@@ -652,10 +661,10 @@ function renderChecklist(stage) {
   // Update stage pill highlights to show which one we're viewing
   updateStagePillViewState();
 
-  items.forEach(({ key, label }) => {
+  items.forEach(({ key, label, section }) => {
     const checked = !!_currentChecklist[key];
     const row = document.createElement("label");
-    row.className = "checklist-item" + (checked ? " checked" : "");
+    row.className = "checklist-item" + (checked ? " checked" : "") + (section ? " section-complete" : "");
     row.dataset.key = key;
 
     const cb = document.createElement("input");
@@ -670,6 +679,14 @@ function renderChecklist(stage) {
       transcriptLog.push({ speaker: "system", text: `[REP ${action}: ${label}]` });
       // Tell backend the rep toggled this topic
       send({ action: "toggle_topic", topic: key, checked: nowChecked });
+      // If this is a section-complete checkbox, advance to next stage
+      if (section && nowChecked) {
+        const curIdx = STAGE_ORDER.indexOf(stage);
+        if (curIdx >= 0 && curIdx < STAGE_ORDER.length - 1) {
+          const nextStage = STAGE_ORDER[curIdx + 1];
+          send({ action: "advance_stage", stage: nextStage });
+        }
+      }
     });
 
     const lbl = document.createElement("span");

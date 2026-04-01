@@ -446,6 +446,18 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
 _last_fallback: str = ""  # prevent the same fallback from firing twice in a row
 
 
+def _stage_transition(stage: str) -> str:
+    """Return a natural transition opener when moving to a new stage."""
+    transitions = {
+        "discovery": "Let me learn a little more about your situation.",
+        "collect_info": "I'm just going to get some information from you before we start building out the system.",
+        "build_system": "OK let's dive right in and start building this out.",
+        "recap": "Let me quickly recap everything we've got for you.",
+        "closing": "Awesome — let me see what I can do for you on the pricing.",
+    }
+    return transitions.get(stage, "")
+
+
 def _customer_mentioned_kids(coach) -> bool:
     """Check if customer mentioned kids but hasn't specified ages yet."""
     if not coach or not coach._customer_facts:
@@ -802,8 +814,8 @@ class Session:
         "had_system_before": "had_system_before",
         "who_protecting": "who_protecting",
         "on_website": "on_website",
+        "kids_age": "kids_age",
         "prior_provider": "had_system_before",  # counts as part of "had system"
-        "kids_age": "who_protecting",  # counts as part of "who protecting"
         "full_name": "full_name",
         "phone_number": "phone_number",
         "email": "email",
@@ -923,6 +935,11 @@ class Session:
             "ask_commitment": ("closing", "Does that sound like it will work for you?"),
             "guide_checkout": ("closing", "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side."),
             "order_confirmed": ("closing", "Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — usually 3 to 7 business days."),
+            # Discovery extras
+            "kids_age": ("discovery", "Are we talking about little kids or teenagers?"),
+            # Recap
+            "recap_done": ("recap", "Let me quickly recap what I have for you — [list equipment]. Personally I believe we've got you fully protected."),
+            "anything_else": ("recap", "Is there anything else you were hoping I could add?"),
         }
 
         if topic in _ALL_PROMPTS:
@@ -1368,6 +1385,19 @@ async def websocket_endpoint(ws: WebSocket):
                             session.rep_buffer.extend(session.pending_rep_buffer)
                             session.pending_rep_buffer.clear()
                             asyncio.create_task(session._fire_roleplay_response())
+                    elif action == "advance_stage":
+                        new_stage = msg.get("stage", "")
+                        if new_stage in _STAGE_ORDER:
+                            session.current_stage = new_stage
+                            print(f"[stage] rep advanced to: {new_stage}")
+                            # Show the first suggestion for the new stage
+                            fallback = _fallback_next_step(new_stage, session.coach)
+                            if fallback and session.coach and session.coach.customer_name:
+                                fallback = fallback.replace("[NAME]", session.coach.customer_name)
+                            transition = _stage_transition(new_stage)
+                            await session.send({"type": "call_guidance", "call_stage": new_stage,
+                                                "opener": transition, "next_step": fallback or ""})
+                            await session.send_checklist()
                     elif action == "go_back":
                         await session.go_back()
                     elif action == "toggle_topic":

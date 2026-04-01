@@ -644,6 +644,20 @@ html, body {
   text-decoration: line-through;
   text-decoration-color: rgba(255, 255, 255, 0.15);
 }
+.checklist-item.section-complete {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.checklist-item.section-complete .checklist-label {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.checklist-item.section-complete.checked .checklist-label {
+  color: rgba(62, 190, 176, 0.4);
+}
 
 /* ── Next Step Card ──────────────────────────────────────────────────────── */
 .opener-card {
