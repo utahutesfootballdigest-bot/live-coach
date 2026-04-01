@@ -166,8 +166,18 @@ def _pick(options: list[str]) -> str:
     return choice
 
 
-def _quick_opener(text: str, current_stage: str) -> str:
+def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str:
     t = text.lower().strip()
+    _last_rep = last_rep_text.lower() if last_rep_text else ""
+
+    # ── Context-aware: if rep just asked about website, short "no" = not on website ──
+    if _last_rep and any(w in _last_rep for w in ["website", "covesmart", "cove smart", "the site"]):
+        if t in ("no", "no sir", "no ma'am", "nope", "not yet", "no not yet", "no i'm not",
+                 "no not right now", "not right now", "should i be", "no should i"):
+            return "No problem! Could you go ahead and pull up covesmart.com so I can walk you through the process?"
+        if any(w in t for w in ["yes", "yeah", "yep", "i'm on", "i am on", "pulled it up", "i have it"]):
+            return _pick(["Awesome! I'll walk you through the whole thing.",
+                           "Perfect! So you can see everything as we go through it."])
 
     # ── Context guard: during discovery, if the customer is describing a prior
     # system, don't let "monthly", "bill", "contract", "expensive" etc. trigger
@@ -646,7 +656,7 @@ _CHECKLIST_PROMPTS = {
     "why_security": "What has you looking into security? Did something happen, did you just move, what's going on?",
     "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
     "kids_age": "Are we talking about little kids or teenagers?",
-    "on_website": "Are you currently on the Cove website?",
+    "on_website": "Are you currently on the Cove website? If not — no problem, go ahead and pull up covesmart.com so I can walk you through the process.",
     # Collect info
     "full_name": "Could you please spell your first and last name for me?",
     "phone_number": "And what's your best phone number?",
@@ -1344,7 +1354,14 @@ class Session:
         _skip_opener = self.current_stage in ("intro",)
         if speaker == "customer" and not self.opener_shown and self.coach is not None and not _skip_opener:
             if is_final and speech_final:
-                opener = _quick_opener(text, self.current_stage)
+                # Get last rep text for context-aware openers (e.g., website question)
+                _last_rep = ""
+                if self.coach and self.coach._history:
+                    for h in reversed(self.coach._history):
+                        if h["speaker"] == "rep":
+                            _last_rep = h["text"]
+                            break
+                opener = _quick_opener(text, self.current_stage, _last_rep)
                 self.opener_shown = True
                 self.coach.set_opener(opener)
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener})
