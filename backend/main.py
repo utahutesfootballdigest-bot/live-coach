@@ -636,121 +636,94 @@ def _personalize_panel(ctx: dict, name: str) -> str:
         return f"{base} Given what happened in your neighborhood, having that cellular backup means your home is always protected — even if someone cuts your power or internet. Does that make sense{suffix}?"
     return f"{base} Does that make sense{suffix}?"
 
+
+# Master prompt table — maps checklist keys to their script lines.
+# This is the single source of truth for what the Then box should show.
+_CHECKLIST_PROMPTS = {
+    # Discovery
+    "existing_customer": "Are you already a Cove customer, or are you looking to get a security system?",
+    "had_system_before": "Have you ever had a security system before?",
+    "why_security": "What has you looking into security? Did something happen, did you just move, what's going on?",
+    "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
+    "kids_age": "Are we talking about little kids or teenagers?",
+    "on_website": "Are you currently on the Cove website?",
+    # Collect info
+    "full_name": "Could you please spell your first and last name for me?",
+    "phone_number": "And what's your best phone number?",
+    "email": "And your email so I can send all this information over to you?",
+    "address": "What's the address you're looking to get the security set up at?",
+    # Build system
+    "door_sensors": "How many doors go in and out of your home?",
+    "window_sensors": "How many windows are on the ground floor of your house that are accessible?",
+    "extra_equip": "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
+    "indoor_camera": None,  # uses personalization — filled dynamically
+    "outdoor_camera": "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
+    "panel_hub": None,  # uses personalization — filled dynamically
+    "yard_sign": "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are.",
+    # Recap
+    "recap_done": "Let me quickly recap what I have for you. Personally I believe we've got you fully protected — is there anything else you were hoping I could add?",
+    # Closing
+    "closing_pitch": ("It looks like I'm going to be able to get you a lot of extra discounts here. "
+                      "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
+                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. "
+                      "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund."),
+    "closing_pricing": ("On the monthly monitoring, for the first six months it'll just be $29.99 per month. "
+                        "After that, it goes to the standard rate of $32.99. "
+                        "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."),
+    "closing_commitment": "Does that sound like it will work for you?",
+    "closing_checkout": "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side.",
+    "closing_welcome": ("Congratulations and welcome to the Cove family! "
+                        "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
+                        "If you need a technician, we have a third-party service starting at $129. "
+                        "And if you have home insurance, request an alarm certificate from us for a discount. "
+                        "Is there anything else I can help you with?"),
+}
+
+# Ordered checklist keys per stage — defines the sequence items should be covered
+_STAGE_ITEM_ORDER = {
+    "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
+    "collect_info": ["full_name", "phone_number", "email", "address"],
+    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign"],
+    "recap": ["recap_done"],
+    "closing": ["closing_pitch", "closing_pricing", "closing_commitment", "closing_checkout", "closing_welcome"],
+}
+
+
 def _fallback_next_step(stage: str, coach) -> str:
-    """Generate a stage-appropriate fallback when Claude returns no next_step.
-    This prevents the rep from seeing an opener bubble with no follow-up.
-    IMPORTANT: marks topics/equipment as done so the fallback never re-asks."""
+    """Find the first unchecked item in the current stage and return its prompt.
+    Simple, predictable, always gives the rep the right next question."""
     global _last_fallback
     if not coach:
         return ""
 
     done = coach._topics_done
-    result = ""
+    items = _STAGE_ITEM_ORDER.get(stage, [])
+    name = coach.customer_name or ""
+    ctx = _get_discovery_context(coach)
 
-    if stage == "discovery":
-        if "why_security" not in done:
-            done.add("why_security")
-            result = "What has you looking into security? Did something happen, or did you just decide it was time?"
-        elif "had_system_before" not in done:
-            done.add("had_system_before")
-            result = "Have you ever had a security system before?"
-        elif "who_protecting" not in done:
-            done.add("who_protecting")
-            result = "Who are we looking to protect — is it just you or is there anyone else living there with you?"
-        elif "kids_age" not in done and _customer_mentioned_kids(coach):
-            done.add("kids_age")
-            result = "Are we talking about little kids or teenagers?"
-        elif "on_website" not in done:
-            done.add("on_website")
-            result = "Are you currently on the Cove website?"
-        elif "_discovery_bridge" not in done:
-            # All discovery done → bridge to collect_info with proper transition
-            done.add("_discovery_bridge")
-            done.add("full_name")
-            result = "I'm just going to get some information from you before we start building out the system. Could you please spell your first and last name for me?"
+    for key in items:
+        # Skip kids_age if no kids mentioned
+        if key == "kids_age" and not _customer_mentioned_kids(coach):
+            continue
+        if key not in done:
+            prompt = _CHECKLIST_PROMPTS.get(key, "")
+            # Dynamic personalization for certain build_system items
+            if key == "indoor_camera":
+                prompt = _personalize_camera(ctx, name)
+            elif key == "panel_hub":
+                prompt = _personalize_panel(ctx, name)
+            elif prompt and name:
+                prompt = prompt.replace("[NAME]", name)
+            if prompt:
+                # Prevent same fallback twice in a row
+                if prompt == _last_fallback:
+                    return ""
+                _last_fallback = prompt
+                return prompt
 
-    elif stage == "collect_info":
-        if "full_name" not in done:
-            done.add("full_name")
-            result = "Could you please spell your first and last name for me?"
-        elif "phone_number" not in done:
-            done.add("phone_number")
-            result = "And what's your best phone number?"
-        elif "email" not in done:
-            done.add("email")
-            result = "And your email so I can send all this information over to you?"
-        elif "address" not in done:
-            done.add("address")
-            result = "What's the address you're looking to get the security set up at?"
-        elif "_collect_bridge" not in done:
-            done.add("_collect_bridge")
-            result = "Let's go ahead and build your system. How many doors go in and out of your home?"
-
-    elif stage == "build_system":
-        equip = coach._equipment_mentioned
-        name = coach.customer_name or ""
-        ctx = _get_discovery_context(coach)
-        if "door sensor" not in equip:
-            equip.append("door sensor")
-            result = "How many doors go in and out of your home?"
-        elif "window sensor" not in equip:
-            equip.append("window sensor")
-            result = "How many windows are on the ground floor of your house that are accessible?"
-        elif "chime" not in equip:
-            equip.append("chime")
-            result = _personalize_chime(ctx, name)
-        elif "camera" not in equip:
-            equip.append("camera")
-            result = _personalize_camera(ctx, name)
-        elif "panel" not in equip:
-            equip.append("panel")
-            result = _personalize_panel(ctx, name)
-        elif "yard sign" not in equip:
-            equip.append("yard sign")
-            equip.append("smartphone")
-            result = "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are."
-
-    elif stage == "recap":
-        name = coach.customer_name or ""
-        suffix = f", {name}" if name else ""
-        if "_recap_ask" not in done:
-            done.add("_recap_ask")
-            result = f"Is there anything else you were hoping I could add{suffix}?"
-
-    elif stage == "closing":
-        name = coach.customer_name or ""
-        suffix = f", {name}" if name else ""
-        # Closing is a monologue — 3 sections flow together without waiting for responses
-        if "closing_pitch" not in done:
-            done.add("closing_pitch")
-            result = ("It looks like I'm going to be able to get you a lot of extra discounts here. "
-                      "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
-                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. "
-                      "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund.")
-        elif "closing_pricing" not in done:
-            done.add("closing_pricing")
-            result = ("On the monthly monitoring, for the first six months it'll just be $29.99 per month. "
-                      "After that, it goes to the standard rate of $32.99. "
-                      "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price.")
-        elif "closing_commitment" not in done:
-            done.add("closing_commitment")
-            result = f"Does that sound like it will work for you{suffix}?"
-        elif "closing_checkout" not in done:
-            done.add("closing_checkout")
-            result = f"Go ahead and put your payment info in{suffix}. Let me know once you've placed the order and I'll confirm on my side."
-        elif "closing_welcome" not in done:
-            done.add("closing_welcome")
-            result = (f"Congratulations and welcome to the Cove family{suffix}! "
-                      "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
-                      "Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. "
-                      "And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount. "
-                      "Is there anything else I can help you with?")
-
-    # Prevent exact same fallback from firing twice in a row
-    if result and result == _last_fallback:
-        return ""
-    _last_fallback = result
-    return result
+    # All items done — return empty (Then box will be empty, which is fine
+    # since the rep should click section-complete to advance)
+    return ""
 
 
 # ── Per-connection session ────────────────────────────────────────────────
@@ -899,7 +872,8 @@ class Session:
 
     # Which checklist keys belong to which stage
     _STAGE_FOR_KEY = {
-        "why_security": "discovery", "had_system_before": "discovery",
+        "existing_customer": "discovery", "why_security": "discovery",
+        "had_system_before": "discovery",
         "who_protecting": "discovery", "kids_age": "discovery", "on_website": "discovery",
         "full_name": "collect_info", "phone_number": "collect_info",
         "email": "collect_info", "address": "collect_info",
@@ -1050,40 +1024,10 @@ class Session:
             return
 
         # If unchecking, show the prompt for the unchecked item directly
-        _ALL_PROMPTS = {
-            # Discovery
-            "why_security": ("discovery", "What has you looking into security? Did something happen, or did you just decide it was time?"),
-            "had_system_before": ("discovery", "Have you ever had a security system before?"),
-            "who_protecting": ("discovery", "Who are we looking to protect — is it just you or is there anyone else living there with you?"),
-            "on_website": ("discovery", "Are you currently on the Cove website?"),
-            # Collect info
-            "full_name": ("collect_info", "Could you please spell your first and last name for me?"),
-            "phone_number": ("collect_info", "And what's your best phone number?"),
-            "email": ("collect_info", "And your email so I can send all this information over to you?"),
-            "address": ("collect_info", "What's the address you're looking to get the security set up at?"),
-            # Build system
-            "door_sensors": ("build_system", "How many doors go in and out of your home?"),
-            "window_sensors": ("build_system", "How many windows are on the ground floor of your house that are accessible?"),
-            "extra_equip": ("build_system", "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?"),
-            "indoor_camera": ("build_system", "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense?"),
-            "outdoor_camera": ("build_system", "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?"),
-            "panel_hub": ("build_system", "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7."),
-            "yard_sign": ("build_system", "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."),
-            # Closing
-            "closing_pitch": ("closing", "It looks like I'm going to be able to get you a lot of extra discounts here. First, here at Cove we have no contracts — it's completely month to month. We don't charge anything for installation — everything is wireless, ships right to you, takes about 20 minutes to set up. And we have a 60-day risk-free trial — if it's not the right fit, full refund."),
-            "closing_pricing": ("closing", "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to $32.99. And the equipment — with all the discounts today, I'm gonna get your total down to a great price."),
-            "closing_commitment": ("closing", "Does that sound like it will work for you?"),
-            "closing_checkout": ("closing", "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side."),
-            "closing_welcome": ("closing", "Congratulations and welcome to the Cove family! Tracking info ships in 3-7 business days. Technician available at $129 if needed. And request an alarm certificate for a home insurance discount."),
-            # Discovery extras
-            "kids_age": ("discovery", "Are we talking about little kids or teenagers?"),
-            # Recap
-            "recap_done": ("recap", "Let me quickly recap what I have for you — [list equipment]. Personally I believe we've got you fully protected."),
-            "anything_else": ("recap", "Is there anything else you were hoping I could add?"),
-        }
-
-        if topic in _ALL_PROMPTS:
-            stage_for_item, prompt = _ALL_PROMPTS[topic]
+        # Use the master prompt table — single source of truth
+        prompt = _CHECKLIST_PROMPTS.get(topic, "")
+        stage_for_item = self._STAGE_FOR_KEY.get(topic, self.current_stage)
+        if prompt:
             if self.coach and self.coach.customer_name:
                 prompt = prompt.replace("[NAME]", self.coach.customer_name)
             await self.send({"type": "call_guidance", "call_stage": stage_for_item,
@@ -1194,10 +1138,8 @@ class Session:
                 cleaned_next = _fallback_next_step(new_stage, self.coach)
                 if cleaned_next:
                     suggestion["next_step"] = cleaned_next
-                else:
-                    # All items done in this stage — prompt to move on
-                    cleaned_next = f"All {new_stage.replace('_', ' ')} items covered — check off the section to move forward."
-                    suggestion["next_step"] = cleaned_next
+                # If fallback is empty, don't show anything — the rep will
+                # click section-complete when ready to advance.
 
             if self.coach and self.coach.customer_name and cleaned_next:
                 cleaned_next = cleaned_next.replace("[NAME]", self.coach.customer_name)

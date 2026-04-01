@@ -604,8 +604,9 @@ const STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "reca
 // ── Stage Checklist ──────────────────────────────────────────────────────
 const STAGE_CHECKLIST = {
   discovery: [
-    { key: "why_security",      label: "What has you looking into security?" },
+    { key: "existing_customer",  label: "New customer or existing?" },
     { key: "had_system_before",  label: "Have you ever had a security system before?" },
+    { key: "why_security",       label: "What has you looking into security?" },
     { key: "who_protecting",     label: "Who all are we looking to protect?" },
     { key: "kids_age",           label: "Little kids or teenagers?", conditional: true },
     { key: "on_website",         label: "Are you on the Cove website?" },
