@@ -523,6 +523,36 @@ def _personalize_camera(ctx: dict, name: str) -> str:
     return f"{base} So wherever you are, you'll always have eyes and ears on your home. Does that make sense{suffix}?"
 
 
+def _inject_personalization(text: str, coach) -> str:
+    """Post-process Claude's output to add personalization if it's generic.
+    Checks if the text mentions chime/camera/panel without personalizing."""
+    ctx = _get_discovery_context(coach)
+    if not ctx:
+        return text
+    t_lower = text.lower()
+    name = coach.customer_name or ""
+
+    # If text mentions chime/door sensor but doesn't reference kids/family/baby
+    if ("chime" in t_lower or "front door open" in t_lower) and ctx.get("kids"):
+        # Check if already personalized
+        if not any(w in t_lower for w in ["little ones", "teenagers", "kids", "children", "baby", "your son", "your daughter"]):
+            if ctx["kids"] == "little":
+                text += " This way if your kids get outside without you knowing about it, you'll be alerted right away. Crisis averted."
+            elif ctx["kids"] == "teens":
+                text += " So if one of your teenagers tries to sneak out, not that they would, you'll know right away."
+
+    # If text mentions camera but doesn't reference family context
+    if ("indoor camera" in t_lower or "eyes and ears" in t_lower) and not any(w in t_lower for w in ["kids", "children", "baby", "little", "family", "travel", "work"]):
+        if ctx.get("kids"):
+            text += " With your kids at home, you'll always be able to check in on them from anywhere."
+        elif ctx.get("baby"):
+            text += " With a new baby, this is perfect — you can check in from anywhere."
+        elif ctx.get("away_often"):
+            text += " Since you're away from home a lot, you'll always know what's going on."
+
+    return text
+
+
 def _personalize_panel(ctx: dict, name: str) -> str:
     """Generate a personalized panel/hub description."""
     suffix = f", {name}" if name else ""
@@ -1025,6 +1055,10 @@ class Session:
             if self.coach and self.coach.customer_name and cleaned_next:
                 cleaned_next = cleaned_next.replace("[NAME]", self.coach.customer_name)
                 suggestion["next_step"] = cleaned_next
+
+            # Personalize Claude's output if it mentions equipment generically
+            if cleaned_next and self.coach and new_stage == "build_system":
+                cleaned_next = _inject_personalization(cleaned_next, self.coach)
 
             # P1 FIX: Trim overly long suggestions so the rep can read them
             # P2 FIX: Remove "$____" placeholders that Claude sometimes outputs
