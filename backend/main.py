@@ -859,8 +859,12 @@ class Session:
                 self.coach._topics_done.discard(topic)
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} custom: {topic}")
 
+        # If checking, just silently update the checklist — no guidance change
+        if checked:
+            await self.send_checklist()
+            return
+
         # If unchecking, show the prompt for the unchecked item directly
-        if not checked:
             # Find which stage this topic belongs to and get its prompt
             prompt = self._COLLECT_INFO_PROMPTS.get(topic, "")
             stage_for_item = self.current_stage
@@ -910,8 +914,10 @@ class Session:
             if prompt:
                 if self.coach and self.coach.customer_name:
                     prompt = prompt.replace("[NAME]", self.coach.customer_name)
+                # Only update the Then box — no Say First, so we don't flood
+                # the opener bubble when the rep is rapidly toggling checkboxes
                 await self.send({"type": "call_guidance", "call_stage": stage_for_item,
-                                 "opener": "Let me get that again.", "next_step": prompt})
+                                 "next_step": prompt})
                 await self.send_checklist()
 
     # ── Go Back (rep manually rewinds one step) ──
