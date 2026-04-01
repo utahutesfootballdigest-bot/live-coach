@@ -151,9 +151,7 @@ _session_used_openers: set[str] = set()
 
 def _reset_opener_tracking():
     """Call when a new session starts."""
-    global _last_fallback
     _session_used_openers.clear()
-    _last_fallback = ""
 
 def _pick(options: list[str]) -> str:
     available = [o for o in options if o not in _session_used_openers]
@@ -467,7 +465,6 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
     return truncated
 
 
-_last_fallback: str = ""  # prevent the same fallback from firing twice in a row
 
 
 def _stage_transition(stage: str) -> str:
@@ -815,7 +812,6 @@ _STAGE_ITEM_ORDER = {
 def _fallback_next_step(stage: str, coach) -> str:
     """Find the first unchecked item in the current stage and return its prompt.
     Simple, predictable, always gives the rep the right next question."""
-    global _last_fallback
     if not coach:
         return ""
 
@@ -838,14 +834,8 @@ def _fallback_next_step(stage: str, coach) -> str:
             elif prompt and name:
                 prompt = prompt.replace("[NAME]", name)
             if prompt:
-                # Prevent same fallback twice in a row
-                if prompt == _last_fallback:
-                    return ""
-                _last_fallback = prompt
                 return prompt
 
-    # All items done — return empty (Then box will be empty, which is fine
-    # since the rep should click section-complete to advance)
     return ""
 
 
