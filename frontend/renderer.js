@@ -606,7 +606,7 @@ const STAGE_CHECKLIST = {
     { key: "why_security",      label: "What has you looking into security?" },
     { key: "had_system_before",  label: "Have you ever had a security system before?" },
     { key: "who_protecting",     label: "Who all are we looking to protect?" },
-    { key: "kids_age",           label: "Little kids or teenagers?" },
+    { key: "kids_age",           label: "Little kids or teenagers?", conditional: true },
     { key: "on_website",         label: "Are you on the Cove website?" },
     { key: "_section_discovery", label: "--- DISCOVERY COMPLETE ---", section: true },
   ],
@@ -661,7 +661,11 @@ function renderChecklist(stage) {
   // Update stage pill highlights to show which one we're viewing
   updateStagePillViewState();
 
-  items.forEach(({ key, label, section }) => {
+  items.forEach(({ key, label, section, conditional }) => {
+    // Conditional items only show when they're relevant (checked or flagged)
+    if (conditional && !_currentChecklist[key] && !_currentChecklist["_show_" + key]) {
+      return;  // hide this item
+    }
     const checked = !!_currentChecklist[key];
     const row = document.createElement("label");
     row.className = "checklist-item" + (checked ? " checked" : "") + (section ? " section-complete" : "");

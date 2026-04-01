@@ -835,25 +835,58 @@ class Session:
         "chime": "door_sensors",  # chime is part of door/window sensor pitch
     }
 
+    # Which checklist keys belong to which stage
+    _STAGE_FOR_KEY = {
+        "why_security": "discovery", "had_system_before": "discovery",
+        "who_protecting": "discovery", "kids_age": "discovery", "on_website": "discovery",
+        "full_name": "collect_info", "phone_number": "collect_info",
+        "email": "collect_info", "address": "collect_info",
+        "door_sensors": "build_system", "window_sensors": "build_system",
+        "extra_equip": "build_system", "indoor_camera": "build_system",
+        "outdoor_camera": "build_system", "panel_hub": "build_system",
+        "yard_sign": "build_system",
+        "recap_done": "recap", "anything_else": "recap",
+        "no_contract": "closing", "wireless_install": "closing",
+        "trial_60": "closing", "monthly_price": "closing",
+        "equip_total": "closing", "ask_commitment": "closing",
+        "guide_checkout": "closing", "order_confirmed": "closing",
+    }
+
     async def send_checklist(self):
         """Broadcast current checklist state to the frontend.
-        Respects rep overrides — if the rep unchecked an item, don't re-check it
-        until the rep explicitly checks it again."""
+        Only sends items for the current stage and completed stages.
+        Respects rep overrides."""
         if not self.coach:
             return
+
+        # Determine which stages are allowed (current + all before it)
+        cur_idx = _STAGE_ORDER.index(self.current_stage) if self.current_stage in _STAGE_ORDER else 0
+        allowed_stages = set(_STAGE_ORDER[:cur_idx + 1])
+
         topics = {}
         # Discovery + collect_info topics
         for internal_key, checklist_key in self._TOPIC_TO_CHECKLIST.items():
             if checklist_key in self._rep_overrides:
-                continue  # rep said this isn't done — respect that
+                continue
+            stage_for = self._STAGE_FOR_KEY.get(checklist_key)
+            if stage_for and stage_for not in allowed_stages:
+                continue  # don't check items in future stages
             if internal_key in self.coach._topics_done or internal_key in self._collect_info_done:
                 topics[checklist_key] = True
         # Build system equipment
         for internal_key, checklist_key in self._EQUIP_TO_CHECKLIST.items():
             if checklist_key in self._rep_overrides:
-                continue  # rep said this isn't done — respect that
+                continue
+            stage_for = self._STAGE_FOR_KEY.get(checklist_key)
+            if stage_for and stage_for not in allowed_stages:
+                continue
             if internal_key in self.coach._equipment_mentioned:
                 topics[checklist_key] = True
+
+        # Show kids_age checkbox only when kids are mentioned
+        if _customer_mentioned_kids(self.coach) or "kids_age" in self.coach._topics_done:
+            topics["_show_kids_age"] = True
+
         await self.send({"type": "checklist_update", "topics": topics})
 
     async def toggle_topic(self, topic: str, checked: bool):
