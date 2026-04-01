@@ -626,6 +626,7 @@ const STAGE_CHECKLIST = {
 };
 
 let _currentChecklist = {};  // key → boolean
+let _viewingStage = null;    // which stage's checklist is shown (may differ from active stage)
 
 function renderChecklist(stage) {
   const container = document.getElementById("stage-checklist");
@@ -634,13 +635,18 @@ function renderChecklist(stage) {
     container.style.display = "none";
     return;
   }
+  _viewingStage = stage;
   container.innerHTML = "";
   container.style.display = "flex";
+
+  // Update stage pill highlights to show which one we're viewing
+  updateStagePillViewState();
 
   items.forEach(({ key, label }) => {
     const checked = !!_currentChecklist[key];
     const row = document.createElement("label");
     row.className = "checklist-item" + (checked ? " checked" : "");
+    row.dataset.key = key;
 
     const cb = document.createElement("input");
     cb.type = "checkbox";
@@ -649,6 +655,9 @@ function renderChecklist(stage) {
       const nowChecked = cb.checked;
       _currentChecklist[key] = nowChecked;
       row.classList.toggle("checked", nowChecked);
+      // Log to transcript
+      const action = nowChecked ? "checked" : "unchecked";
+      transcriptLog.push({ speaker: "system", text: `[REP ${action}: ${label}]` });
       // Tell backend the rep toggled this topic
       send({ action: "toggle_topic", topic: key, checked: nowChecked });
     });
@@ -663,24 +672,38 @@ function renderChecklist(stage) {
   });
 }
 
+function updateStagePillViewState() {
+  STAGE_ORDER.forEach((stage) => {
+    const el = document.getElementById(`stage-${stage}`);
+    if (!el) return;
+    el.classList.toggle("stage-viewing", stage === _viewingStage && stage !== _currentCallStage);
+  });
+}
+
 function handleChecklistUpdate(msg) {
   // Backend sends { type: "checklist_update", topics: { key: bool, ... } }
   if (msg.topics) {
+    // Detect what the AI changed and log it
+    for (const [key, val] of Object.entries(msg.topics)) {
+      if (val && !_currentChecklist[key]) {
+        // AI just checked this off — find the label
+        for (const stage of Object.values(STAGE_CHECKLIST)) {
+          const item = stage.find(i => i.key === key);
+          if (item) {
+            transcriptLog.push({ speaker: "system", text: `[AI checked: ${item.label}]` });
+            break;
+          }
+        }
+      }
+    }
     Object.assign(_currentChecklist, msg.topics);
-    // Re-render if checklist is visible
+    // Update visible checkboxes if checklist is showing
     const container = document.getElementById("stage-checklist");
-    if (container.style.display !== "none" && container.children.length > 0) {
-      // Update checkboxes without full re-render
+    if (container.style.display !== "none") {
       Array.from(container.children).forEach((row) => {
         const cb = row.querySelector("input[type=checkbox]");
-        if (!cb) return;
-        const key = Object.keys(STAGE_CHECKLIST).reduce((found, stage) => {
-          if (found) return found;
-          const items = STAGE_CHECKLIST[stage];
-          const idx = Array.from(container.children).indexOf(row);
-          return items && items[idx] ? items[idx].key : null;
-        }, null);
-        if (key && _currentChecklist[key] !== undefined) {
+        const key = row.dataset.key;
+        if (cb && key && _currentChecklist[key] !== undefined) {
           cb.checked = _currentChecklist[key];
           row.classList.toggle("checked", _currentChecklist[key]);
         }
@@ -690,6 +713,17 @@ function handleChecklistUpdate(msg) {
 }
 
 let _currentCallStage = null;
+
+// Make stage pills clickable — rep can click any done/active stage to view its checklist
+STAGE_ORDER.forEach((stage) => {
+  const el = document.getElementById(`stage-${stage}`);
+  if (!el) return;
+  el.addEventListener("click", () => {
+    // Only allow clicking stages that have a checklist
+    if (!STAGE_CHECKLIST[stage]) return;
+    renderChecklist(stage);
+  });
+});
 
 function handleCallGuidance(msg) {
   const { call_stage, opener, next_step } = msg;
@@ -705,8 +739,11 @@ function handleCallGuidance(msg) {
       if (idx < activeIdx) el.classList.add("stage-done");
       else if (idx === activeIdx) el.classList.add("stage-active");
     });
-    // Render checklist for this stage
-    renderChecklist(call_stage);
+    // Show checklist for active stage (unless rep is viewing a different one)
+    if (!_viewingStage || _viewingStage === call_stage || !document.getElementById("stage-checklist").children.length) {
+      renderChecklist(call_stage);
+    }
+    updateStagePillViewState();
   }
 
   if (opener) {
@@ -732,6 +769,7 @@ function showCoachingIdle() {
   document.getElementById("stage-checklist").style.display = "none";
   _currentChecklist = {};
   _currentCallStage = null;
+  _viewingStage = null;
 }
 
 // ── Transcript Download ───────────────────────────────────────────────────
@@ -740,9 +778,10 @@ function downloadTranscript() {
   if (!transcriptLog.length) return;
   const now = new Date();
   const stamp = now.toISOString().slice(0, 19).replace(/[T:]/g, "-");
-  const lines = transcriptLog.map(t =>
-    `${t.speaker.toUpperCase()}: ${t.text}`
-  );
+  const lines = transcriptLog.map(t => {
+    if (t.speaker === "system") return `  ${t.text}`;
+    return `${t.speaker.toUpperCase()}: ${t.text}`;
+  });
   const content = `Call Transcript — ${now.toLocaleString()}\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
   const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
