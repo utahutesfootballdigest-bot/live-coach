@@ -628,8 +628,7 @@ const STAGE_CHECKLIST = {
     { key: "_section_build_system", label: "--- BUILD COMPLETE ---", section: true },
   ],
   recap: [
-    { key: "recap_done",     label: "Recap all equipment with customer" },
-    { key: "anything_else",  label: "\"Anything else you'd like to add?\"" },
+    { key: "recap_done",     label: "Recap equipment + \"Anything else to add?\"" },
     { key: "_section_recap", label: "--- RECAP COMPLETE ---", section: true },
   ],
   closing: [

@@ -220,6 +220,17 @@ def _quick_opener(text: str, current_stage: str) -> str:
                        "I hear that all the time. We'll make sure you have peace of mind no matter where you are.",
                        "That's exactly why the smartphone access is huge — you'll see everything from your phone."])
 
+    # ── Website response ──
+
+    if any(w in t for w in ["not on the website", "not on the site", "should i be", "i'm not on",
+                             "haven't pulled it up", "no i'm not", "not yet", "not on it"]):
+        return "No problem! Could you go ahead and pull up covesmart.com so I can walk you through the process?"
+    if any(w in t for w in ["i'm on the website", "i'm on it", "i have it pulled up", "i have it up",
+                             "yes i'm on", "yeah i'm on", "i got it pulled up", "i'm looking at it",
+                             "i'm on the site", "i'm on cove"]):
+        return _pick(["Awesome! I'll walk you through the whole thing.",
+                       "Perfect! So you can see everything as we go through it."])
+
     # ── Competitor / switching triggers ──
 
     if any(w in t for w in ["vivint", "adt", "simplisafe", "ring", "alder", "brinks", "frontpoint"]):
@@ -601,7 +612,7 @@ def _fallback_next_step(stage: str, coach) -> str:
             result = "Are we talking about little kids or teenagers?"
         elif "on_website" not in done:
             done.add("on_website")
-            result = "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready — I'll walk you through the whole thing."
+            result = "Are you currently on the Cove website?"
         elif "_discovery_bridge" not in done:
             # All discovery done → bridge to collect_info with proper transition
             done.add("_discovery_bridge")
@@ -648,10 +659,6 @@ def _fallback_next_step(stage: str, coach) -> str:
             equip.append("yard sign")
             equip.append("smartphone")
             result = "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are."
-        elif "_build_recap" not in done:
-            done.add("_build_recap")
-            suffix = f", {name}" if name else ""
-            result = f"Is there anything else you'd like to add to your system{suffix}?"
 
     elif stage == "recap":
         name = coach.customer_name or ""
@@ -945,7 +952,7 @@ class Session:
             "why_security": ("discovery", "What has you looking into security? Did something happen, or did you just decide it was time?"),
             "had_system_before": ("discovery", "Have you ever had a security system before?"),
             "who_protecting": ("discovery", "Who are we looking to protect — is it just you or is there anyone else living there with you?"),
-            "on_website": ("discovery", "Are you currently on the Cove website? Go ahead and pull up covesmart.com whenever you're ready."),
+            "on_website": ("discovery", "Are you currently on the Cove website?"),
             # Collect info
             "full_name": ("collect_info", "Could you please spell your first and last name for me?"),
             "phone_number": ("collect_info", "And what's your best phone number?"),
@@ -1204,7 +1211,6 @@ class Session:
                     self.current_stage = "discovery"
                     self.intro_turns = 2
                     self.coach._topics_done.add("existing_customer")
-                    self.coach._topics_done.add("had_system_before")
                     await self.send({"type": "call_guidance", "call_stage": "discovery",
                         "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
                     return
@@ -1215,7 +1221,6 @@ class Session:
             if self.intro_turns == 2:
                 self.current_stage = "discovery"
                 self.coach._topics_done.add("existing_customer")
-                self.coach._topics_done.add("had_system_before")
                 await self.send({"type": "call_guidance", "call_stage": "discovery",
                     "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
                 return
