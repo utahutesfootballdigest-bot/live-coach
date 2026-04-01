@@ -151,7 +151,9 @@ _session_used_openers: set[str] = set()
 
 def _reset_opener_tracking():
     """Call when a new session starts."""
+    global _last_fallback
     _session_used_openers.clear()
+    _last_fallback = ""
 
 def _pick(options: list[str]) -> str:
     available = [o for o in options if o not in _session_used_openers]
@@ -441,73 +443,88 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
     return truncated
 
 
+_last_fallback: str = ""  # prevent the same fallback from firing twice in a row
+
 def _fallback_next_step(stage: str, coach) -> str:
     """Generate a stage-appropriate fallback when Claude returns no next_step.
     This prevents the rep from seeing an opener bubble with no follow-up.
     IMPORTANT: marks topics/equipment as done so the fallback never re-asks."""
+    global _last_fallback
     if not coach:
         return ""
 
     done = coach._topics_done
+    result = ""
 
     if stage == "discovery":
-        # Find first unanswered discovery topic
         if "why_security" not in done:
             done.add("why_security")
-            return "What has you looking into security? Did something happen, or did you just decide it was time?"
-        if "had_system_before" not in done:
+            result = "What has you looking into security? Did something happen, or did you just decide it was time?"
+        elif "had_system_before" not in done:
             done.add("had_system_before")
-            return "Have you ever had a security system before?"
-        if "who_protecting" not in done:
+            result = "Have you ever had a security system before?"
+        elif "who_protecting" not in done:
             done.add("who_protecting")
-            return "Who are we looking to protect — is it just you or is there anyone else living there with you?"
-        # All discovery done → bridge to collect_info
-        done.add("full_name")
-        return "Let me get some information from you before we start building out the system. Could you please spell your first and last name for me?"
+            result = "Who are we looking to protect — is it just you or is there anyone else living there with you?"
+        elif "_discovery_bridge" not in done:
+            # All discovery done → bridge to collect_info (fire only once)
+            done.add("_discovery_bridge")
+            done.add("full_name")
+            result = "Let me get some information from you before we start building out the system. Could you please spell your first and last name for me?"
 
-    if stage == "collect_info":
+    elif stage == "collect_info":
         if "full_name" not in done:
             done.add("full_name")
-            return "Could you please spell your first and last name for me?"
-        if "phone_number" not in done:
+            result = "Could you please spell your first and last name for me?"
+        elif "phone_number" not in done:
             done.add("phone_number")
-            return "And what's your best phone number?"
-        if "email" not in done:
+            result = "And what's your best phone number?"
+        elif "email" not in done:
             done.add("email")
-            return "And your email so I can send all this information over to you?"
-        if "address" not in done:
+            result = "And your email so I can send all this information over to you?"
+        elif "address" not in done:
             done.add("address")
-            return "What's the address you're looking to get the security set up at?"
-        return "Let's go ahead and build your system. How many doors go in and out of your home?"
+            result = "What's the address you're looking to get the security set up at?"
+        elif "_collect_bridge" not in done:
+            done.add("_collect_bridge")
+            result = "Let's go ahead and build your system. How many doors go in and out of your home?"
 
-    if stage == "build_system":
+    elif stage == "build_system":
         equip = coach._equipment_mentioned
         if "door sensor" not in equip:
             equip.append("door sensor")
-            return "How many doors go in and out of your home?"
-        if "window sensor" not in equip:
+            result = "How many doors go in and out of your home?"
+        elif "window sensor" not in equip:
             equip.append("window sensor")
-            return "How many windows are on the ground floor of your house that are accessible?"
-        if "camera" not in equip:
+            result = "How many windows are on the ground floor of your house that are accessible?"
+        elif "camera" not in equip:
             equip.append("camera")
             name = coach.customer_name or ""
             suffix = f", {name}" if name else ""
-            return f"I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense{suffix}?"
-        if "panel" not in equip:
+            result = f"I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense{suffix}?"
+        elif "panel" not in equip:
             equip.append("panel")
-            return "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7. Does that make sense?"
-        if "yard sign" not in equip:
+            result = "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7. Does that make sense?"
+        elif "yard sign" not in equip:
             equip.append("yard sign")
             equip.append("smartphone")
-            return "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."
-        return "Is there anything else you'd like to add to your system?"
+            result = "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."
+        elif "_build_recap" not in done:
+            done.add("_build_recap")
+            result = "Is there anything else you'd like to add to your system?"
 
-    if stage in ("recap", "closing"):
+    elif stage in ("recap", "closing"):
         name = coach.customer_name or ""
         suffix = f", {name}" if name else ""
-        return f"Does that sound like it will work for you{suffix}?"
+        if "_closing_ask" not in done:
+            done.add("_closing_ask")
+            result = f"Does that sound like it will work for you{suffix}?"
 
-    return ""
+    # Prevent exact same fallback from firing twice in a row
+    if result and result == _last_fallback:
+        return ""
+    _last_fallback = result
+    return result
 
 
 # ── Per-connection session ────────────────────────────────────────────────
