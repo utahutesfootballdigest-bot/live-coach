@@ -469,6 +469,7 @@ class CoachingEngine:
         "door sensor": ["door sensor", "door sensors"],
         "window sensor": ["window sensor", "window sensors"],
         "camera": ["camera", "indoor camera"],
+        "outdoor camera": ["outdoor camera", "doorbell camera", "solar camera", "solar powered"],
         "panel": ["panel", "touchscreen", "touch screen"],
         "monitoring": ["monitoring", "24/7", "police fire"],
         "chime": ["chime", "chime feature"],
