@@ -443,7 +443,8 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
 
 def _fallback_next_step(stage: str, coach) -> str:
     """Generate a stage-appropriate fallback when Claude returns no next_step.
-    This prevents the rep from seeing an opener bubble with no follow-up."""
+    This prevents the rep from seeing an opener bubble with no follow-up.
+    IMPORTANT: marks topics/equipment as done so the fallback never re-asks."""
     if not coach:
         return ""
 
@@ -452,38 +453,52 @@ def _fallback_next_step(stage: str, coach) -> str:
     if stage == "discovery":
         # Find first unanswered discovery topic
         if "why_security" not in done:
+            done.add("why_security")
             return "What has you looking into security? Did something happen, or did you just decide it was time?"
         if "had_system_before" not in done:
+            done.add("had_system_before")
             return "Have you ever had a security system before?"
         if "who_protecting" not in done:
+            done.add("who_protecting")
             return "Who are we looking to protect — is it just you or is there anyone else living there with you?"
         # All discovery done → bridge to collect_info
+        done.add("full_name")
         return "Let me get some information from you before we start building out the system. Could you please spell your first and last name for me?"
 
     if stage == "collect_info":
         if "full_name" not in done:
+            done.add("full_name")
             return "Could you please spell your first and last name for me?"
         if "phone_number" not in done:
+            done.add("phone_number")
             return "And what's your best phone number?"
         if "email" not in done:
+            done.add("email")
             return "And your email so I can send all this information over to you?"
         if "address" not in done:
+            done.add("address")
             return "What's the address you're looking to get the security set up at?"
         return "Let's go ahead and build your system. How many doors go in and out of your home?"
 
     if stage == "build_system":
         equip = coach._equipment_mentioned
         if "door sensor" not in equip:
+            equip.append("door sensor")
             return "How many doors go in and out of your home?"
         if "window sensor" not in equip:
+            equip.append("window sensor")
             return "How many windows are on the ground floor of your house that are accessible?"
         if "camera" not in equip:
+            equip.append("camera")
             name = coach.customer_name or ""
             suffix = f", {name}" if name else ""
             return f"I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor. Does that make sense{suffix}?"
         if "panel" not in equip:
+            equip.append("panel")
             return "I'm also going to get you the hub and a 7-inch touchscreen panel — it runs on cellular, so even if your power or Wi-Fi goes down, you're still protected 24/7. Does that make sense?"
         if "yard sign" not in equip:
+            equip.append("yard sign")
+            equip.append("smartphone")
             return "I'm also going to throw in a free yard sign and window stickers — plus you'll have full smartphone access to control everything from your phone."
         return "Is there anything else you'd like to add to your system?"
 
@@ -629,6 +644,13 @@ class Session:
 
             self.opener_shown = False
             raw_next = suggestion.get("next_step", "")
+
+            if raw_next:
+                # Check if Claude is re-asking a question already covered
+                repeated = self.coach.check_repeated_topic(raw_next) if self.coach else None
+                if repeated:
+                    print(f"[coach] BLOCKED repeated topic '{repeated}' in next_step, using fallback")
+                    raw_next = ""  # fall through to fallback
 
             if raw_next:
                 opener_used = self.coach._last_opener if self.coach else ""

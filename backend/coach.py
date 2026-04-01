@@ -315,9 +315,9 @@ QUESTION_TOPICS = {
         "output_detect": ["who did you have", "who were you with", "anything you liked", "previous system"],
     },
     "who_protecting": {
-        "rep_asks": ["who are we protecting", "who all are we", "who lives", "anyone else living", "kids or pets", "just you or"],
+        "rep_asks": ["who are we protecting", "who all are we", "who lives", "anyone else living", "kids or pets", "just you or", "who are we looking to protect"],
         "customer_answers": ["my wife", "my husband", "my kids", "my children", "my son", "my daughter", "just me", "my family", "my dogs", "my cat", "live alone", "by myself"],
-        "output_detect": ["who are we protecting", "who all are we", "who lives", "kids or pets", "anyone else living"],
+        "output_detect": ["who are we protecting", "who all are we", "who lives", "kids or pets", "anyone else living", "who are we looking to protect"],
     },
     "kids_age": {
         "rep_asks": ["little kids or teenager", "how old are", "ages of your kids"],
@@ -358,9 +358,9 @@ QUESTION_TOPICS = {
         "output_detect": ["phone number", "best number", "reach you at"],
     },
     "email": {
-        "rep_asks": ["email address", "email for you", "good email", "best email"],
+        "rep_asks": ["email address", "email for you", "good email", "best email", "your email", "and your email"],
         "customer_answers": ["@", "dot com", "gmail", "yahoo", "hotmail", "outlook"],
-        "output_detect": ["email address", "email for you", "good email", "best email"],
+        "output_detect": ["email address", "email for you", "good email", "best email", "your email", "and your email"],
     },
     "address": {
         "rep_asks": ["address", "where are we setting", "where are you looking to get"],
@@ -441,12 +441,17 @@ class CoachingEngine:
             # Try to extract customer's first name
             if not self.customer_name:
                 t_lower = text.lower()
+                # Common words that follow "I'm" but are NOT names
+                _NOT_NAMES = {"fine", "good", "great", "well", "ok", "okay", "alright",
+                              "doing", "interested", "looking", "calling", "here", "ready",
+                              "not", "just", "also", "really", "very", "so", "the", "me"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
                         after = text[t_lower.index(prefix) + len(prefix):].strip()
                         first_word = after.split()[0] if after.split() else ""
-                        # Basic validation: capitalize, skip very short or non-alpha
-                        if len(first_word) >= 2 and first_word.isalpha():
+                        # Basic validation: capitalize, skip very short or non-alpha or common words
+                        if (len(first_word) >= 2 and first_word.isalpha()
+                                and first_word.lower() not in _NOT_NAMES):
                             self.customer_name = first_word.capitalize()
                             print(f"[coach] customer name detected: {self.customer_name}")
                         break
@@ -470,6 +475,8 @@ class CoachingEngine:
         Only blocks if the next_step is actually asking the question (contains a question
         phrase), not just referencing the topic in a statement."""
         t = next_step.lower()
+        # Check entire text for question indicators (? can be far from the key phrase)
+        has_question_mark = "?" in t
         for topic in self._topics_done:
             rules = QUESTION_TOPICS.get(topic)
             if not rules:
@@ -477,11 +484,10 @@ class CoachingEngine:
             for phrase in rules["output_detect"]:
                 if phrase in t:
                     # Make sure it's actually a question, not a statement referencing the topic.
-                    # Check if the phrase appears near a question mark or question words.
                     idx = t.index(phrase)
-                    surrounding = t[max(0, idx - 20):idx + len(phrase) + 30]
-                    is_question = any(qw in surrounding for qw in [
-                        "?", "what ", "who ", "how ", "have you", "did you", "are you",
+                    surrounding = t[max(0, idx - 20):idx + len(phrase) + 60]
+                    is_question = has_question_mark or any(qw in surrounding for qw in [
+                        "what ", "who ", "how ", "have you", "did you", "are you",
                         "tell me", "let me ask", "could you",
                     ])
                     if is_question:
