@@ -451,7 +451,7 @@ def _stage_transition(stage: str) -> str:
     transitions = {
         "discovery": "Let me learn a little more about your situation.",
         "collect_info": "I'm just going to get some information from you before we start building out the system.",
-        "build_system": "OK let's dive right in and start building this out.",
+        "build_system": "We do have fantastic coverage in your area, so I can definitely help you out. Let's go ahead and build your system.",
         "recap": "Let me quickly recap everything we've got for you.",
         "closing": "Awesome — let me see what I can do for you on the pricing.",
     }

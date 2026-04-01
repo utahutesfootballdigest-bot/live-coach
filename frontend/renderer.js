@@ -685,11 +685,11 @@ function renderChecklist(stage) {
       send({ action: "toggle_topic", topic: key, checked: nowChecked });
       // If this is a section-complete checkbox, advance to next stage
       if (section && nowChecked) {
-        const curIdx = STAGE_ORDER.indexOf(stage);
-        if (curIdx >= 0 && curIdx < STAGE_ORDER.length - 1) {
-          const nextStage = STAGE_ORDER[curIdx + 1];
-          send({ action: "advance_stage", stage: nextStage });
-        }
+        _advanceToNextStage(stage);
+      }
+      // Auto-advance: if all non-section, non-conditional-hidden items are checked, advance
+      if (nowChecked && !section) {
+        _checkAutoAdvance(stage);
       }
     });
 
@@ -701,6 +701,35 @@ function renderChecklist(stage) {
     row.appendChild(lbl);
     container.appendChild(row);
   });
+}
+
+function _advanceToNextStage(stage) {
+  const curIdx = STAGE_ORDER.indexOf(stage);
+  if (curIdx >= 0 && curIdx < STAGE_ORDER.length - 1) {
+    const nextStage = STAGE_ORDER[curIdx + 1];
+    send({ action: "advance_stage", stage: nextStage });
+  }
+}
+
+function _checkAutoAdvance(stage) {
+  // Check if all visible non-section items in this stage are checked
+  const items = STAGE_CHECKLIST[stage];
+  if (!items) return;
+  const allDone = items.every(({ key, section, conditional }) => {
+    if (section) return true;  // skip the section-complete item
+    if (conditional && !_currentChecklist[key] && !_currentChecklist["_show_" + key]) return true;  // hidden conditional
+    return !!_currentChecklist[key];
+  });
+  if (allDone) {
+    // Auto-check the section-complete item and advance
+    const sectionItem = items.find(i => i.section);
+    if (sectionItem && !_currentChecklist[sectionItem.key]) {
+      _currentChecklist[sectionItem.key] = true;
+      transcriptLog.push({ speaker: "system", text: `[AUTO: ${stage} complete]` });
+      send({ action: "toggle_topic", topic: sectionItem.key, checked: true });
+      _advanceToNextStage(stage);
+    }
+  }
 }
 
 function updateStagePillViewState() {
@@ -739,6 +768,10 @@ function handleChecklistUpdate(msg) {
           row.classList.toggle("checked", _currentChecklist[key]);
         }
       });
+      // Check if AI checking items completed a stage
+      if (_currentCallStage) {
+        _checkAutoAdvance(_currentCallStage);
+      }
     }
   }
 }
