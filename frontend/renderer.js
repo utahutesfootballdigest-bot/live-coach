@@ -994,19 +994,19 @@ async function showInsights() {
       const btn = document.getElementById("run-analysis-btn");
       const status = document.getElementById("analysis-status");
       if (btn) btn.disabled = true;
-      if (status) status.textContent = "Running analysis...";
+      if (status) { status.textContent = "Running analysis (may take 30-60s)..."; status.style.color = "var(--accent)"; }
       try {
         const r = await fetch("/api/run-analysis", { method: "POST" });
         const result = await r.json();
         if (result.ok) {
-          if (status) status.textContent = "Done! Refreshing...";
+          if (status) { status.textContent = "Done! Refreshing..."; status.style.color = "#4ade80"; }
           setTimeout(() => showInsights(), 500);
         } else {
-          if (status) status.textContent = `Error: ${result.error || "unknown"}`;
+          if (status) { status.textContent = `Error: ${result.error || "unknown"}`; status.style.color = "#f87171"; }
           if (btn) btn.disabled = false;
         }
       } catch (err) {
-        if (status) status.textContent = `Error: ${err.message}`;
+        if (status) { status.textContent = `Error: ${err.message}`; status.style.color = "#f87171"; }
         if (btn) btn.disabled = false;
       }
     });

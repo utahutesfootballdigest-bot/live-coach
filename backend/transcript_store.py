@@ -232,7 +232,7 @@ async def _run_analysis(api_key: str | None = None):
 
     print(f"[analysis] analyzing {len(transcripts)} transcripts...")
     try:
-        async with httpx.AsyncClient(timeout=60) as http:
+        async with httpx.AsyncClient(timeout=120) as http:
             resp = await http.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
@@ -241,21 +241,26 @@ async def _run_analysis(api_key: str | None = None):
                     "x-api-key": api_key,
                 },
                 json={
-                    "model": "claude-sonnet-4-6",
-                    "max_tokens": 2000,
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 3000,
                     "messages": [{"role": "user", "content": prompt}],
                 },
             )
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                print(f"[analysis] API error {resp.status_code}: {resp.text[:500]}")
+                raise Exception(f"API returned {resp.status_code}: {resp.text[:200]}")
             raw = resp.json()["content"][0]["text"].strip()
+            print(f"[analysis] raw response ({len(raw)} chars): {raw[:200]}")
 
-        # Parse the JSON response
-        # Strip markdown fencing if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-        notes = json.loads(raw)
+        # Parse the JSON response — strip markdown fencing if present
+        cleaned = raw
+        if cleaned.startswith("```"):
+            # Remove first line (```json or ```)
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        notes = json.loads(cleaned)
 
         # Save with metadata
         notes["analyzed_at"] = datetime.now(timezone.utc).isoformat()
@@ -280,9 +285,13 @@ async def _run_analysis(api_key: str | None = None):
               f"{len(notes.get('coaching_additions', []))} additions, "
               f"{len(notes.get('strengths', []))} strengths")
 
+    except json.JSONDecodeError as e:
+        print(f"[analysis] JSON parse error: {e}\nRaw: {raw[:500] if 'raw' in dir() else 'N/A'}")
+        raise
     except Exception as e:
         import traceback
         print(f"[analysis] error: {e}\n{traceback.format_exc()}")
+        raise
 
 
 async def _run_analysis_safe():

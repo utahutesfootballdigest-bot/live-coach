@@ -84,11 +84,14 @@ async def post_feedback(request: Request):
 async def run_analysis_now():
     """Manually trigger analysis — useful for testing or re-running after fixes."""
     from transcript_store import _run_analysis
+    import traceback
     try:
         await _run_analysis()
         return {"ok": True}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        tb = traceback.format_exc()
+        print(f"[api] run-analysis error:\n{tb}")
+        return {"ok": False, "error": f"{e}\n{tb}"}
 
 
 @app.get("/api/insights")
