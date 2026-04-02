@@ -761,6 +761,54 @@ html, body {
   opacity: 0.4;
 }
 
+/* Pricing breakdown */
+.pricing-breakdown {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+.pricing-row-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.pricing-row-price {
+  font-size: 10px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pricing-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+}
+.pricing-total-label {
+  color: var(--accent);
+}
+.pricing-total-price {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pricing-monthly {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.pricing-monthly-highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ── Next Step Card ──────────────────────────────────────────────────────── */
 .opener-card {
   display: flex;

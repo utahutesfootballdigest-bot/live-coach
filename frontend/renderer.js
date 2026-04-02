@@ -290,6 +290,7 @@ function handleMessage(msg) {
     case "call_guidance":      handleCallGuidance(msg); break;
     case "checklist_update":   handleChecklistUpdate(msg); break;
     case "profile_update":     handleProfileUpdate(msg); break;
+    case "pricing_update":     handlePricingUpdate(msg); break;
   }
 }
 
@@ -938,6 +939,45 @@ function renderEquipmentList(equipment) {
     send({ action: "update_profile", field, value });
   });
 });
+
+// ── Pricing ──────────────────────────────────────────────────────────────
+
+function handlePricingUpdate(msg) {
+  const section = document.getElementById("pricing-section");
+  const breakdown = document.getElementById("pricing-breakdown");
+  const totalEl = document.getElementById("pricing-total");
+  const monthlyEl = document.getElementById("pricing-monthly");
+
+  if (!msg.items || !msg.items.length) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  // Line items
+  breakdown.innerHTML = "";
+  msg.items.forEach(item => {
+    if (item.qty <= 0) return;
+    const row = document.createElement("div");
+    row.className = "pricing-row";
+    const label = document.createElement("span");
+    label.className = "pricing-row-label";
+    label.textContent = item.qty > 1 ? `${item.label} x${item.qty}` : item.label;
+    const price = document.createElement("span");
+    price.className = "pricing-row-price";
+    price.textContent = `$${item.line_total.toFixed(2)}`;
+    row.appendChild(label);
+    row.appendChild(price);
+    breakdown.appendChild(row);
+  });
+
+  // Equipment total
+  totalEl.innerHTML = `<span class="pricing-total-label">Equipment Total</span><span class="pricing-total-price">$${msg.equipment_total.toFixed(2)}</span>`;
+
+  // Monthly monitoring
+  monthlyEl.innerHTML = `<span class="pricing-monthly-highlight">$${msg.monthly_promo.toFixed(2)}/mo</span> first ${msg.promo_months} months, then $${msg.monthly_standard.toFixed(2)}/mo`;
+}
 
 // ── Transcript Download ───────────────────────────────────────────────────
 

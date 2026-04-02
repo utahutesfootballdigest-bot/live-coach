@@ -938,10 +938,7 @@ _CHECKLIST_PROMPTS = {
                       "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
                       "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. "
                       "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund."),
-    "closing_pricing": ("On the monthly monitoring, for the first six months it'll just be $29.99 per month. "
-                        "After that, it goes to the standard rate of $32.99. "
-                        "And the equipment — with all the discounts and promotions today, your one-time equipment cost is going to come out to around $150 to $200 depending on what we've built. "
-                        "So does that sound like something that will work for you?"),
+    "closing_pricing": None,  # dynamic — calculated from equipment counts at runtime
     "closing_commitment": "So are you ready to get started? I can walk you through the checkout right now.",
     "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
     "closing_welcome": ("Congratulations and welcome to the Cove family! "
@@ -997,6 +994,60 @@ def _build_context_from_transcript(checked_topic: str, coach) -> str:
     return ""
 
 
+# ── Equipment pricing table (pre-sale prices from covesmart.com) ──────
+_EQUIPMENT_PRICES = {
+    "door_sensors": 16.00,
+    "window_sensors": 16.00,
+    "motion_sensor": 50.00,
+    "glass_break": 50.00,
+    "co_detector": 125.00,
+    "smoke_detector": 95.00,
+    "indoor_camera": 59.99,
+    "outdoor_camera": 159.99,  # solar outdoor camera
+    "doorbell_camera": 99.99,
+    "panel_hub": 250.00,  # hub ($100) + touchscreen panel ($150)
+    "yard_sign": 0.00,  # free
+    "key_fob": 30.00,
+    "panic_button": 30.00,
+    "flood_sensor": 60.00,
+    "secondary_siren": 150.00,
+}
+_MONITORING_PRICES = {
+    "plus": {"promo": 29.99, "standard": 32.99},
+    "basic": {"promo": 17.99, "standard": 22.99},
+}
+_PROMO_MONTHS = 6  # first N months at promo rate
+
+
+def _calculate_equipment_total(session) -> float:
+    """Calculate the total one-time equipment cost from session's equipment counts."""
+    total = 0.0
+    for key, qty in session._equipment_counts.items():
+        if qty > 0 and key in _EQUIPMENT_PRICES:
+            total += _EQUIPMENT_PRICES[key] * qty
+    # Panel + hub is always included
+    if "panel_hub" not in session._equipment_counts or session._equipment_counts.get("panel_hub", 0) > 0:
+        if "panel_hub" not in session._equipment_counts:
+            total += _EQUIPMENT_PRICES["panel_hub"]
+    return total
+
+
+def _build_pricing_prompt(session) -> str:
+    """Build a dynamic closing pricing prompt with real equipment totals."""
+    total = _calculate_equipment_total(session)
+    name = session.coach.customer_name if session.coach else ""
+    suffix = f", {name}" if name else ""
+
+    return (
+        f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
+        f"${_MONITORING_PRICES['plus']['promo']:.2f} per month. "
+        f"After that, it goes to the standard rate of ${_MONITORING_PRICES['plus']['standard']:.2f}. "
+        f"And the equipment — with all the discounts and promotions today, "
+        f"your one-time equipment cost is going to come out to ${total:.2f}{suffix}. "
+        f"So does that sound like something that will work for you?"
+    )
+
+
 def _build_recap_prompt(session) -> str:
     """Build a dynamic recap prompt from the equipment list."""
     counts = session._equipment_counts
@@ -1050,6 +1101,9 @@ def _fallback_next_step(stage: str, coach, session=None) -> str:
             # Dynamic recap from equipment list
             if key == "recap_done" and session:
                 prompt = _build_recap_prompt(session)
+            # Dynamic pricing from equipment counts
+            elif key == "closing_pricing" and session:
+                prompt = _build_pricing_prompt(session)
             # Dynamic personalization for certain build_system items
             elif key == "indoor_camera":
                 prompt = _personalize_camera(ctx, name)
@@ -1327,6 +1381,31 @@ class Session:
     async def send_profile(self):
         """Broadcast current customer profile to the frontend."""
         await self.send({"type": "profile_update", **self._profile})
+
+    async def send_pricing(self):
+        """Broadcast current pricing breakdown to the frontend."""
+        items = []
+        for key, qty in self._equipment_counts.items():
+            if qty > 0 and key in _EQUIPMENT_PRICES:
+                price = _EQUIPMENT_PRICES[key]
+                label = key.replace("_", " ").title()
+                items.append({"key": key, "label": label, "qty": qty,
+                              "unit_price": price, "line_total": price * qty})
+        # Always include panel+hub if not explicitly set to 0
+        if "panel_hub" not in self._equipment_counts or self._equipment_counts.get("panel_hub", 0) > 0:
+            if not any(i["key"] == "panel_hub" for i in items):
+                items.append({"key": "panel_hub", "label": "Panel + Hub",
+                              "qty": 1, "unit_price": _EQUIPMENT_PRICES["panel_hub"],
+                              "line_total": _EQUIPMENT_PRICES["panel_hub"]})
+        equipment_total = sum(i["line_total"] for i in items)
+        await self.send({
+            "type": "pricing_update",
+            "items": items,
+            "equipment_total": equipment_total,
+            "monthly_promo": _MONITORING_PRICES["plus"]["promo"],
+            "monthly_standard": _MONITORING_PRICES["plus"]["standard"],
+            "promo_months": _PROMO_MONTHS,
+        })
 
     async def update_profile_field(self, field: str, value: str):
         """Rep edited a profile field."""
@@ -1626,6 +1705,7 @@ class Session:
             # Update profile equipment list
             self._profile["equipment"] = self._build_equipment_list()
             await self.send_profile()
+            await self.send_pricing()
 
             if suggestion.get("triggered"):
                 await self.send({"type": "coaching", **suggestion})
@@ -1853,6 +1933,7 @@ class Session:
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
                 await self.send_checklist()
                 await self.send_profile()
+                await self.send_pricing()
                 return
             else:
                 # Customer said something during collect_info that didn't match
@@ -2027,6 +2108,7 @@ class Session:
                 self._profile["equipment"] = self._build_equipment_list()
                 await self.send_checklist()
                 await self.send_profile()
+                await self.send_pricing()
                 return
 
             # Unhandled customer response — still suppress Claude, re-show current prompt
