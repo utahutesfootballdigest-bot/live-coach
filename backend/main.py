@@ -980,7 +980,19 @@ class Session:
         await self.send({"type": "status", "state": "recording"})
         await self.send({"type": "roleplay_mode", "active": True})
 
-        opening = await self.roleplay_customer.opening_line()
+        try:
+            opening = await self.roleplay_customer.opening_line()
+            print(f"[roleplay] opening line: {opening[:80]}")
+        except Exception as e:
+            import traceback
+            print(f"[roleplay] opening_line FAILED: {e}\n{traceback.format_exc()}")
+            opening = "Hi, yeah I'm calling about getting a home security system."
+            # Seed roleplay history so responses still work
+            self.roleplay_customer._history = [
+                {"role": "user", "content": "You just called Cove Smart security. Give your short, natural opening line as the customer."},
+                {"role": "assistant", "content": opening},
+            ]
+
         audio_b64 = await _tts(opening, self.roleplay_customer.voice)
         if audio_b64:
             self.tts_active = True
