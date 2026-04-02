@@ -94,6 +94,26 @@ async def run_analysis_now():
         return {"ok": False, "error": f"{e}\n{tb}"}
 
 
+@app.get("/api/transcripts/download")
+async def download_transcripts():
+    """Download all transcripts as a single JSON array."""
+    from transcript_store import TRANSCRIPTS_DIR
+    import json as _json
+    files = sorted(TRANSCRIPTS_DIR.glob("transcript_*.json"))
+    all_transcripts = []
+    for f in files:
+        try:
+            all_transcripts.append(_json.loads(f.read_text()))
+        except Exception:
+            continue
+    from starlette.responses import Response
+    return Response(
+        content=_json.dumps(all_transcripts, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=all_transcripts.json"},
+    )
+
+
 @app.get("/api/insights")
 async def get_insights():
     """Return all tuning analyses and recent transcript stats."""

@@ -1025,7 +1025,8 @@ function renderInsights(data) {
   parts.push(`
     <div style="background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);border-radius:8px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Call History</div>
-      <div><strong>${txns.length}</strong> sessions saved &nbsp;|&nbsp; <strong>${overrideCount}</strong> had checklist corrections &nbsp;|&nbsp; <strong>${feedbackCount}</strong> had feedback</div>
+      <div style="margin-bottom:8px"><strong>${txns.length}</strong> sessions saved &nbsp;|&nbsp; <strong>${overrideCount}</strong> had checklist corrections &nbsp;|&nbsp; <strong>${feedbackCount}</strong> had feedback</div>
+      <a href="/api/transcripts/download" download="all_transcripts.json" style="display:inline-block;background:rgba(255,255,255,0.08);border:1px solid var(--panel-border);border-radius:4px;padding:4px 12px;font-size:11px;color:var(--text-primary);text-decoration:none;cursor:pointer">Download All Transcripts</a>
     </div>
   `);
 
