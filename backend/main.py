@@ -753,7 +753,8 @@ def _extract_name(text: str) -> str:
                           "fine", "good", "great", "well", "ok", "okay", "alright",
                           "doing", "interested", "looking", "calling", "here", "ready",
                           "not", "just", "also", "really", "very", "glad", "happy",
-                          "sure", "sorry", "curious", "new"}
+                          "sure", "sorry", "curious", "new",
+                          "my", "your", "his", "her", "our", "their", "its"}
             words = []
             for w in after.split():
                 clean = w.strip(".,!?")
@@ -1944,6 +1945,18 @@ class Session:
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
 
+            elif _cur == "outdoor_camera" and any(w in t for w in ["doorbell", "door bell"]):
+                # Customer specifically asked for a doorbell camera — treat as yes
+                self.coach._topics_done.add("outdoor_camera")
+                if "outdoor camera" not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append("outdoor camera")
+                self._equipment_counts["outdoor_camera"] = 1
+                _build_order = _STAGE_ITEM_ORDER.get("build_system", [])
+                _ci = _build_order.index("outdoor_camera") if "outdoor_camera" in _build_order else -1
+                self._build_current_item = _build_order[_ci + 1] if _ci + 1 < len(_build_order) else None
+                next_step = _fallback_next_step("build_system", self.coach, session=self)
+                build_handled = True
+
             elif _cur in ("indoor_camera", "outdoor_camera", "panel_hub", "yard_sign") and (_is_yes or _is_no):
                 self.coach._topics_done.add(_cur)
                 # Add equipment to list regardless — qty=0 means declined
@@ -1972,7 +1985,11 @@ class Session:
                 if not next_step:
                     next_step = _fallback_next_step("build_system", self.coach, session=self)
                 if not next_step:
+                    # All build items done — show recap. Mark recap_done so it
+                    # won't be repeated when the rep clicks into the recap stage.
                     next_step = _fallback_next_step("recap", self.coach, session=self)
+                    if next_step:
+                        self.coach._topics_done.add("recap_done")
                 if next_step and name:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
