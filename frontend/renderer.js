@@ -957,6 +957,130 @@ document.getElementById("back-to-setup-btn")?.addEventListener("click", () => {
   showSetupScreen();
 });
 
+// ── System Insights ──────────────────────────────────────────────────────
+
+document.getElementById("insights-btn")?.addEventListener("click", showInsights);
+document.getElementById("close-insights-btn")?.addEventListener("click", () => {
+  document.getElementById("insights-screen").style.display = "none";
+  document.getElementById("setup-screen").style.display = "flex";
+});
+
+async function showInsights() {
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("insights-screen").style.display = "flex";
+  const container = document.getElementById("insights-content");
+  container.innerHTML = '<p style="text-align:center;padding:20px 0">Loading...</p>';
+
+  try {
+    const resp = await fetch("/api/insights");
+    const data = await resp.json();
+    container.innerHTML = renderInsights(data);
+  } catch (err) {
+    container.innerHTML = `<p style="color:#f87171">Failed to load insights: ${err.message}</p>`;
+  }
+}
+
+function renderInsights(data) {
+  const parts = [];
+
+  // ── Transcript stats ──
+  const txns = data.transcripts || [];
+  const overrideCount = txns.filter(t => t.rep_overrides?.length > 0).length;
+  const feedbackCount = txns.filter(t => t.user_feedback).length;
+  parts.push(`
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Call History</div>
+      <div><strong>${txns.length}</strong> sessions saved &nbsp;|&nbsp; <strong>${overrideCount}</strong> had checklist corrections &nbsp;|&nbsp; <strong>${feedbackCount}</strong> had feedback</div>
+    </div>
+  `);
+
+  // ── Recent feedback ──
+  const recentFeedback = txns.filter(t => t.user_feedback).slice(0, 5);
+  if (recentFeedback.length) {
+    parts.push('<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Recent Feedback</div>');
+    recentFeedback.forEach(t => {
+      const date = new Date(t.timestamp).toLocaleDateString();
+      parts.push(`<div style="background:rgba(255,255,255,0.03);border-left:3px solid #a78bfa;padding:6px 10px;margin-bottom:6px;border-radius:0 4px 4px 0"><span style="color:var(--text-muted);font-size:10px">${date} (${t.mode})</span><br>${esc(t.user_feedback)}</div>`);
+    });
+    parts.push('</div>');
+  }
+
+  // ── Recent overrides ──
+  const recentOverrides = txns.filter(t => t.rep_overrides?.length > 0).slice(0, 5);
+  if (recentOverrides.length) {
+    parts.push('<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Recent Checklist Corrections</div>');
+    recentOverrides.forEach(t => {
+      const date = new Date(t.timestamp).toLocaleDateString();
+      parts.push(`<div style="background:rgba(255,255,255,0.03);border-left:3px solid #f59e0b;padding:6px 10px;margin-bottom:6px;border-radius:0 4px 4px 0"><span style="color:var(--text-muted);font-size:10px">${date} (${t.mode})</span><br>Corrected: <strong>${t.rep_overrides.join(', ')}</strong></div>`);
+    });
+    parts.push('</div>');
+  }
+
+  // ── Latest analysis ──
+  const analyses = data.analyses || [];
+  if (analyses.length === 0) {
+    parts.push('<div style="text-align:center;padding:16px;color:var(--text-muted)">No analysis yet — complete a call to generate the first one.</div>');
+    return parts.join('');
+  }
+
+  const latest = analyses[analyses.length - 1];
+  const analysisDate = latest.analyzed_at ? new Date(latest.analyzed_at).toLocaleString() : "Unknown";
+
+  parts.push(`
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Latest Analysis <span style="font-weight:400;font-size:10px;color:var(--text-muted)">${analysisDate} (${latest.transcript_count || '?'} calls reviewed)</span></div>
+      <div style="background:rgba(62,190,176,0.08);border:1px solid rgba(62,190,176,0.2);border-radius:6px;padding:10px 12px;margin-bottom:12px">${esc(latest.summary || '')}</div>
+    </div>
+  `);
+
+  // Checklist issues
+  const chk = latest.checklist_issues || [];
+  if (chk.length) {
+    parts.push('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:6px">Checklist Accuracy Issues</div>');
+    chk.forEach(c => {
+      parts.push(`<div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:6px;padding:8px 10px;margin-bottom:6px">
+        <div><strong>${esc(c.item_key || '')}</strong> — ${esc(c.direction || '')} </div>
+        <div style="margin-top:2px">${esc(c.issue || '')}</div>
+        <div style="margin-top:4px;color:var(--accent)">Fix: ${esc(c.fix || '')}</div>
+      </div>`);
+    });
+    parts.push('</div>');
+  }
+
+  // Active coaching adjustments
+  const ca = [...(latest.coaching_additions || []), ...(latest.user_feedback_actions || [])];
+  if (ca.length) {
+    parts.push('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">Active Coaching Adjustments</div><ul style="margin:0;padding-left:18px">');
+    ca.forEach(a => parts.push(`<li style="margin-bottom:4px">${esc(a)}</li>`));
+    parts.push('</ul></div>');
+  }
+
+  // Active roleplay adjustments
+  const ra = latest.roleplay_additions || [];
+  if (ra.length) {
+    parts.push('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:#a78bfa;margin-bottom:6px">Active Roleplay Adjustments</div><ul style="margin:0;padding-left:18px">');
+    ra.forEach(a => parts.push(`<li style="margin-bottom:4px">${esc(a)}</li>`));
+    parts.push('</ul></div>');
+  }
+
+  // Strengths
+  const str = latest.strengths || [];
+  if (str.length) {
+    parts.push('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:#4ade80;margin-bottom:6px">Strengths</div><ul style="margin:0;padding-left:18px">');
+    str.forEach(s => parts.push(`<li style="margin-bottom:4px">${esc(s)}</li>`));
+    parts.push('</ul></div>');
+  }
+
+  // Analysis history count
+  if (analyses.length > 1) {
+    parts.push(`<div style="text-align:center;font-size:10px;color:var(--text-muted);margin-top:12px">${analyses.length} total analyses on record</div>`);
+  }
+
+  return parts.join('');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
 // ── Init ──────────────────────────────────────────────────────────────────
 
 connect();

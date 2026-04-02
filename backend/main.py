@@ -38,6 +38,37 @@ async def serve_index():
     return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
 
 
+@app.get("/api/insights")
+async def get_insights():
+    """Return all tuning analyses and recent transcript stats."""
+    from transcript_store import TUNING_FILE, TRANSCRIPTS_DIR
+    import json as _json
+    analyses = []
+    if TUNING_FILE.exists():
+        try:
+            data = _json.loads(TUNING_FILE.read_text())
+            analyses = data if isinstance(data, list) else [data]
+        except Exception:
+            pass
+    # Count transcripts and gather override/feedback stats
+    transcript_files = sorted(TRANSCRIPTS_DIR.glob("transcript_*.json"), reverse=True)
+    transcript_stats = []
+    for f in transcript_files[:20]:
+        try:
+            t = _json.loads(f.read_text())
+            transcript_stats.append({
+                "timestamp": t.get("timestamp", ""),
+                "mode": t.get("mode", ""),
+                "stage_reached": t.get("stage_reached", ""),
+                "turn_count": t.get("turn_count", 0),
+                "rep_overrides": t.get("rep_overrides", []),
+                "user_feedback": t.get("user_feedback", ""),
+            })
+        except Exception:
+            continue
+    return {"analyses": analyses, "transcripts": transcript_stats}
+
+
 # ── Utilities (stateless) ─────────────────────────────────────────────────
 
 def _preprocess_tts(text: str) -> str:

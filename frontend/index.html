@@ -72,6 +72,19 @@
   </div>
 
   <!-- Setup screen -->
+  <!-- Insights dashboard overlay -->
+  <div id="insights-screen" class="screen" style="display:none">
+    <div class="setup-card" style="max-width:640px;max-height:85vh;overflow-y:auto;text-align:left">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="color:var(--text-primary);font-size:18px;margin:0">System Insights</h2>
+        <button id="close-insights-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;padding:4px 8px">&times;</button>
+      </div>
+      <div id="insights-content" style="font-size:12px;color:var(--text-muted);line-height:1.6">
+        <p style="text-align:center;padding:20px 0">Loading...</p>
+      </div>
+    </div>
+  </div>
+
   <div id="setup-screen" class="screen">
     <div class="setup-card">
       <div class="setup-logo">
@@ -134,6 +147,7 @@
         </button>
       </div>
       <div id="setup-status" class="setup-status"></div>
+      <button id="insights-btn" style="margin-top:12px;background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:0.7">System Insights</button>
     </div>
   </div>
 
