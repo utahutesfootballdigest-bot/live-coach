@@ -944,6 +944,8 @@ class Session:
         self._profile: dict = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
         self._build_current_item: str | None = None  # which build_system item is being pitched next
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
+        self._user_feedback: str = ""  # post-call feedback from rep
+        self._pending_transcript: dict | None = None  # snapshot saved on stop, written on feedback
 
     async def send(self, msg: dict):
         try:
@@ -1016,22 +1018,20 @@ class Session:
             self._equipment_counts = {}
             return
 
-        # ── Save transcript BEFORE clearing state ──
+        # ── Snapshot transcript data (save happens when feedback arrives) ──
         if self.coach and self.coach._history:
-            try:
-                save_transcript(
-                    mode="roleplay" if was_roleplay else "live",
-                    history=list(self.coach._history),
-                    stage_reached=self.current_stage,
-                    topics_done=list(self.coach._topics_done),
-                    equipment_mentioned=list(self.coach._equipment_mentioned),
-                    customer_name=self.coach.customer_name or "",
-                    scores=list(self.session_scores),
-                    profile=dict(self._profile),
-                    scenario=(self.roleplay_customer._persona if self.roleplay_customer else ""),
-                )
-            except Exception as e:
-                print(f"[transcript] save failed: {e}")
+            self._pending_transcript = {
+                "mode": "roleplay" if was_roleplay else "live",
+                "history": list(self.coach._history),
+                "stage_reached": self.current_stage,
+                "topics_done": list(self.coach._topics_done),
+                "equipment_mentioned": list(self.coach._equipment_mentioned),
+                "customer_name": self.coach.customer_name or "",
+                "scores": list(self.session_scores),
+                "profile": dict(self._profile),
+                "scenario": (self.roleplay_customer._persona if self.roleplay_customer else ""),
+                "rep_overrides": list(self._rep_overrides),
+            }
 
         # ── Cancel tasks ──
         if self._coach_task and not self._coach_task.done():
@@ -2030,6 +2030,20 @@ async def websocket_endpoint(ws: WebSocket):
                         await session.go_back()
                     elif action == "toggle_topic":
                         await session.toggle_topic(msg.get("topic", ""), msg.get("checked", False))
+                    elif action == "submit_feedback":
+                        feedback = msg.get("feedback", "")
+                        if feedback:
+                            print(f"[feedback] {feedback[:200]}")
+                        # Save the pending transcript with feedback attached
+                        if session._pending_transcript:
+                            try:
+                                save_transcript(
+                                    **session._pending_transcript,
+                                    user_feedback=feedback,
+                                )
+                            except Exception as e:
+                                print(f"[transcript] save failed: {e}")
+                            session._pending_transcript = None
                     elif action == "stop":
                         await session.stop()
                 except Exception:
@@ -2043,6 +2057,13 @@ async def websocket_endpoint(ws: WebSocket):
         print(f"[ws] fatal:\n{traceback.format_exc()}")
     finally:
         await session.stop()
+        # Save transcript if feedback was never submitted (browser closed, etc.)
+        if session._pending_transcript:
+            try:
+                save_transcript(**session._pending_transcript, user_feedback="")
+            except Exception:
+                pass
+            session._pending_transcript = None
 
 
 # Serve frontend static files (must be after all route definitions)

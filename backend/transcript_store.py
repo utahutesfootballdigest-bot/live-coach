@@ -51,6 +51,8 @@ def save_transcript(
     scores: list[int],
     profile: dict,
     scenario: str = "",     # roleplay scenario text
+    rep_overrides: list[str] | None = None,  # items rep manually checked/unchecked
+    user_feedback: str = "",  # post-call feedback from rep
 ) -> str | None:
     """Save a transcript JSON file. Returns the file path, or None on error."""
     if not history:
@@ -70,6 +72,8 @@ def save_transcript(
         "scores": scores,
         "profile": profile,
         "scenario": scenario,
+        "rep_overrides": rep_overrides or [],
+        "user_feedback": user_feedback,
         "turns": history,
         "turn_count": len(history),
     }
@@ -81,13 +85,9 @@ def save_transcript(
         print(f"[transcript] save error: {e}")
         return None
 
-    # Bump counter and check if analysis is due
-    count = _read_counter() + 1
-    _write_counter(count)
-    if count % ANALYSIS_INTERVAL == 0:
-        print(f"[transcript] {count} sessions — triggering auto-analysis")
-        # Fire-and-forget — don't block the session teardown
-        asyncio.create_task(_run_analysis_safe())
+    # Run analysis after every call
+    print(f"[transcript] triggering post-call analysis")
+    asyncio.create_task(_run_analysis_safe())
 
     return str(filepath)
 
@@ -108,10 +108,11 @@ def _load_recent(n: int = 10) -> list[dict]:
 
 # ── Analysis ─────────────────────────────────────────────────────────────
 
-_ANALYSIS_PROMPT = """You are analyzing {count} recent sales coaching practice sessions for Cove Smart home security.
+_ANALYSIS_PROMPT = """You are analyzing {count} recent sales coaching session(s) for Cove Smart home security.
 
-Your job: identify PATTERNS — things that keep going wrong (or right) across multiple calls.
-Focus on actionable coaching and roleplay improvements.
+Your #1 priority: CHECKLIST ACCURACY. When reps have to manually check or uncheck boxes that the system should have handled automatically, that is the most important signal. Each transcript includes "rep_overrides" — items the rep had to manually correct. This is the strongest indicator of system failures.
+
+Your #2 priority: USER FEEDBACK. Reps can submit feedback after each call. Take their feedback seriously — these are direct requests for improvement.
 
 Here are the transcripts:
 
@@ -122,12 +123,21 @@ ANALYZE AND RETURN JSON with these fields:
 ═══════════════════════════════════════════
 
 {{
-  "summary": "2-3 sentence overview of patterns across these calls",
+  "summary": "2-3 sentence overview of what's working and what needs fixing",
+
+  "checklist_issues": [
+    {{
+      "issue": "which checklist item was wrong and what the system did vs what it should have done",
+      "item_key": "the checklist key (e.g. 'had_system_before', 'door_sensors')",
+      "direction": "false_positive (AI checked but shouldn't have) or false_negative (AI missed it)",
+      "transcript_evidence": "the relevant quote showing why the check/uncheck was wrong",
+      "fix": "specific detection rule change — what phrase or pattern should trigger (or not trigger) this item"
+    }}
+  ],
 
   "coaching_issues": [
     {{
       "issue": "short description of what's going wrong",
-      "frequency": "how many of the {count} calls had this problem",
       "example": "brief quote or paraphrase from a transcript",
       "fix": "specific coaching adjustment to make"
     }}
@@ -148,13 +158,22 @@ ANALYZE AND RETURN JSON with these fields:
     "New roleplay behavior rule, stated as a direct instruction"
   ],
 
+  "user_feedback_actions": [
+    "Specific action to take based on user feedback, stated as a direct instruction"
+  ],
+
   "strengths": [
     "Things that are working well — keep doing these"
   ]
 }}
 
-Be specific. Reference actual transcript content. Don't be generic.
-Only flag issues that appear in 2+ calls. Single-occurrence oddities are noise.
+RULES:
+- Be specific. Reference actual transcript content. Don't be generic.
+- Checklist issues are HIGHEST priority — every rep override must be analyzed.
+- User feedback is SECOND priority — every piece of feedback must be addressed.
+- For single-call analysis, flag everything notable. For multi-call, focus on patterns.
+- coaching_additions and roleplay_additions are injected directly into prompts — write them as clear instructions.
+- user_feedback_actions should translate vague feedback into concrete system changes.
 Return ONLY valid JSON, no markdown fencing."""
 
 
@@ -171,6 +190,17 @@ def _format_transcript(t: dict, idx: int) -> str:
     equip = t.get("equipment_mentioned", [])
     if equip:
         lines.append(f"Equipment mentioned: {', '.join(equip)}")
+
+    # Highlight rep overrides — these are the #1 signal
+    overrides = t.get("rep_overrides", [])
+    if overrides:
+        lines.append(f"  *** REP MANUAL OVERRIDES (system was wrong): {', '.join(overrides)} ***")
+
+    # Highlight user feedback — #2 signal
+    feedback = t.get("user_feedback", "")
+    if feedback:
+        lines.append(f"  *** USER FEEDBACK: {feedback} ***")
+
     scores = t.get("scores", [])
     if scores:
         avg = round(sum(scores) / len(scores))
@@ -185,9 +215,9 @@ def _format_transcript(t: dict, idx: int) -> str:
 
 async def _run_analysis(api_key: str | None = None):
     """Read recent transcripts, call Claude, save tuning notes."""
-    transcripts = _load_recent(ANALYSIS_INTERVAL)
-    if len(transcripts) < 3:
-        print(f"[analysis] only {len(transcripts)} transcripts — skipping (need at least 3)")
+    transcripts = _load_recent(10)  # Always look at last 10 for patterns
+    if not transcripts:
+        print("[analysis] no transcripts — skipping")
         return
 
     # Get API key from environment if not passed

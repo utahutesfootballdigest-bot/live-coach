@@ -941,9 +941,19 @@ function downloadTranscript() {
   URL.revokeObjectURL(url);
 }
 
-document.getElementById("download-transcript-btn")?.addEventListener("click", downloadTranscript);
+document.getElementById("submit-feedback-btn")?.addEventListener("click", () => {
+  const input = document.getElementById("call-feedback-input");
+  const feedback = (input?.value || "").trim();
+  if (feedback) {
+    send({ action: "submit_feedback", feedback });
+    input.value = "";
+  }
+  showSetupScreen();
+});
 
 document.getElementById("back-to-setup-btn")?.addEventListener("click", () => {
+  // Submit empty feedback (skip) — still lets backend know call is done
+  send({ action: "submit_feedback", feedback: "" });
   showSetupScreen();
 });
 

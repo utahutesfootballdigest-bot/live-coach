@@ -660,11 +660,15 @@ class CoachingEngine:
         tuning_note = ""
         tuning = get_latest_tuning()
         if tuning:
-            additions = tuning.get("coaching_additions", [])
-            if additions:
+            all_additions = []
+            for a in tuning.get("coaching_additions", []):
+                all_additions.append(a)
+            for a in tuning.get("user_feedback_actions", []):
+                all_additions.append(a)
+            if all_additions:
                 tuning_note = (
                     "\n\n═══ COACHING ADJUSTMENTS (from call analysis) ═══\n"
-                    + "\n".join(f"- {a}" for a in additions)
+                    + "\n".join(f"- {a}" for a in all_additions)
                     + "\nApply these adjustments when relevant.\n"
                 )
 

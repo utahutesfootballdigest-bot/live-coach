@@ -55,14 +55,17 @@
         </svg>
       </div>
       <h2 style="color:var(--text-primary);font-size:20px;margin:12px 0 4px">Call Ended</h2>
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px" id="call-ended-duration"></p>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px" id="call-ended-duration"></p>
+      <div style="width:100%;max-width:360px;margin:0 auto 16px;text-align:left">
+        <label style="color:var(--text-muted);font-size:12px;font-weight:600;display:block;margin-bottom:6px">Any issues or feedback you'd like to see improved?</label>
+        <textarea id="call-feedback-input" rows="3" placeholder="e.g. Checklist didn't detect my discovery questions, AI customer was too agreeable..." style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--panel-border);border-radius:6px;color:var(--text-primary);font-size:12px;padding:8px 10px;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
-        <button class="btn-start" id="download-transcript-btn" style="width:220px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download Transcript
+        <button class="btn-start" id="submit-feedback-btn" style="width:220px">
+          Submit & Continue
         </button>
         <button class="btn-end" id="back-to-setup-btn" style="width:220px;background:rgba(255,255,255,0.05);border:1px solid var(--panel-border);color:var(--text-muted)">
-          Back to Setup
+          Skip
         </button>
       </div>
     </div>
