@@ -1880,6 +1880,13 @@ class Session:
                                          "next_step": next_closing})
 
         if not speech_final:
+            # In roleplay, trigger AI response on is_final (don't wait for
+            # speech_final which requires 1.2s pause — too long for natural flow)
+            if self.roleplay_mode and self.roleplay_customer and is_final:
+                self.rep_buffer.append(text)
+                if self._roleplay_task and not self._roleplay_task.done():
+                    self._roleplay_task.cancel()
+                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
             return
 
         if self.pending_evaluation:
