@@ -1461,23 +1461,39 @@ class Session:
 
     async def _fire_roleplay_response(self):
         if not self.rep_buffer or not self.roleplay_customer:
+            print(f"[roleplay] _fire skipped: buffer={len(self.rep_buffer)}, customer={'set' if self.roleplay_customer else 'None'}")
             return
         combined = " ".join(self.rep_buffer)
         self.rep_buffer = []
-        print(f"[roleplay] rep said: {combined[:80]}")
+        print(f"[roleplay] rep said: {combined[:120]}")
         try:
             ai_text = await self.roleplay_customer.respond(combined)
-            print(f"[roleplay] AI response: {ai_text[:80]}")
+            print(f"[roleplay] AI response: {ai_text[:120]}")
             audio_b64 = await _tts(ai_text, self.roleplay_customer.voice)
             if audio_b64:
                 self.tts_active = True
                 asyncio.create_task(self._tts_safety_reset(5))
             await self.send({"type": "roleplay_speech", "text": ai_text, "audio_b64": audio_b64})
             await self._on_transcript("customer", ai_text, True, True)
+        except asyncio.CancelledError:
+            raise
         except Exception:
             import traceback
             print(f"[roleplay] error:\n{traceback.format_exc()}")
             self.tts_active = False
+            # Send a fallback so the conversation doesn't die silently
+            fallback = "Yeah, that sounds good."
+            try:
+                audio_b64 = await _tts(fallback, self.roleplay_customer.voice)
+                await self.send({"type": "roleplay_speech", "text": fallback, "audio_b64": audio_b64})
+                await self._on_transcript("customer", fallback, True, True)
+                # Fix history so next call works (remove dangling user msg)
+                if (self.roleplay_customer._history
+                        and self.roleplay_customer._history[-1]["role"] == "user"):
+                    self.roleplay_customer._history.append(
+                        {"role": "assistant", "content": fallback})
+            except Exception:
+                pass
             if self.pending_rep_buffer:
                 self.rep_buffer.extend(self.pending_rep_buffer)
                 self.pending_rep_buffer.clear()
@@ -1499,7 +1515,9 @@ class Session:
             if self.pending_rep_buffer:
                 self.rep_buffer.extend(self.pending_rep_buffer)
                 self.pending_rep_buffer.clear()
-                asyncio.create_task(self._fire_roleplay_response())
+                if self._roleplay_task and not self._roleplay_task.done():
+                    self._roleplay_task.cancel()
+                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
 
     # ── Transcript callback ──
 
@@ -1508,15 +1526,16 @@ class Session:
         # Always show transcript in UI; only skip coaching/roleplay processing.
         if self.roleplay_mode and self.tts_active and speaker == "rep":
             await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
-            if is_final and speech_final:
-                self.tts_active = False
+            if is_final:
                 self.pending_rep_buffer.append(text)
-                # Process buffered speech immediately now that TTS is done
-                self.rep_buffer.extend(self.pending_rep_buffer)
-                self.pending_rep_buffer.clear()
-                if self._roleplay_task and not self._roleplay_task.done():
-                    self._roleplay_task.cancel()
-                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
+                if speech_final:
+                    self.tts_active = False
+                    # Move all buffered speech to rep_buffer and trigger response
+                    self.rep_buffer.extend(self.pending_rep_buffer)
+                    self.pending_rep_buffer.clear()
+                    if self._roleplay_task and not self._roleplay_task.done():
+                        self._roleplay_task.cancel()
+                    self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
             return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
@@ -1960,7 +1979,10 @@ async def websocket_endpoint(ws: WebSocket):
                         if was and not session.tts_active and session.pending_rep_buffer:
                             session.rep_buffer.extend(session.pending_rep_buffer)
                             session.pending_rep_buffer.clear()
-                            asyncio.create_task(session._fire_roleplay_response())
+                            # Use delayed task (debounced) so more speech can accumulate
+                            if session._roleplay_task and not session._roleplay_task.done():
+                                session._roleplay_task.cancel()
+                            session._roleplay_task = asyncio.create_task(session._delayed_roleplay_response())
                     elif action == "update_profile":
                         await session.update_profile_field(msg.get("field", ""), msg.get("value", ""))
                     elif action == "update_equipment_count":
