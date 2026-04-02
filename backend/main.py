@@ -22,6 +22,7 @@ if os.path.exists(_env_path):
 from transcriber import Transcriber
 from coach import CoachingEngine
 from roleplay import RoleplayCustomer
+from transcript_store import save_transcript, get_latest_tuning
 
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 DEEPGRAM_API_KEY = os.environ["DEEPGRAM_API_KEY"]
@@ -1002,17 +1003,37 @@ class Session:
 
     async def stop(self):
         self.tts_active = False
-        self.current_stage = "intro"
-        self.opener_shown = False
-        self.intro_turns = 0
-        self._collect_info_done = set()
-        self._rep_overrides = set()
-        self._build_current_item = None
-        self._equipment_counts = {}
+        was_running = self.running
+        was_roleplay = self.roleplay_mode
 
         if not self.running:
+            self.current_stage = "intro"
+            self.opener_shown = False
+            self.intro_turns = 0
+            self._collect_info_done = set()
+            self._rep_overrides = set()
+            self._build_current_item = None
+            self._equipment_counts = {}
             return
 
+        # ── Save transcript BEFORE clearing state ──
+        if self.coach and self.coach._history:
+            try:
+                save_transcript(
+                    mode="roleplay" if was_roleplay else "live",
+                    history=list(self.coach._history),
+                    stage_reached=self.current_stage,
+                    topics_done=list(self.coach._topics_done),
+                    equipment_mentioned=list(self.coach._equipment_mentioned),
+                    customer_name=self.coach.customer_name or "",
+                    scores=list(self.session_scores),
+                    profile=dict(self._profile),
+                    scenario=(self.roleplay_customer._persona if self.roleplay_customer else ""),
+                )
+            except Exception as e:
+                print(f"[transcript] save failed: {e}")
+
+        # ── Cancel tasks ──
         if self._coach_task and not self._coach_task.done():
             self._coach_task.cancel()
         if self._roleplay_task and not self._roleplay_task.done():
@@ -1024,6 +1045,13 @@ class Session:
         self.pending_rep_buffer = []
         self.pending_evaluation = None
         self.session_scores = []
+        self.current_stage = "intro"
+        self.opener_shown = False
+        self.intro_turns = 0
+        self._collect_info_done = set()
+        self._rep_overrides = set()
+        self._build_current_item = None
+        self._equipment_counts = {}
 
         if self.mic_queue:
             self.mic_queue.put_nowait(None)

@@ -2,6 +2,8 @@ import asyncio
 import random
 import httpx
 
+from transcript_store import get_latest_tuning
+
 # 5 Deepgram Aura voices — varied gender and accent
 VOICES = [
     "aura-asteria-en",   # female, American
@@ -147,7 +149,20 @@ class RoleplayCustomer:
         self._history: list[dict] = []
         self.voice = random.choice(VOICES)
         scenario = random.choice(SCENARIOS)
-        self._persona = CUSTOMER_PERSONA_TEMPLATE.format(scenario=scenario)
+        self._persona = self._build_persona(scenario)
+
+    @staticmethod
+    def _build_persona(scenario: str) -> str:
+        persona = CUSTOMER_PERSONA_TEMPLATE.format(scenario=scenario)
+        tuning = get_latest_tuning()
+        if tuning:
+            additions = tuning.get("roleplay_additions", [])
+            if additions:
+                persona += (
+                    "\n\nADDITIONAL BEHAVIOR RULES (from call analysis):\n"
+                    + "\n".join(f"- {a}" for a in additions)
+                )
+        return persona
 
     async def _call(self, messages, max_tokens=120):
         resp = await self._http.post(
@@ -185,4 +200,4 @@ class RoleplayCustomer:
         self._history = []
         self.voice = random.choice(VOICES)
         scenario = random.choice(SCENARIOS)
-        self._persona = CUSTOMER_PERSONA_TEMPLATE.format(scenario=scenario)
+        self._persona = self._build_persona(scenario)

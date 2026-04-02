@@ -2,6 +2,8 @@ import asyncio
 import json
 import httpx
 
+from transcript_store import get_latest_tuning
+
 # Exact script lines per stage — these override Claude's next_step so the rep
 # always sees verbatim script language, not a paraphrase.
 STAGE_SCRIPT: dict[str, list[str]] = {
@@ -654,12 +656,25 @@ class CoachingEngine:
                 "into the next script question. Keep it in one smooth line."
             )
 
+        # Inject tuning notes from auto-analysis (if any)
+        tuning_note = ""
+        tuning = get_latest_tuning()
+        if tuning:
+            additions = tuning.get("coaching_additions", [])
+            if additions:
+                tuning_note = (
+                    "\n\n═══ COACHING ADJUSTMENTS (from call analysis) ═══\n"
+                    + "\n".join(f"- {a}" for a in additions)
+                    + "\nApply these adjustments when relevant.\n"
+                )
+
         user_content = (
             f"Live call transcript (most recent at bottom):\n\n{transcript}"
             f"{addressed_note}"
             f"{blocklist_note}"
             f"{equipment_note}"
-            f"{opener_note}\n\n"
+            f"{opener_note}"
+            f"{tuning_note}\n\n"
             "SCRIPT LINES BY STAGE (exact wording to use):\n"
             f"{script_ref}\n\n"
             "═══ INSTRUCTIONS ═══\n"

@@ -9,3 +9,5 @@ frontend/package.json
 frontend/main.js
 frontend/preload.js
 *.log
+backend/transcripts/
+backend/tuning_notes.json
