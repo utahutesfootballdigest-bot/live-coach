@@ -360,6 +360,24 @@ function showSetupScreen() {
   showCoachingIdle();
   checkStartReady();
   userRequestedStop = false;
+  updateInsightsBadge();
+}
+
+async function updateInsightsBadge() {
+  try {
+    const resp = await fetch("/api/insights");
+    const data = await resp.json();
+    const count = (data.transcripts || []).length;
+    const badge = document.getElementById("insights-badge");
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = "inline";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 // ── Timer ─────────────────────────────────────────────────────────────────
@@ -1004,8 +1022,9 @@ function renderInsights(data) {
   parts.push(`
     <div style="background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);border-radius:8px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Call History</div>
-      <div style="margin-bottom:8px"><strong>${txns.length}</strong> sessions saved &nbsp;|&nbsp; <strong>${overrideCount}</strong> had checklist corrections &nbsp;|&nbsp; <strong>${feedbackCount}</strong> had feedback</div>
-      <a href="/api/transcripts/download" download="all_transcripts.json" style="display:inline-block;background:rgba(255,255,255,0.08);border:1px solid var(--panel-border);border-radius:4px;padding:4px 12px;font-size:11px;color:var(--text-primary);text-decoration:none;cursor:pointer">Download All Transcripts</a>
+      <div style="margin-bottom:8px"><strong>${txns.length}</strong> sessions waiting &nbsp;|&nbsp; <strong>${overrideCount}</strong> had checklist corrections &nbsp;|&nbsp; <strong>${feedbackCount}</strong> had feedback</div>
+      ${txns.length > 0 ? '<a href="/api/transcripts/download" download="all_transcripts.json" style="display:inline-block;background:var(--accent);border:none;border-radius:4px;padding:6px 16px;font-size:11px;font-weight:600;color:#fff;text-decoration:none;cursor:pointer">Download & Clear Transcripts</a>' : '<span style="font-size:11px;color:var(--text-muted)">No transcripts waiting</span>'}
+      <div style="margin-top:8px;font-size:10px;color:#f59e0b">Note: Transcripts clear on app updates. Download regularly.</div>
     </div>
   `);
 
