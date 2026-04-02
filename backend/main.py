@@ -1018,34 +1018,97 @@ _MONITORING_PRICES = {
 }
 _PROMO_MONTHS = 6  # first N months at promo rate
 
+# ── Coupon codes ─────────────────────────────────────────────────────────
+# Each coupon has a type and value. Types:
+#   "free_hub_panel" — removes hub+panel cost (min order required)
+#   "flat_off"       — flat dollar amount off equipment total
+#   "monitoring_off" — dollar amount off monthly monitoring for N months
+_COUPON_CODES = {
+    "SYSTEM4FREE":    {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
+    "LABORDAY":       {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
+    "PRIMEFLASHDEAL": {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
+    "LDEXTRA50":      {"type": "flat_off", "amount": 50, "label": "$50 off order"},
+    "COVE15":         {"type": "flat_off", "amount": 15, "label": "$15 off order"},
+    "LOWRATE":        {"type": "monitoring_off", "amount": 3, "months": 6, "label": "$3/mo off monitoring (6 months)"},
+}
 
-def _calculate_equipment_total(session) -> float:
-    """Calculate the total one-time equipment cost from session's equipment counts."""
-    total = 0.0
+
+def _calculate_pricing(session) -> dict:
+    """Calculate full pricing breakdown including coupon discounts."""
+    # Base equipment total
+    subtotal = 0.0
     for key, qty in session._equipment_counts.items():
         if qty > 0 and key in _EQUIPMENT_PRICES:
-            total += _EQUIPMENT_PRICES[key] * qty
-    # Panel + hub is always included
+            subtotal += _EQUIPMENT_PRICES[key] * qty
+    # Panel + hub always included unless explicitly 0
     if "panel_hub" not in session._equipment_counts or session._equipment_counts.get("panel_hub", 0) > 0:
         if "panel_hub" not in session._equipment_counts:
-            total += _EQUIPMENT_PRICES["panel_hub"]
-    return total
+            subtotal += _EQUIPMENT_PRICES["panel_hub"]
+
+    equipment_total = subtotal
+    discount_total = 0.0
+    discount_label = ""
+    monthly_promo = _MONITORING_PRICES["plus"]["promo"]
+    monthly_standard = _MONITORING_PRICES["plus"]["standard"]
+    monitoring_discount = 0.0
+
+    # Apply coupons
+    for code in session._applied_coupons:
+        coupon = _COUPON_CODES.get(code)
+        if not coupon:
+            continue
+        if coupon["type"] == "free_hub_panel":
+            if subtotal >= coupon["min_order"]:
+                hub_panel_cost = _EQUIPMENT_PRICES["panel_hub"]
+                discount_total += hub_panel_cost
+                discount_label = coupon["label"]
+        elif coupon["type"] == "flat_off":
+            discount_total += coupon["amount"]
+            discount_label = coupon["label"]
+        elif coupon["type"] == "monitoring_off":
+            monitoring_discount = coupon["amount"]
+
+    equipment_total = max(0, subtotal - discount_total)
+    adjusted_monthly = monthly_promo - monitoring_discount
+
+    return {
+        "subtotal": subtotal,
+        "discount_total": discount_total,
+        "discount_label": discount_label,
+        "equipment_total": equipment_total,
+        "monthly_promo": adjusted_monthly,
+        "monthly_standard": monthly_standard,
+        "monitoring_discount": monitoring_discount,
+        "applied_coupons": list(session._applied_coupons),
+    }
 
 
 def _build_pricing_prompt(session) -> str:
     """Build a dynamic closing pricing prompt with real equipment totals."""
-    total = _calculate_equipment_total(session)
+    pricing = _calculate_pricing(session)
     name = session.coach.customer_name if session.coach else ""
     suffix = f", {name}" if name else ""
 
-    return (
+    parts = [
         f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
-        f"${_MONITORING_PRICES['plus']['promo']:.2f} per month. "
-        f"After that, it goes to the standard rate of ${_MONITORING_PRICES['plus']['standard']:.2f}. "
-        f"And the equipment — with all the discounts and promotions today, "
-        f"your one-time equipment cost is going to come out to ${total:.2f}{suffix}. "
-        f"So does that sound like something that will work for you?"
-    )
+        f"${pricing['monthly_promo']:.2f} per month. "
+        f"After that, it goes to the standard rate of ${pricing['monthly_standard']:.2f}. "
+    ]
+
+    if pricing["discount_total"] > 0:
+        parts.append(
+            f"And the equipment — with all the discounts and promotions today, "
+            f"your one-time equipment cost comes out to just ${pricing['equipment_total']:.2f} "
+            f"— that's ${pricing['discount_total']:.0f} off{suffix}. "
+        )
+    else:
+        parts.append(
+            f"And the equipment — with all the discounts and promotions today, "
+            f"your one-time equipment cost is going to come out to ${pricing['equipment_total']:.2f}{suffix}. "
+        )
+
+    parts.append("So does that sound like something that will work for you?")
+    return "".join(parts)
 
 
 def _build_recap_prompt(session) -> str:
@@ -1147,6 +1210,7 @@ class Session:
         self._build_current_item: str | None = None  # which build_system item is being pitched next
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
         self._equipment_edits: set[str] = set()  # equipment keys the rep manually corrected
+        self._applied_coupons: list[str] = []  # coupon codes applied to this session
         self._pitch_keywords_said: set[str] = set()  # closing pitch keywords rep already said
         self._user_feedback: str = ""  # post-call feedback from rep
 
@@ -1397,15 +1461,40 @@ class Session:
                 items.append({"key": "panel_hub", "label": "Panel + Hub",
                               "qty": 1, "unit_price": _EQUIPMENT_PRICES["panel_hub"],
                               "line_total": _EQUIPMENT_PRICES["panel_hub"]})
-        equipment_total = sum(i["line_total"] for i in items)
+
+        pricing = _calculate_pricing(self)
         await self.send({
             "type": "pricing_update",
             "items": items,
-            "equipment_total": equipment_total,
-            "monthly_promo": _MONITORING_PRICES["plus"]["promo"],
-            "monthly_standard": _MONITORING_PRICES["plus"]["standard"],
+            "subtotal": pricing["subtotal"],
+            "discount_total": pricing["discount_total"],
+            "discount_label": pricing["discount_label"],
+            "equipment_total": pricing["equipment_total"],
+            "monthly_promo": pricing["monthly_promo"],
+            "monthly_standard": pricing["monthly_standard"],
+            "monitoring_discount": pricing["monitoring_discount"],
             "promo_months": _PROMO_MONTHS,
+            "applied_coupons": pricing["applied_coupons"],
+            "available_coupons": {code: info["label"] for code, info in _COUPON_CODES.items()},
         })
+
+    async def apply_coupon(self, code: str):
+        """Apply a coupon code to the session."""
+        code = code.upper().strip()
+        if code in _COUPON_CODES and code not in self._applied_coupons:
+            self._applied_coupons.append(code)
+            print(f"[coupon] applied: {code} — {_COUPON_CODES[code]['label']}")
+            await self.send_pricing()
+        elif code not in _COUPON_CODES:
+            await self.send({"type": "coupon_error", "code": code, "error": "Invalid coupon code"})
+
+    async def remove_coupon(self, code: str):
+        """Remove a coupon code from the session."""
+        code = code.upper().strip()
+        if code in self._applied_coupons:
+            self._applied_coupons.remove(code)
+            print(f"[coupon] removed: {code}")
+            await self.send_pricing()
 
     async def update_profile_field(self, field: str, value: str):
         """Rep edited a profile field."""
@@ -2304,6 +2393,10 @@ async def websocket_endpoint(ws: WebSocket):
                         session._equipment_counts[key] = qty
                         session._equipment_edits.add(key)
                         print(f"[equipment] rep updated {key} = {qty}")
+                    elif action == "apply_coupon":
+                        await session.apply_coupon(msg.get("code", ""))
+                    elif action == "remove_coupon":
+                        await session.remove_coupon(msg.get("code", ""))
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:

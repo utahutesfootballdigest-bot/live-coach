@@ -291,6 +291,7 @@ function handleMessage(msg) {
     case "checklist_update":   handleChecklistUpdate(msg); break;
     case "profile_update":     handleProfileUpdate(msg); break;
     case "pricing_update":     handlePricingUpdate(msg); break;
+    case "coupon_error":       handleCouponError(msg); break;
   }
 }
 
@@ -945,8 +946,11 @@ function renderEquipmentList(equipment) {
 function handlePricingUpdate(msg) {
   const section = document.getElementById("pricing-section");
   const breakdown = document.getElementById("pricing-breakdown");
+  const discountEl = document.getElementById("pricing-discount");
   const totalEl = document.getElementById("pricing-total");
   const monthlyEl = document.getElementById("pricing-monthly");
+  const appliedEl = document.getElementById("coupon-applied");
+  const errorEl = document.getElementById("coupon-error");
 
   if (!msg.items || !msg.items.length) {
     section.style.display = "none";
@@ -954,6 +958,7 @@ function handlePricingUpdate(msg) {
   }
 
   section.style.display = "block";
+  errorEl.textContent = "";
 
   // Line items
   breakdown.innerHTML = "";
@@ -972,12 +977,59 @@ function handlePricingUpdate(msg) {
     breakdown.appendChild(row);
   });
 
+  // Discount line
+  if (msg.discount_total > 0) {
+    discountEl.style.display = "flex";
+    discountEl.innerHTML = `<span class="pricing-discount-label">${msg.discount_label || "Coupon discount"}</span><span class="pricing-discount-amount">-$${msg.discount_total.toFixed(2)}</span>`;
+  } else {
+    discountEl.style.display = "none";
+  }
+
   // Equipment total
   totalEl.innerHTML = `<span class="pricing-total-label">Equipment Total</span><span class="pricing-total-price">$${msg.equipment_total.toFixed(2)}</span>`;
 
   // Monthly monitoring
-  monthlyEl.innerHTML = `<span class="pricing-monthly-highlight">$${msg.monthly_promo.toFixed(2)}/mo</span> first ${msg.promo_months} months, then $${msg.monthly_standard.toFixed(2)}/mo`;
+  let monthlyHtml = `<span class="pricing-monthly-highlight">$${msg.monthly_promo.toFixed(2)}/mo</span> first ${msg.promo_months} months, then $${msg.monthly_standard.toFixed(2)}/mo`;
+  if (msg.monitoring_discount > 0) {
+    monthlyHtml += ` <span class="pricing-discount-label">(-$${msg.monitoring_discount.toFixed(2)}/mo coupon)</span>`;
+  }
+  monthlyEl.innerHTML = monthlyHtml;
+
+  // Applied coupons
+  appliedEl.innerHTML = "";
+  if (msg.applied_coupons && msg.applied_coupons.length > 0) {
+    msg.applied_coupons.forEach(code => {
+      const tag = document.createElement("span");
+      tag.className = "coupon-tag";
+      tag.innerHTML = `${code} <span class="coupon-tag-remove" data-code="${code}">&times;</span>`;
+      tag.querySelector(".coupon-tag-remove").addEventListener("click", () => {
+        send({ action: "remove_coupon", code });
+      });
+      appliedEl.appendChild(tag);
+    });
+  }
 }
+
+function handleCouponError(msg) {
+  const errorEl = document.getElementById("coupon-error");
+  errorEl.textContent = `"${msg.code}" is not a valid coupon code`;
+  setTimeout(() => { errorEl.textContent = ""; }, 4000);
+}
+
+// Coupon apply button + enter key
+document.getElementById("coupon-apply-btn").addEventListener("click", () => {
+  const input = document.getElementById("coupon-input");
+  const code = input.value.trim();
+  if (code) {
+    send({ action: "apply_coupon", code });
+    input.value = "";
+  }
+});
+document.getElementById("coupon-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("coupon-apply-btn").click();
+  }
+});
 
 // ── Transcript Download ───────────────────────────────────────────────────
 
