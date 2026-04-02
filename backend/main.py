@@ -2112,7 +2112,6 @@ async def websocket_endpoint(ws: WebSocket):
         print(f"[ws] fatal:\n{traceback.format_exc()}")
     finally:
         await session.stop()
-            session._pending_transcript = None
 
 
 # Serve frontend static files (must be after all route definitions)
