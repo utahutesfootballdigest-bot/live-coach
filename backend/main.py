@@ -43,7 +43,7 @@ async def post_feedback(request: Request):
     """Receive post-call feedback via REST (reliable even after WebSocket session ends).
     Finds the most recent transcript and attaches the feedback."""
     import json as _json
-    from transcript_store import TRANSCRIPTS_DIR, _run_analysis_safe
+    from transcript_store import TRANSCRIPTS_DIR, _run_analysis
 
     body = await request.json()
     feedback = body.get("feedback", "")
@@ -66,11 +66,27 @@ async def post_feedback(request: Request):
     if not attached and feedback:
         print(f"[feedback] no pending transcript found, feedback lost: {feedback[:100]}")
 
-    # Trigger analysis after feedback is attached
+    # Run analysis synchronously so it completes before response
+    analysis_ok = False
     if attached:
-        asyncio.create_task(_run_analysis_safe())
+        try:
+            await _run_analysis()
+            analysis_ok = True
+        except Exception as e:
+            print(f"[feedback] analysis failed: {e}")
 
-    return {"ok": True, "attached": attached}
+    return {"ok": True, "attached": attached, "analysis_ran": analysis_ok}
+
+
+@app.post("/api/run-analysis")
+async def run_analysis_now():
+    """Manually trigger analysis — useful for testing or re-running after fixes."""
+    from transcript_store import _run_analysis
+    try:
+        await _run_analysis()
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/api/insights")
