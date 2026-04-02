@@ -1534,7 +1534,11 @@ class Session:
             # Customer said something else (greeting, question, etc.) —
             # stay in intro. Don't consume intro_turns for non-answers
             # so rapid greetings don't eat up the counter.
+            # Still show checklist + suggestion so the UI isn't blank.
             self.intro_turns = max(self.intro_turns - 1, 0)
+            await self.send({"type": "call_guidance", "call_stage": "intro",
+                "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
+            await self.send_checklist()
             return
 
         # ── Fast-track collect_info ──
@@ -1752,7 +1756,6 @@ class Session:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
                     next_step = _trim_long_suggestion(next_step)
-                    self.coach.track_equipment_from_text(next_step)
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage,
                                  "opener": _quick_opener(text, "build_system") if not build_handled else opener,
                                  "next_step": next_step or ""})
