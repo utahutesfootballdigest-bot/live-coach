@@ -1510,8 +1510,13 @@ class Session:
             await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
             if is_final and speech_final:
                 self.tts_active = False
-                # Buffer this text so it's processed after TTS ends
                 self.pending_rep_buffer.append(text)
+                # Process buffered speech immediately now that TTS is done
+                self.rep_buffer.extend(self.pending_rep_buffer)
+                self.pending_rep_buffer.clear()
+                if self._roleplay_task and not self._roleplay_task.done():
+                    self._roleplay_task.cancel()
+                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
             return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
