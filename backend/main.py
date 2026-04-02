@@ -1465,10 +1465,37 @@ class Session:
             return
         combined = " ".join(self.rep_buffer)
         self.rep_buffer = []
-        print(f"[roleplay] rep said: {combined[:120]}")
+        print(f"[roleplay] rep said ({len(combined)} chars): {combined[:200]}")
+
+        # Try the API call, retry once on failure
+        ai_text = None
+        for attempt in range(2):
+            try:
+                ai_text = await self.roleplay_customer.respond(combined)
+                print(f"[roleplay] AI response: {ai_text[:120]}")
+                break
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                import traceback
+                print(f"[roleplay] API attempt {attempt+1} failed:\n{traceback.format_exc()}")
+                if attempt == 0:
+                    # Fix dangling user message before retry
+                    if (self.roleplay_customer._history
+                            and self.roleplay_customer._history[-1]["role"] == "user"):
+                        self.roleplay_customer._history.pop()
+                    await asyncio.sleep(0.5)
+
+        if not ai_text:
+            ai_text = "Yeah, that sounds good."
+            print(f"[roleplay] using fallback response")
+            # Fix history for the fallback
+            if (self.roleplay_customer._history
+                    and self.roleplay_customer._history[-1]["role"] == "user"):
+                self.roleplay_customer._history.append(
+                    {"role": "assistant", "content": ai_text})
+
         try:
-            ai_text = await self.roleplay_customer.respond(combined)
-            print(f"[roleplay] AI response: {ai_text[:120]}")
             audio_b64 = await _tts(ai_text, self.roleplay_customer.voice)
             if audio_b64:
                 self.tts_active = True
@@ -1479,24 +1506,8 @@ class Session:
             raise
         except Exception:
             import traceback
-            print(f"[roleplay] error:\n{traceback.format_exc()}")
+            print(f"[roleplay] send/tts error:\n{traceback.format_exc()}")
             self.tts_active = False
-            # Send a fallback so the conversation doesn't die silently
-            fallback = "Yeah, that sounds good."
-            try:
-                audio_b64 = await _tts(fallback, self.roleplay_customer.voice)
-                await self.send({"type": "roleplay_speech", "text": fallback, "audio_b64": audio_b64})
-                await self._on_transcript("customer", fallback, True, True)
-                # Fix history so next call works (remove dangling user msg)
-                if (self.roleplay_customer._history
-                        and self.roleplay_customer._history[-1]["role"] == "user"):
-                    self.roleplay_customer._history.append(
-                        {"role": "assistant", "content": fallback})
-            except Exception:
-                pass
-            if self.pending_rep_buffer:
-                self.rep_buffer.extend(self.pending_rep_buffer)
-                self.pending_rep_buffer.clear()
 
     async def _delayed_roleplay_response(self):
         try:
@@ -1510,30 +1521,17 @@ class Session:
     async def _tts_safety_reset(self, seconds: int):
         await asyncio.sleep(seconds)
         if self.tts_active:
-            print("[roleplay] tts_active safety reset fired")
+            print("[roleplay] tts_active safety reset fired — unmuting mic")
             self.tts_active = False
-            if self.pending_rep_buffer:
-                # Move to rep_buffer — speech_final will trigger the response
-                self.rep_buffer.extend(self.pending_rep_buffer)
-                self.pending_rep_buffer.clear()
 
     # ── Transcript callback ──
 
     async def _on_transcript(self, speaker: str, text: str, is_final: bool, speech_final: bool):
-        # In roleplay, if TTS is playing but rep is speaking, release the lock.
-        # Always show transcript in UI; only skip coaching/roleplay processing.
+        # In roleplay, mic is muted during TTS (echo prevention), so rep
+        # transcripts here are just pipeline stragglers. Show them but skip
+        # roleplay processing — real speech arrives after TTS ends.
         if self.roleplay_mode and self.tts_active and speaker == "rep":
             await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
-            if is_final:
-                self.pending_rep_buffer.append(text)
-                if speech_final:
-                    self.tts_active = False
-                    # Move all buffered speech to rep_buffer and trigger response
-                    self.rep_buffer.extend(self.pending_rep_buffer)
-                    self.pending_rep_buffer.clear()
-                    if self._roleplay_task and not self._roleplay_task.done():
-                        self._roleplay_task.cancel()
-                    self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
             return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
@@ -1954,6 +1952,11 @@ async def websocket_endpoint(ws: WebSocket):
                 label = raw_bytes[0]
                 pcm = raw_bytes[1:]
                 if label == 0x00 and session.mic_queue is not None:
+                    # In roleplay, mute mic during TTS to prevent echo/mixing
+                    # that garbles Deepgram transcription. Rep speech after TTS
+                    # ends is captured cleanly.
+                    if session.roleplay_mode and session.tts_active:
+                        continue
                     session.mic_queue.put_nowait(pcm)
                 elif label == 0x01 and session.loopback_queue is not None:
                     session.loopback_queue.put_nowait(pcm)
@@ -1970,13 +1973,9 @@ async def websocket_endpoint(ws: WebSocket):
                     elif action == "start_roleplay":
                         await session.start_roleplay()
                     elif action == "tts_playing":
-                        was = session.tts_active
                         session.tts_active = msg.get("active", False)
-                        if was and not session.tts_active and session.pending_rep_buffer:
-                            # Move buffered speech to rep_buffer but don't trigger —
-                            # let speech_final from Deepgram trigger the response
-                            session.rep_buffer.extend(session.pending_rep_buffer)
-                            session.pending_rep_buffer.clear()
+                        if not session.tts_active:
+                            print("[roleplay] TTS ended — mic unmuted")
                     elif action == "update_profile":
                         await session.update_profile_field(msg.get("field", ""), msg.get("value", ""))
                     elif action == "update_equipment_count":
