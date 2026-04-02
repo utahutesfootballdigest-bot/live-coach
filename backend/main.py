@@ -707,7 +707,8 @@ def _extract_email(text: str) -> str:
     t = text.lower().strip()
     # Remove filler prefixes first
     for filler in ["my email is ", "email is ", "the email is ", "it's ", "it is ",
-                    "yeah it's ", "yes it's ", "yeah ", "yes ", "sure it's "]:
+                    "yeah it's ", "yes it's ", "yep it's ", "yep its ", "yep ",
+                    "yeah ", "yes ", "sure it's ", "sure its ", "so it's ", "so its "]:
         if t.startswith(filler):
             t = t[len(filler):]
     # Fix common speech-to-text splits and stutters
@@ -724,7 +725,15 @@ def _extract_email(text: str) -> str:
     for domain in ["gmail", "yahoo", "hotmail", "outlook", "aol"]:
         while domain[0] + domain in result:
             result = result.replace(domain[0] + domain, domain)
-    return result if "@" in result else text.strip()
+    if "@" in result:
+        # Safety net: strip any leading non-email words that got mashed in
+        # Valid email chars before @ are: alphanumeric, dots, underscores, hyphens, plus
+        import re as _re_email
+        match = _re_email.search(r'[a-zA-Z0-9][a-zA-Z0-9._+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', result)
+        if match:
+            return match.group(0)
+        return result
+    return text.strip()
 
 
 def _extract_name(text: str) -> str:
@@ -1636,8 +1645,14 @@ class Session:
             return
 
         # If unchecking, show the prompt for the unchecked item directly
-        # Use the master prompt table — single source of truth
-        prompt = _CHECKLIST_PROMPTS.get(topic, "")
+        # Use dynamic prompts for items that are generated at runtime
+        prompt = None
+        if topic == "closing_pricing":
+            prompt = _build_pricing_prompt(self)
+        elif topic == "recap_done":
+            prompt = _build_recap_prompt(self)
+        else:
+            prompt = _CHECKLIST_PROMPTS.get(topic, "")
         stage_for_item = self._STAGE_FOR_KEY.get(topic, self.current_stage)
         if prompt:
             if self.coach and self.coach.customer_name:
@@ -2292,11 +2307,10 @@ class Session:
                     if item not in self._rep_overrides:
                         self.coach._topics_done.add(item)
                 await self.send_checklist()
-                # Auto-advance: show the next closing item immediately
-                # so the rep can continue the monologue without waiting
-                # for a customer response. Fire on is_final (not just speech_final)
-                # so the rep doesn't have to pause for it to advance.
-                if is_final:
+                # Auto-advance: show the next closing item after a speech pause.
+                # Use speech_final (not is_final) to avoid advancing mid-sentence
+                # while the rep is still reading the current item.
+                if speech_final:
                     next_closing = _fallback_next_step("closing", self.coach, session=self)
                     if next_closing:
                         if self.coach.customer_name:
