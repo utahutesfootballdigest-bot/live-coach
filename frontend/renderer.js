@@ -941,19 +941,33 @@ function downloadTranscript() {
   URL.revokeObjectURL(url);
 }
 
-document.getElementById("submit-feedback-btn")?.addEventListener("click", () => {
+document.getElementById("submit-feedback-btn")?.addEventListener("click", async () => {
   const input = document.getElementById("call-feedback-input");
+  const btn = document.getElementById("submit-feedback-btn");
   const feedback = (input?.value || "").trim();
-  if (feedback) {
-    send({ action: "submit_feedback", feedback });
-    input.value = "";
+  if (btn) btn.disabled = true;
+  try {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback }),
+    });
+  } catch (err) {
+    console.error("[feedback] submit error:", err);
   }
+  if (input) input.value = "";
+  if (btn) btn.disabled = false;
   showSetupScreen();
 });
 
-document.getElementById("back-to-setup-btn")?.addEventListener("click", () => {
-  // Submit empty feedback (skip) — still lets backend know call is done
-  send({ action: "submit_feedback", feedback: "" });
+document.getElementById("back-to-setup-btn")?.addEventListener("click", async () => {
+  try {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback: "" }),
+    });
+  } catch (err) { /* skip is best-effort */ }
   showSetupScreen();
 });
 

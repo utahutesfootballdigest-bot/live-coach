@@ -13,6 +13,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
+import starlette.requests
 
 # Load from .env.example locally; on Railway, env vars are set directly
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
@@ -36,6 +37,41 @@ _STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "recap", "
 @app.get("/")
 async def serve_index():
     return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
+
+
+@app.post("/api/feedback")
+async def post_feedback(request: starlette.requests.Request):
+    """Receive post-call feedback via REST (reliable even after WebSocket session ends).
+    Finds the most recent transcript and attaches the feedback."""
+    import json as _json
+    from transcript_store import TRANSCRIPTS_DIR, _run_analysis_safe
+
+    body = await request.json()
+    feedback = body.get("feedback", "")
+
+    # Find the most recent transcript that has no feedback yet
+    files = sorted(TRANSCRIPTS_DIR.glob("transcript_*.json"), reverse=True)
+    attached = False
+    for f in files[:5]:
+        try:
+            t = _json.loads(f.read_text())
+            if not t.get("user_feedback"):
+                t["user_feedback"] = feedback
+                f.write_text(_json.dumps(t, indent=2))
+                print(f"[feedback] attached to {f.name}: {feedback[:100]}")
+                attached = True
+                break
+        except Exception:
+            continue
+
+    if not attached and feedback:
+        print(f"[feedback] no pending transcript found, feedback lost: {feedback[:100]}")
+
+    # Trigger analysis after feedback is attached
+    if attached:
+        asyncio.create_task(_run_analysis_safe())
+
+    return {"ok": True, "attached": attached}
 
 
 @app.get("/api/insights")
@@ -976,7 +1012,6 @@ class Session:
         self._build_current_item: str | None = None  # which build_system item is being pitched next
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
         self._user_feedback: str = ""  # post-call feedback from rep
-        self._pending_transcript: dict | None = None  # snapshot saved on stop, written on feedback
 
     async def send(self, msg: dict):
         try:
@@ -1049,20 +1084,24 @@ class Session:
             self._equipment_counts = {}
             return
 
-        # ── Snapshot transcript data (save happens when feedback arrives) ──
+        # ── Save transcript immediately (feedback attached later via REST) ──
         if self.coach and self.coach._history:
-            self._pending_transcript = {
-                "mode": "roleplay" if was_roleplay else "live",
-                "history": list(self.coach._history),
-                "stage_reached": self.current_stage,
-                "topics_done": list(self.coach._topics_done),
-                "equipment_mentioned": list(self.coach._equipment_mentioned),
-                "customer_name": self.coach.customer_name or "",
-                "scores": list(self.session_scores),
-                "profile": dict(self._profile),
-                "scenario": (self.roleplay_customer._persona if self.roleplay_customer else ""),
-                "rep_overrides": list(self._rep_overrides),
-            }
+            try:
+                save_transcript(
+                    mode="roleplay" if was_roleplay else "live",
+                    history=list(self.coach._history),
+                    stage_reached=self.current_stage,
+                    topics_done=list(self.coach._topics_done),
+                    equipment_mentioned=list(self.coach._equipment_mentioned),
+                    customer_name=self.coach.customer_name or "",
+                    scores=list(self.session_scores),
+                    profile=dict(self._profile),
+                    scenario=(self.roleplay_customer._persona if self.roleplay_customer else ""),
+                    rep_overrides=list(self._rep_overrides),
+                    user_feedback="",
+                )
+            except Exception as e:
+                print(f"[transcript] save failed: {e}")
 
         # ── Cancel tasks ──
         if self._coach_task and not self._coach_task.done():
@@ -2061,20 +2100,6 @@ async def websocket_endpoint(ws: WebSocket):
                         await session.go_back()
                     elif action == "toggle_topic":
                         await session.toggle_topic(msg.get("topic", ""), msg.get("checked", False))
-                    elif action == "submit_feedback":
-                        feedback = msg.get("feedback", "")
-                        if feedback:
-                            print(f"[feedback] {feedback[:200]}")
-                        # Save the pending transcript with feedback attached
-                        if session._pending_transcript:
-                            try:
-                                save_transcript(
-                                    **session._pending_transcript,
-                                    user_feedback=feedback,
-                                )
-                            except Exception as e:
-                                print(f"[transcript] save failed: {e}")
-                            session._pending_transcript = None
                     elif action == "stop":
                         await session.stop()
                 except Exception:
@@ -2088,12 +2113,6 @@ async def websocket_endpoint(ws: WebSocket):
         print(f"[ws] fatal:\n{traceback.format_exc()}")
     finally:
         await session.stop()
-        # Save transcript if feedback was never submitted (browser closed, etc.)
-        if session._pending_transcript:
-            try:
-                save_transcript(**session._pending_transcript, user_feedback="")
-            except Exception:
-                pass
             session._pending_transcript = None
 
 

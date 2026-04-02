@@ -85,9 +85,7 @@ def save_transcript(
         print(f"[transcript] save error: {e}")
         return None
 
-    # Run analysis after every call
-    print(f"[transcript] triggering post-call analysis")
-    asyncio.create_task(_run_analysis_safe())
+    # Analysis is triggered after feedback is attached (via /api/feedback)
 
     return str(filepath)
 
