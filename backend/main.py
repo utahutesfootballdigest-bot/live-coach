@@ -1049,8 +1049,10 @@ class Session:
         self._collect_info_done: set[str] = set()
         self._rep_overrides: set[str] = set()  # items the rep unchecked — don't auto-recheck
         self._profile: dict = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
+        self._profile_edits: set[str] = set()  # profile fields the rep manually corrected
         self._build_current_item: str | None = None  # which build_system item is being pitched next
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
+        self._equipment_edits: set[str] = set()  # equipment keys the rep manually corrected
         self._user_feedback: str = ""  # post-call feedback from rep
 
     async def send(self, msg: dict):
@@ -1120,8 +1122,10 @@ class Session:
             self.intro_turns = 0
             self._collect_info_done = set()
             self._rep_overrides = set()
+            self._profile_edits = set()
             self._build_current_item = None
             self._equipment_counts = {}
+            self._equipment_edits = set()
             return
 
         # ── Save transcript immediately (feedback attached later via REST) ──
@@ -1138,6 +1142,8 @@ class Session:
                     profile=dict(self._profile),
                     scenario=(self.roleplay_customer._persona if self.roleplay_customer else ""),
                     rep_overrides=list(self._rep_overrides),
+                    profile_edits=list(self._profile_edits),
+                    equipment_edits=list(self._equipment_edits),
                     user_feedback="",
                 )
             except Exception as e:
@@ -1283,6 +1289,7 @@ class Session:
         """Rep edited a profile field."""
         if field in self._profile:
             self._profile[field] = value
+            self._profile_edits.add(field)
             print(f"[profile] rep edited {field}: {value[:30]}")
 
     def _build_equipment_list(self) -> list[dict]:
@@ -2120,6 +2127,7 @@ async def websocket_endpoint(ws: WebSocket):
                         key = msg.get("key", "")
                         qty = int(msg.get("qty", 0))
                         session._equipment_counts[key] = qty
+                        session._equipment_edits.add(key)
                         print(f"[equipment] rep updated {key} = {qty}")
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")

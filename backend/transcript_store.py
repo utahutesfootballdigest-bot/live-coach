@@ -67,6 +67,8 @@ def save_transcript(
     profile: dict,
     scenario: str = "",     # roleplay scenario text
     rep_overrides: list[str] | None = None,  # items rep manually checked/unchecked
+    profile_edits: list[str] | None = None,  # profile fields rep manually corrected
+    equipment_edits: list[str] | None = None,  # equipment keys rep manually corrected
     user_feedback: str = "",  # post-call feedback from rep
 ) -> str | None:
     """Save a transcript JSON file. Returns the file path, or None on error."""
@@ -88,6 +90,8 @@ def save_transcript(
         "profile": profile,
         "scenario": scenario,
         "rep_overrides": rep_overrides or [],
+        "profile_edits": profile_edits or [],
+        "equipment_edits": equipment_edits or [],
         "user_feedback": user_feedback,
         "turns": history,
         "turn_count": len(history),
@@ -124,6 +128,8 @@ def _load_recent(n: int = 10) -> list[dict]:
 _ANALYSIS_PROMPT = """You are analyzing {count} recent sales coaching session(s) for Cove Smart home security.
 
 Your #1 priority: CHECKLIST ACCURACY. When reps have to manually check or uncheck boxes that the system should have handled automatically, that is the most important signal. Each transcript includes "rep_overrides" — items the rep had to manually correct. This is the strongest indicator of system failures.
+
+Your #1B priority: TRANSCRIPTION ACCURACY. Each transcript includes "profile_edits" (customer info fields the rep had to manually fix because the AI misheard the audio) and "equipment_edits" (equipment counts the rep had to correct). These indicate the AI is not accurately capturing what was said on the call. Analyze what likely went wrong (e.g. similar-sounding names, numbers misheard) and suggest detection improvements.
 
 Your #2 priority: USER FEEDBACK. Reps can submit feedback after each call. Take their feedback seriously — these are direct requests for improvement.
 
@@ -208,6 +214,16 @@ def _format_transcript(t: dict, idx: int) -> str:
     overrides = t.get("rep_overrides", [])
     if overrides:
         lines.append(f"  *** REP MANUAL OVERRIDES (system was wrong): {', '.join(overrides)} ***")
+
+    # Highlight profile edits — rep had to fix customer info the AI got wrong
+    profile_edits = t.get("profile_edits", [])
+    if profile_edits:
+        lines.append(f"  *** REP CORRECTED CUSTOMER INFO (AI heard wrong): {', '.join(profile_edits)} ***")
+
+    # Highlight equipment edits — rep had to fix equipment counts the AI got wrong
+    equipment_edits = t.get("equipment_edits", [])
+    if equipment_edits:
+        lines.append(f"  *** REP CORRECTED EQUIPMENT COUNTS (AI heard wrong): {', '.join(equipment_edits)} ***")
 
     # Highlight user feedback — #2 signal
     feedback = t.get("user_feedback", "")
