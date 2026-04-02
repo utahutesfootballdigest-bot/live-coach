@@ -245,6 +245,26 @@ def _strip_fluff_for_opener(opener: str, next_step: str) -> str:
     if attempt:
         cleaned = attempt
 
+    # Pass 3: detect semantic overlap — if next_step's first sentence says
+    # essentially the same thing as the opener, strip it
+    opener_lower = opener.lower()
+    first_sentence_end = None
+    for i, ch in enumerate(cleaned):
+        if ch in ".!?" and i > 10:
+            first_sentence_end = i + 1
+            break
+    if first_sentence_end and len(cleaned) > first_sentence_end + 10:
+        first_sentence = cleaned[:first_sentence_end].lower()
+        # Check for significant word overlap (3+ shared content words)
+        _SKIP_WORDS = {"i", "a", "the", "to", "and", "or", "is", "it", "that", "so",
+                        "for", "of", "in", "on", "you", "your", "we", "me", "my",
+                        "do", "can", "will", "just", "let", "be", "are", "was", "have"}
+        opener_words = {w for w in _re.findall(r'\w+', opener_lower) if w not in _SKIP_WORDS and len(w) > 2}
+        first_words = {w for w in _re.findall(r'\w+', first_sentence) if w not in _SKIP_WORDS and len(w) > 2}
+        overlap = opener_words & first_words
+        if len(overlap) >= 3:
+            cleaned = cleaned[first_sentence_end:].strip()
+
     # Fix capitalization
     if cleaned and cleaned[0].islower():
         cleaned = cleaned[0].upper() + cleaned[1:]
@@ -589,7 +609,7 @@ def _stage_transition(stage: str) -> str:
         "discovery": "Let me learn a little more about your situation.",
         "collect_info": "I'm just going to get some information from you before we start building out the system.",
         "build_system": "We do have fantastic coverage in your area, so I can definitely help you out. Let's go ahead and build your system.",
-        "recap": "Let me quickly recap everything we've got for you.",
+        "recap": "Is there anything else you'd like to add?",
         "closing": "Awesome — let me see what I can do for you on the pricing.",
     }
     return transitions.get(stage, "")
@@ -713,8 +733,10 @@ def _extract_name(text: str) -> str:
     t = text.lower().strip()
 
     # Try to extract after "my name is" / "name is" / "it's" / "i'm"
+    # Note: "i'm" and "it's" are risky prefixes — customers say "i'm actually",
+    # "i'm already" etc. Only use them if preceded by "name" context or very short.
     for prefix in ["my name is ", "my first name is ", "first name is ", "name is ",
-                    "it's ", "i'm ", "this is "]:
+                    "this is "]:
         if prefix in t:
             after = text[t.index(prefix) + len(prefix):].strip()
             # Remove filler words between first and last name
@@ -724,11 +746,21 @@ def _extract_name(text: str) -> str:
             # Take the name words (stop at non-name words)
             _STOP_WORDS = {"and", "my", "the", "so", "but", "yeah", "yes", "that", "is",
                            "it", "i", "we", "at", "on", "in", "from", "with"}
+            _NOT_NAMES = {"actually", "already", "currently", "still", "honestly",
+                          "basically", "literally", "probably", "definitely", "maybe",
+                          "trying", "thinking", "wondering", "hoping", "getting",
+                          "having", "going", "coming", "working", "living",
+                          "fine", "good", "great", "well", "ok", "okay", "alright",
+                          "doing", "interested", "looking", "calling", "here", "ready",
+                          "not", "just", "also", "really", "very", "glad", "happy",
+                          "sure", "sorry", "curious", "new"}
             words = []
             for w in after.split():
                 clean = w.strip(".,!?")
                 if clean.lower() in _STOP_WORDS and len(words) >= 2:
                     break
+                if clean.lower() in _NOT_NAMES:
+                    break  # not a real name — abort
                 if clean.isalpha() and len(clean) >= 2:
                     words.append(clean.capitalize())
                 if len(words) >= 3:  # max 3 name parts
@@ -905,9 +937,10 @@ _CHECKLIST_PROMPTS = {
                       "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund."),
     "closing_pricing": ("On the monthly monitoring, for the first six months it'll just be $29.99 per month. "
                         "After that, it goes to the standard rate of $32.99. "
-                        "And the equipment — with all the discounts and promotions today, I'm gonna get your total down to a great price."),
-    "closing_commitment": "Does that sound like it will work for you?",
-    "closing_checkout": "Go ahead and put your payment info in. Let me know once you've placed the order and I'll confirm on my side.",
+                        "And the equipment — with all the discounts and promotions today, your one-time equipment cost is going to come out to around $150 to $200 depending on what we've built. "
+                        "So does that sound like something that will work for you?"),
+    "closing_commitment": "So are you ready to get started? I can walk you through the checkout right now.",
+    "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
     "closing_welcome": ("Congratulations and welcome to the Cove family! "
                         "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
                         "If you need a technician, we have a third-party service starting at $129. "
@@ -1901,9 +1934,12 @@ class Session:
 
             elif _cur == "extra_equip" and (_is_yes or _is_no):
                 self.coach._topics_done.add("extra_equip")
-                if "motion sensor" not in self.coach._equipment_mentioned:
-                    self.coach._equipment_mentioned.append("motion sensor")
-                self._equipment_counts["motion_sensor"] = 1 if _is_yes else 0
+                if _is_yes:
+                    if "motion sensor" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("motion sensor")
+                    self._equipment_counts["motion_sensor"] = 1
+                else:
+                    self._equipment_counts["motion_sensor"] = 0
                 self._build_current_item = "indoor_camera"
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
@@ -2135,6 +2171,11 @@ async def websocket_endpoint(ws: WebSocket):
                             session.current_stage = new_stage
                             if new_stage == "build_system":
                                 session._build_current_item = "door_sensors"
+                            # When entering recap, auto-mark recap_done — the rep already
+                            # delivered the recap at end of build_system. Skip straight to
+                            # "anything else to add?" or closing.
+                            if new_stage == "recap" and session.coach:
+                                session.coach._topics_done.add("recap_done")
                             print(f"[stage] rep advanced to: {new_stage}")
                             # Show the first suggestion for the new stage
                             fallback = _fallback_next_step(new_stage, session.coach, session=session)

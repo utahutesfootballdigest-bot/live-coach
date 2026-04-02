@@ -458,7 +458,12 @@ class CoachingEngine:
                 # Common words that follow "I'm" but are NOT names
                 _NOT_NAMES = {"fine", "good", "great", "well", "ok", "okay", "alright",
                               "doing", "interested", "looking", "calling", "here", "ready",
-                              "not", "just", "also", "really", "very", "so", "the", "me"}
+                              "not", "just", "also", "really", "very", "so", "the", "me",
+                              "actually", "already", "currently", "still", "honestly",
+                              "basically", "literally", "probably", "definitely", "maybe",
+                              "trying", "thinking", "wondering", "hoping", "getting",
+                              "having", "going", "coming", "working", "living",
+                              "glad", "happy", "sure", "sorry", "curious", "new"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
                         after = text[t_lower.index(prefix) + len(prefix):].strip()
@@ -557,6 +562,10 @@ class CoachingEngine:
         t = text.lower()
         for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
             if equip not in self._equipment_mentioned:
+                # Don't count "built-in motion sensor" in camera descriptions
+                # as a separate motion sensor — the camera has one inside it
+                if equip == "motion sensor" and "built-in motion sensor" in t:
+                    continue
                 if any(kw in t for kw in keywords):
                     self._equipment_mentioned.append(equip)
                     self._sync_equipment_to_topics(equip)
