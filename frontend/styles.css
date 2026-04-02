@@ -753,6 +753,13 @@ html, body {
 .equip-qty:focus {
   border-color: var(--accent);
 }
+.equip-declined .equip-label {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+.equip-declined .equip-qty {
+  opacity: 0.4;
+}
 
 /* ── Next Step Card ──────────────────────────────────────────────────────── */
 .opener-card {

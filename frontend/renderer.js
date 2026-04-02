@@ -888,7 +888,7 @@ function renderEquipmentList(equipment) {
   container.innerHTML = "";
   equipment.forEach(item => {
     const row = document.createElement("div");
-    row.className = "equip-row";
+    row.className = "equip-row" + (item.qty === 0 ? " equip-declined" : "");
 
     const label = document.createElement("span");
     label.className = "equip-label";
@@ -901,7 +901,9 @@ function renderEquipmentList(equipment) {
     qtyInput.min = 0;
     qtyInput.max = 99;
     qtyInput.addEventListener("change", () => {
-      send({ action: "update_equipment_count", key: item.key, qty: parseInt(qtyInput.value) || 0 });
+      const newQty = parseInt(qtyInput.value) || 0;
+      row.classList.toggle("equip-declined", newQty === 0);
+      send({ action: "update_equipment_count", key: item.key, qty: newQty });
     });
 
     row.appendChild(label);

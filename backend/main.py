@@ -789,7 +789,7 @@ _CHECKLIST_PROMPTS = {
     "panel_hub": None,  # uses personalization — filled dynamically
     "yard_sign": "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are.",
     # Recap
-    "recap_done": "Let me quickly recap what I have for you. Personally I believe we've got you fully protected — is there anything else you were hoping I could add?",
+    "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
     "closing_pitch": ("It looks like I'm going to be able to get you a lot of extra discounts here. "
                       "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
@@ -853,7 +853,36 @@ def _build_context_from_transcript(checked_topic: str, coach) -> str:
     return ""
 
 
-def _fallback_next_step(stage: str, coach) -> str:
+def _build_recap_prompt(session) -> str:
+    """Build a dynamic recap prompt from the equipment list."""
+    counts = session._equipment_counts
+    name = session.coach.customer_name if session.coach else ""
+    parts = []
+    if counts.get("door_sensors", 0) > 0:
+        parts.append(f"{counts['door_sensors']} door sensor{'s' if counts['door_sensors'] != 1 else ''}")
+    if counts.get("window_sensors", 0) > 0:
+        parts.append(f"{counts['window_sensors']} window sensor{'s' if counts['window_sensors'] != 1 else ''}")
+    if counts.get("motion_sensor", 0) > 0:
+        parts.append("a motion detector")
+    if counts.get("indoor_camera", 0) > 0:
+        parts.append("a free indoor camera")
+    if counts.get("outdoor_camera", 0) > 0:
+        parts.append("an outdoor camera")
+    # Always include these
+    parts.append("the hub and touchscreen panel")
+    parts.append("a yard sign and window stickers")
+    parts.append("full smartphone access")
+
+    if parts:
+        equip_list = ", ".join(parts)
+        suffix = f", {name}" if name else ""
+        return (f"Let me quickly recap what I have for you: {equip_list}. "
+                f"Personally I believe we've got you fully protected — "
+                f"but is there anything else you were hoping I could add{suffix}?")
+    return "Let me quickly recap everything we've got for you. Is there anything else you'd like to add?"
+
+
+def _fallback_next_step(stage: str, coach, session=None) -> str:
     """Find the first unchecked item in the current stage and return its prompt.
     Simple, predictable, always gives the rep the right next question."""
     if not coach:
@@ -870,8 +899,11 @@ def _fallback_next_step(stage: str, coach) -> str:
             continue
         if key not in done:
             prompt = _CHECKLIST_PROMPTS.get(key, "")
+            # Dynamic recap from equipment list
+            if key == "recap_done" and session:
+                prompt = _build_recap_prompt(session)
             # Dynamic personalization for certain build_system items
-            if key == "indoor_camera":
+            elif key == "indoor_camera":
                 prompt = _personalize_camera(ctx, name)
             elif key == "panel_hub":
                 prompt = _personalize_panel(ctx, name)
@@ -1207,7 +1239,7 @@ class Session:
                 context_prefix = _build_context_from_transcript(topic, self.coach)
 
             # Show next prompt so the rep always knows what to ask next
-            next_prompt = _fallback_next_step(self.current_stage, self.coach)
+            next_prompt = _fallback_next_step(self.current_stage, self.coach, session=self)
             if not next_prompt:
                 # Current stage fully done — try next stage
                 _next_stages = {"intro": "discovery", "discovery": "collect_info",
@@ -1215,7 +1247,7 @@ class Session:
                                 "recap": "closing"}
                 _ns = _next_stages.get(self.current_stage, "")
                 if _ns:
-                    next_prompt = _fallback_next_step(_ns, self.coach)
+                    next_prompt = _fallback_next_step(_ns, self.coach, session=self)
             if next_prompt:
                 if context_prefix:
                     next_prompt = context_prefix + " " + next_prompt
@@ -1285,7 +1317,7 @@ class Session:
             if equip:
                 removed = equip.pop()
                 print(f"[go_back] rewound equipment: removed {removed}")
-                fallback = _fallback_next_step("build_system", self.coach)
+                fallback = _fallback_next_step("build_system", self.coach, session=self)
                 if fallback:
                     await self.send({"type": "call_guidance", "call_stage": "build_system",
                                      "opener": "Let me go back to that.", "next_step": fallback})
@@ -1298,7 +1330,7 @@ class Session:
                 if topic in self.coach._topics_done:
                     self.coach._topics_done.discard(topic)
                     self.coach._topics_done.discard("_discovery_bridge")
-                    fallback = _fallback_next_step("discovery", self.coach)
+                    fallback = _fallback_next_step("discovery", self.coach, session=self)
                     if fallback:
                         print(f"[go_back] rewound discovery topic: {topic}")
                         await self.send({"type": "call_guidance", "call_stage": "discovery",
@@ -1343,7 +1375,7 @@ class Session:
             else:
                 # P0 FIX: Fallback for empty Then — generate a stage-appropriate
                 # next step so the rep never sees an opener with no follow-up.
-                cleaned_next = _fallback_next_step(new_stage, self.coach)
+                cleaned_next = _fallback_next_step(new_stage, self.coach, session=self)
                 if not cleaned_next:
                     # All items in current stage done — try next stage's first item
                     _next_stages = {"intro": "discovery", "discovery": "collect_info",
@@ -1351,7 +1383,7 @@ class Session:
                                     "recap": "closing"}
                     _ns = _next_stages.get(new_stage, "")
                     if _ns:
-                        cleaned_next = _fallback_next_step(_ns, self.coach)
+                        cleaned_next = _fallback_next_step(_ns, self.coach, session=self)
                 if not cleaned_next:
                     # Last resort: generic stage-appropriate prompt
                     cleaned_next = {
@@ -1379,7 +1411,7 @@ class Session:
                 cleaned_next = cleaned_next.replace("$____", "your discounted price")
                 suggestion["next_step"] = cleaned_next
 
-            if cleaned_next and self.coach:
+            if cleaned_next and self.coach and self.current_stage != "build_system":
                 self.coach.track_equipment_from_text(cleaned_next)
 
             # Always include opener so frontend never shows a Then without a Say First
@@ -1574,13 +1606,13 @@ class Session:
                         if addr.lower().startswith(filler):
                             addr = addr[len(filler):]
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
-                    self.current_stage = "build_system"
-                    self._build_current_item = "door_sensors"
+                    # Don't auto-advance to build_system — rep must click
+                    # "INFO COMPLETE" to advance. Just show coverage confirmation.
                     opener = _pick(["Awesome, we have fantastic coverage in your area.",
                                     "Great news — we have great coverage out there.",
                                     "Perfect, we can definitely service that area."])
                     self.coach.set_opener(opener)
-                    next_step = "Let's go ahead and build your system. How many doors go in and out of your home?"
+                    next_step = "We have great coverage in your area, so I can definitely help you out. Go ahead and click INFO COMPLETE when you're ready to build the system."
                     self.coach._topics_done.add("full_name")
                     self.coach._topics_done.add("phone_number")
                     self.coach._topics_done.add("email")
@@ -1683,29 +1715,27 @@ class Session:
 
             elif _cur == "extra_equip" and (_is_yes or _is_no):
                 self.coach._topics_done.add("extra_equip")
-                if _is_yes:
-                    if "motion sensor" not in self.coach._equipment_mentioned:
-                        self.coach._equipment_mentioned.append("motion sensor")
-                    self._equipment_counts["motion_sensor"] = 1
+                if "motion sensor" not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append("motion sensor")
+                self._equipment_counts["motion_sensor"] = 1 if _is_yes else 0
                 self._build_current_item = "indoor_camera"
-                next_step = _fallback_next_step("build_system", self.coach)
+                next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
 
             elif _cur in ("indoor_camera", "outdoor_camera", "panel_hub", "yard_sign") and (_is_yes or _is_no):
                 self.coach._topics_done.add(_cur)
-                # Add equipment for yes responses
+                # Add equipment to list regardless — qty=0 means declined
                 _equip_map = {"indoor_camera": "camera", "outdoor_camera": "outdoor camera",
                               "panel_hub": "panel", "yard_sign": "yard sign"}
-                if _is_yes and _equip_map.get(_cur):
-                    ek = _equip_map[_cur]
-                    if ek not in self.coach._equipment_mentioned:
-                        self.coach._equipment_mentioned.append(ek)
-                    self._equipment_counts[_cur] = 1
+                ek = _equip_map.get(_cur)
+                if ek and ek not in self.coach._equipment_mentioned:
+                    self.coach._equipment_mentioned.append(ek)
+                self._equipment_counts[_cur] = 1 if _is_yes else 0
                 # Advance to next item
                 _build_order = _STAGE_ITEM_ORDER.get("build_system", [])
                 _ci = _build_order.index(_cur) if _cur in _build_order else -1
                 self._build_current_item = _build_order[_ci + 1] if _ci + 1 < len(_build_order) else None
-                next_step = _fallback_next_step("build_system", self.coach)
+                next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
 
             elif _cust_number is not None and _cur in ("door_sensors", "window_sensors"):
@@ -1718,9 +1748,9 @@ class Session:
                 opener = _quick_opener(text, "build_system")
                 self.coach.set_opener(opener)
                 if not next_step:
-                    next_step = _fallback_next_step("build_system", self.coach)
+                    next_step = _fallback_next_step("build_system", self.coach, session=self)
                 if not next_step:
-                    next_step = _fallback_next_step("recap", self.coach)
+                    next_step = _fallback_next_step("recap", self.coach, session=self)
                 if next_step and name:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
@@ -1735,7 +1765,7 @@ class Session:
                 return
 
             # Unhandled customer response — still suppress Claude, re-show current prompt
-            next_step = _fallback_next_step("build_system", self.coach)
+            next_step = _fallback_next_step("build_system", self.coach, session=self)
             if next_step and name:
                 next_step = next_step.replace("[NAME]", name)
             if next_step:
@@ -1785,39 +1815,6 @@ class Session:
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
 
-        # ── Auto-detect build_system items from rep speech ──
-        if self.current_stage == "build_system" and is_final:
-            t = text.lower()
-            _build_detected = []
-            if any(w in t for w in ["door sensor", "door sensors"]):
-                _build_detected.append(("door_sensors", "door sensor"))
-            if any(w in t for w in ["window sensor", "window sensors"]):
-                _build_detected.append(("window_sensors", "window sensor"))
-            if any(w in t for w in ["motion detector", "glass break", "carbon monoxide", "co detector"]):
-                _build_detected.append(("extra_equip", "motion sensor"))
-            if any(w in t for w in ["indoor camera", "free camera", "free indoor"]):
-                _build_detected.append(("indoor_camera", "camera"))
-            if any(w in t for w in ["outdoor camera", "doorbell camera", "solar camera"]):
-                _build_detected.append(("outdoor_camera", "outdoor camera"))
-            if any(w in t for w in ["touchscreen", "panel", "cellular", "24/7 monitoring"]):
-                _build_detected.append(("panel_hub", "panel"))
-            if any(w in t for w in ["yard sign", "window sticker", "smartphone access", "app access"]):
-                _build_detected.append(("yard_sign", "yard sign"))
-            if _build_detected:
-                for topic_key, equip_key in _build_detected:
-                    if topic_key not in self._rep_overrides:
-                        self.coach._topics_done.add(topic_key)
-                        if equip_key not in self.coach._equipment_mentioned:
-                            self.coach._equipment_mentioned.append(equip_key)
-                await self.send_checklist()
-                if speech_final:
-                    next_build = _fallback_next_step("build_system", self.coach)
-                    if next_build:
-                        if self.coach.customer_name:
-                            next_build = next_build.replace("[NAME]", self.coach.customer_name)
-                        await self.send({"type": "call_guidance", "call_stage": "build_system",
-                                         "next_step": next_build})
-
         # ── Auto-detect closing items from rep speech ──
         if self.current_stage == "closing" and is_final:
             t = text.lower()
@@ -1847,7 +1844,7 @@ class Session:
                 # so the rep can continue the monologue without waiting
                 # for a customer response
                 if speech_final:
-                    next_closing = _fallback_next_step("closing", self.coach)
+                    next_closing = _fallback_next_step("closing", self.coach, session=self)
                     if next_closing:
                         if self.coach.customer_name:
                             next_closing = next_closing.replace("[NAME]", self.coach.customer_name)
@@ -1940,9 +1937,11 @@ async def websocket_endpoint(ws: WebSocket):
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:
                             session.current_stage = new_stage
+                            if new_stage == "build_system":
+                                session._build_current_item = "door_sensors"
                             print(f"[stage] rep advanced to: {new_stage}")
                             # Show the first suggestion for the new stage
-                            fallback = _fallback_next_step(new_stage, session.coach)
+                            fallback = _fallback_next_step(new_stage, session.coach, session=session)
                             if fallback and session.coach and session.coach.customer_name:
                                 fallback = fallback.replace("[NAME]", session.coach.customer_name)
                             transition = _stage_transition(new_stage)
