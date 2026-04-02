@@ -765,7 +765,9 @@ def _extract_name(text: str) -> str:
                           "sure", "sorry", "curious", "new",
                           "my", "your", "his", "her", "our", "their", "its",
                           "being", "feeling", "sitting", "standing", "running",
-                          "home", "here", "there", "now", "then", "about", "over"}
+                          "home", "here", "there", "now", "then", "about", "over",
+                          "in", "on", "up", "out", "at", "from", "with", "for",
+                          "so", "if", "or", "an", "no", "oh", "uh", "um"}
             words = []
             for w in after.split():
                 clean = w.strip(".,!?")
@@ -2009,7 +2011,16 @@ class Session:
             elif "email" not in self._collect_info_done:
                 if _has_email:
                     self._collect_info_done.add("email")
-                    self._profile["email"] = _extract_email(text)
+                    # Customer may split email across segments ("gonzales flaubert"
+                    # then "at gmail dot com"). Combine recent customer turns.
+                    _email_parts = []
+                    for _h in reversed(self.coach._history[-6:]):
+                        if _h["speaker"] == "customer":
+                            _email_parts.insert(0, _h["text"])
+                        elif _h["speaker"] == "rep":
+                            break  # stop at the rep's prompt
+                    _combined_email = " ".join(_email_parts) if _email_parts else text
+                    self._profile["email"] = _extract_email(_combined_email)
                     next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:

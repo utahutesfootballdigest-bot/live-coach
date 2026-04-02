@@ -483,7 +483,9 @@ class CoachingEngine:
                               "being", "feeling", "sitting", "standing", "running",
                               "glad", "happy", "sure", "sorry", "curious", "new",
                               "my", "your", "his", "her", "our", "their", "its",
-                              "home", "here", "there", "now", "then", "about", "over"}
+                              "home", "here", "there", "now", "then", "about", "over",
+                              "in", "on", "up", "out", "at", "from", "with", "for",
+                              "so", "if", "or", "an", "no", "oh", "uh", "um"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
                         after = text[t_lower.index(prefix) + len(prefix):].strip()
