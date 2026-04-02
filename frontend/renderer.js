@@ -989,27 +989,6 @@ async function showInsights() {
     const resp = await fetch("/api/insights");
     const data = await resp.json();
     container.innerHTML = renderInsights(data) + renderTracker(data);
-    // Wire up the Run Analysis button
-    document.getElementById("run-analysis-btn")?.addEventListener("click", async () => {
-      const btn = document.getElementById("run-analysis-btn");
-      const status = document.getElementById("analysis-status");
-      if (btn) btn.disabled = true;
-      if (status) { status.textContent = "Running analysis (may take 30-60s)..."; status.style.color = "var(--accent)"; }
-      try {
-        const r = await fetch("/api/run-analysis", { method: "POST" });
-        const result = await r.json();
-        if (result.ok) {
-          if (status) { status.textContent = "Done! Refreshing..."; status.style.color = "#4ade80"; }
-          setTimeout(() => showInsights(), 500);
-        } else {
-          if (status) { status.textContent = `Error: ${result.error || "unknown"}`; status.style.color = "#f87171"; }
-          if (btn) btn.disabled = false;
-        }
-      } catch (err) {
-        if (status) { status.textContent = `Error: ${err.message}`; status.style.color = "#f87171"; }
-        if (btn) btn.disabled = false;
-      }
-    });
   } catch (err) {
     container.innerHTML = `<p style="color:#f87171">Failed to load insights: ${err.message}</p>`;
   }
@@ -1052,18 +1031,9 @@ function renderInsights(data) {
     parts.push('</div>');
   }
 
-  // ── Run analysis button ──
-  parts.push(`
-    <div style="text-align:center;margin-bottom:16px">
-      <button id="run-analysis-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer">Run Analysis Now</button>
-      <span id="analysis-status" style="display:inline-block;margin-left:8px;font-size:11px;color:var(--text-muted)"></span>
-    </div>
-  `);
-
   // ── Latest analysis ──
   const analyses = data.analyses || [];
   if (analyses.length === 0) {
-    parts.push('<div style="text-align:center;padding:16px;color:var(--text-muted)">No analysis generated yet. Click "Run Analysis Now" above.</div>');
     return parts.join('');
   }
 

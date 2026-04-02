@@ -45,7 +45,7 @@ async def post_feedback(request: Request):
     """Receive post-call feedback via REST (reliable even after WebSocket session ends).
     Finds the most recent transcript and attaches the feedback."""
     import json as _json
-    from transcript_store import TRANSCRIPTS_DIR, _run_analysis
+    from transcript_store import TRANSCRIPTS_DIR
 
     body = await request.json()
     feedback = body.get("feedback", "")
@@ -68,35 +68,13 @@ async def post_feedback(request: Request):
     if not attached and feedback:
         print(f"[feedback] no pending transcript found, feedback lost: {feedback[:100]}")
 
-    # Run analysis synchronously so it completes before response
-    analysis_ok = False
-    if attached:
-        try:
-            await _run_analysis()
-            analysis_ok = True
-        except Exception as e:
-            print(f"[feedback] analysis failed: {e}")
+    return {"ok": True, "attached": attached}
 
-    return {"ok": True, "attached": attached, "analysis_ran": analysis_ok}
-
-
-@app.post("/api/run-analysis")
-async def run_analysis_now():
-    """Manually trigger analysis — useful for testing or re-running after fixes."""
-    from transcript_store import _run_analysis
-    import traceback
-    try:
-        await _run_analysis()
-        return {"ok": True}
-    except Exception as e:
-        tb = traceback.format_exc()
-        print(f"[api] run-analysis error:\n{tb}")
-        return {"ok": False, "error": f"{e}\n{tb}"}
 
 
 @app.get("/api/transcripts/download")
 async def download_transcripts():
-    """Download all transcripts as a single JSON array."""
+    """Download all transcripts as a single JSON array, then delete them."""
     from transcript_store import TRANSCRIPTS_DIR
     import json as _json
     files = sorted(TRANSCRIPTS_DIR.glob("transcript_*.json"))
@@ -106,6 +84,24 @@ async def download_transcripts():
             all_transcripts.append(_json.loads(f.read_text()))
         except Exception:
             continue
+
+    # Delete after reading so next pull only gets new ones
+    for f in files:
+        try:
+            f.unlink()
+        except Exception:
+            pass
+    # Reset counter
+    counter_file = TRANSCRIPTS_DIR / "_counter.json"
+    if counter_file.exists():
+        try:
+            counter_file.unlink()
+        except Exception:
+            pass
+
+    count = len(all_transcripts)
+    print(f"[transcripts] downloaded and cleared {count} transcripts")
+
     from starlette.responses import Response
     return Response(
         content=_json.dumps(all_transcripts, indent=2),
