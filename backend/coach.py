@@ -302,11 +302,12 @@ QUESTION_TOPICS = {
         "output_detect": ["already a customer", "already a cove", "existing customer", "looking to get a security"],
     },
     "had_system_before": {
-        "rep_asks": ["had a security system", "had a system before", "ever had a security", "ever had a system"],
+        "rep_asks": ["had a security system", "had a system before", "ever had a security", "ever had a system",
+                     "ever had security", "had security before", "had a security before"],
         "customer_answers": ["never had", "first time", "no i haven", "i had", "i was with", "i used to have",
                              "we had", "i've had", "had one with", "had adt", "had alder", "had ring",
                              "had simplisafe", "had vivint", "nope", "no this", "no it", "this would be",
-                             "this will be", "not yet"],
+                             "this will be", "not yet", "no never", "no no", "no sir", "no ma'am"],
         "output_detect": ["had a security system", "had a system before", "ever had a security", "ever had a system"],
     },
     "prior_provider": {

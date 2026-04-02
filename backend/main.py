@@ -1559,7 +1559,15 @@ class Session:
             _digit_count = sum(c.isdigit() for c in t)
             _digit_count += sum(1 for w in t.split() if w in _SPOKEN_DIGITS)
 
-            _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (len(t.split()) <= 4 and t.replace(" ", "").isalpha())
+            _NOT_NAMES = {"yes", "no", "yeah", "yep", "nope", "okay", "ok", "sure", "hello", "hi",
+                         "yes sir", "no sir", "yes ma'am", "no ma'am", "little kids", "teenagers",
+                         "my family", "my kids", "my wife", "my husband", "just me", "me and my",
+                         "not yet", "not sure", "i think", "let me", "give me", "hold on",
+                         "sounds good", "that works", "thank you", "thanks", "alright", "fine"}
+            _is_short_alpha = len(t.split()) <= 4 and t.replace(" ", "").isalpha()
+            _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (
+                _is_short_alpha and t.strip() not in _NOT_NAMES and not any(phrase in t for phrase in _NOT_NAMES)
+            )
             _has_phone_digits = _digit_count >= 7
             _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook",
                                                            "dot com", "at gmail", "at yahoo", "at hotmail",
@@ -1803,6 +1811,9 @@ class Session:
         # ── Customer final ──
         if speaker == "customer":
             self.coach.add_turn(speaker, text)
+            # Send checklist immediately so topic detection from add_turn
+            # shows up right away (don't wait for slow Claude response)
+            await self.send_checklist()
             self.customer_buffer.append(text)
             if self._coach_task and not self._coach_task.done():
                 self._coach_task.cancel()
