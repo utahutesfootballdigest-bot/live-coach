@@ -858,7 +858,7 @@ function showCoachingIdle() {
   ["profile-name", "profile-phone", "profile-email", "profile-address"].forEach(id => {
     document.getElementById(id).value = "";
   });
-  document.getElementById("profile-equipment").textContent = "—";
+  document.getElementById("profile-equipment").innerHTML = "—";
   _currentChecklist = {};
   _currentCallStage = null;
   _viewingStage = null;
@@ -875,8 +875,39 @@ function handleProfileUpdate(msg) {
   if (msg.email) document.getElementById("profile-email").value = msg.email;
   if (msg.address) document.getElementById("profile-address").value = msg.address;
   if (msg.equipment) {
-    document.getElementById("profile-equipment").textContent = msg.equipment.join(", ") || "—";
+    renderEquipmentList(msg.equipment);
   }
+}
+
+function renderEquipmentList(equipment) {
+  const container = document.getElementById("profile-equipment");
+  if (!equipment || !equipment.length) {
+    container.innerHTML = "—";
+    return;
+  }
+  container.innerHTML = "";
+  equipment.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "equip-row";
+
+    const label = document.createElement("span");
+    label.className = "equip-label";
+    label.textContent = item.label;
+
+    const qtyInput = document.createElement("input");
+    qtyInput.type = "number";
+    qtyInput.className = "equip-qty";
+    qtyInput.value = item.qty;
+    qtyInput.min = 0;
+    qtyInput.max = 99;
+    qtyInput.addEventListener("change", () => {
+      send({ action: "update_equipment_count", key: item.key, qty: parseInt(qtyInput.value) || 0 });
+    });
+
+    row.appendChild(label);
+    row.appendChild(qtyInput);
+    container.appendChild(row);
+  });
 }
 
 // Rep edits profile fields — send updates to backend

@@ -909,6 +909,8 @@ class Session:
         self._collect_info_done: set[str] = set()
         self._rep_overrides: set[str] = set()  # items the rep unchecked — don't auto-recheck
         self._profile: dict = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
+        self._build_current_item: str | None = None  # which build_system item is being pitched next
+        self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
 
     async def send(self, msg: dict):
         try:
@@ -961,6 +963,8 @@ class Session:
         self.intro_turns = 0
         self._collect_info_done = set()
         self._rep_overrides = set()
+        self._build_current_item = None
+        self._equipment_counts = {}
 
         if not self.running:
             return
@@ -1099,36 +1103,33 @@ class Session:
             self._profile[field] = value
             print(f"[profile] rep edited {field}: {value[:30]}")
 
-    def _build_equipment_list(self) -> list[str]:
-        """Build readable equipment list from coach state."""
+    def _build_equipment_list(self) -> list[dict]:
+        """Build structured equipment list with quantities from coach state."""
         if not self.coach:
             return []
         items = []
         equip = self.coach._equipment_mentioned
-        # Build from what's been covered
+        seen = set()
         for e in equip:
-            if e == "door sensor":
-                items.append("Door sensors")
-            elif e == "window sensor":
-                items.append("Window sensors")
-            elif e == "chime":
-                pass  # not a separate item
-            elif e == "camera":
-                items.append("1 free indoor camera")
-            elif e == "outdoor camera":
-                items.append("Outdoor/doorbell camera")
-            elif e == "panel":
-                items.append("Hub + 7\" touchscreen panel")
-            elif e == "monitoring":
-                pass  # part of panel
-            elif e == "yard sign":
-                items.append("Yard sign + window stickers")
-            elif e == "smartphone":
-                items.append("Smartphone access")
-            elif e == "motion sensor":
-                items.append("Motion detector")
-            elif e == "smoke detector":
-                items.append("Smoke detector")
+            if e in ("chime", "monitoring", "smartphone"):
+                continue  # not separate items
+            if e in seen:
+                continue
+            seen.add(e)
+            _MAP = {
+                "door sensor":    {"key": "door_sensors",    "label": "Door sensors"},
+                "window sensor":  {"key": "window_sensors",  "label": "Window sensors"},
+                "camera":         {"key": "indoor_camera",   "label": "Indoor camera"},
+                "outdoor camera": {"key": "outdoor_camera",  "label": "Outdoor camera"},
+                "panel":          {"key": "panel_hub",       "label": "Panel + hub"},
+                "yard sign":      {"key": "yard_sign",       "label": "Yard sign + stickers"},
+                "motion sensor":  {"key": "motion_sensor",   "label": "Motion detector"},
+                "smoke detector": {"key": "smoke_detector",  "label": "Smoke detector"},
+            }
+            info = _MAP.get(e)
+            if info:
+                qty = self._equipment_counts.get(info["key"], 1)
+                items.append({"key": info["key"], "label": info["label"], "qty": qty})
         return items
 
     async def toggle_topic(self, topic: str, checked: bool):
@@ -1165,11 +1166,22 @@ class Session:
                     self.coach._equipment_mentioned.append(internal)
                 # Also mark in _topics_done so _fallback_next_step skips this item
                 self.coach._topics_done.add(topic)
+                # Advance _build_current_item to next unchecked item
+                _build_order = _STAGE_ITEM_ORDER.get("build_system", [])
+                _ci = _build_order.index(topic) if topic in _build_order else -1
+                if _ci >= 0:
+                    self._build_current_item = None
+                    for _next in _build_order[_ci + 1:]:
+                        if _next not in self.coach._topics_done:
+                            self._build_current_item = _next
+                            break
             else:
                 if internal in self.coach._equipment_mentioned:
                     self.coach._equipment_mentioned.remove(internal)
                 self.coach._topics_done.discard(topic)
                 self.coach._topics_done.discard("_build_recap")
+                # Reset _build_current_item to the unchecked item
+                self._build_current_item = topic
             print(f"[checklist] rep {'checked' if checked else 'unchecked'} equip: {topic} -> {internal}")
         else:
             # Closing items or custom keys — just track in topics_done
@@ -1215,6 +1227,9 @@ class Session:
                 if opener:
                     guidance["opener"] = opener
                 await self.send(guidance)
+            # Update equipment list in profile panel
+            self._profile["equipment"] = self._build_equipment_list()
+            await self.send_profile()
             return
 
         # If unchecking, show the prompt for the unchecked item directly
@@ -1303,17 +1318,13 @@ class Session:
             suggestion = await self.coach.get_suggestion()
             await self.send({"type": "status", "state": "recording"})
 
-            new_stage = suggestion.get("call_stage") or "intro"
-            new_idx = _STAGE_ORDER.index(new_stage) if new_stage in _STAGE_ORDER else 0
-            cur_idx = _STAGE_ORDER.index(self.current_stage) if self.current_stage in _STAGE_ORDER else 0
-            if new_idx < cur_idx:
-                # Claude tried to go backwards — block it and use fallback instead
-                new_stage = self.current_stage
-                suggestion["call_stage"] = new_stage
-                suggestion["next_step"] = ""  # discard backward-looking content
-                print(f"[coach] BLOCKED stage regression to {suggestion.get('call_stage')}, staying at {self.current_stage}")
-            else:
-                self.current_stage = new_stage
+            # Claude NEVER changes the stage — only controlled code paths
+            # (fast-tracks, section-complete clicks) can advance stages.
+            suggested_stage = suggestion.get("call_stage") or self.current_stage
+            if suggested_stage != self.current_stage:
+                print(f"[coach] IGNORED stage suggestion '{suggested_stage}', staying at '{self.current_stage}'")
+            new_stage = self.current_stage
+            suggestion["call_stage"] = new_stage
 
             self.opener_shown = False
             raw_next = suggestion.get("next_step", "")
@@ -1564,6 +1575,7 @@ class Session:
                             addr = addr[len(filler):]
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     self.current_stage = "build_system"
+                    self._build_current_item = "door_sensors"
                     opener = _pick(["Awesome, we have fantastic coverage in your area.",
                                     "Great news — we have great coverage out there.",
                                     "Perfect, we can definitely service that area."])
@@ -1587,18 +1599,26 @@ class Session:
                 return
 
         # ── Fast-track build_system ──
-        # Like collect_info fast-track: detect what the rep just asked, match
-        # the customer's response, mark the item done, and show the next prompt
-        # immediately — don't wait for Claude.
+        # Fully handles ALL customer speech during build_system — Claude is
+        # never called. Uses _build_current_item to track what's being pitched.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "build_system":
+            self.coach.add_turn(speaker, text)
+            self.customer_buffer = []
+            if self._coach_task and not self._coach_task.done():
+                self._coach_task.cancel()
+
             t = text.lower()
-            # Parse number from customer speech
+            words = t.split()
+
+            # ── Parse number from customer speech ──
             _SPOKEN_NUMS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
                             "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-                            "eleven": 11, "twelve": 12}
+                            "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15}
+            # Transcription homophones — only match in short responses to avoid false positives
+            _HOMOPHONE_NUMS = {"too": 2, "to": 2, "for": 4, "ate": 8, "won": 1, "tree": 3}
             _cust_number = None
             for word, val in _SPOKEN_NUMS.items():
-                if word in t.split():
+                if word in words:
                     _cust_number = val
                     break
             if _cust_number is None:
@@ -1606,111 +1626,122 @@ class Session:
                 _nums = _re3.findall(r'\d+', t)
                 if _nums:
                     _cust_number = int(_nums[0])
-
-            # Figure out what item the rep is currently asking about from recent rep speech
-            _last_rep_texts = []
-            for h in reversed(self.coach._history[-8:]):
-                if h["speaker"] == "rep":
-                    _last_rep_texts.append(h["text"].lower())
-                    if len(_last_rep_texts) >= 3:
+            if _cust_number is None and len(words) <= 3:
+                # Try homophones only for very short responses
+                for word, val in _HOMOPHONE_NUMS.items():
+                    if word in words:
+                        _cust_number = val
                         break
-            _recent_rep = " ".join(_last_rep_texts)
 
-            _asking_doors = any(w in _recent_rep for w in ["how many doors", "doors go in and out"])
-            _asking_windows = any(w in _recent_rep for w in ["how many windows", "windows on the ground", "ground floor"])
-            _asking_extras = any(w in _recent_rep for w in ["motion detector", "glass break", "carbon monoxide", "co detector"])
-            _asking_camera = any(w in _recent_rep for w in ["indoor camera", "free indoor", "free camera"])
-            _asking_outdoor = any(w in _recent_rep for w in ["outdoor camera", "doorbell camera", "solar"])
-            _pitching_item = any(w in _recent_rep for w in ["does that make sense", "does that sound good", "would you like"])
-
-            # Detect yes/no/ok responses
+            # ── Detect yes/no/ok responses ──
             _is_yes = any(w in t for w in ["yes", "yeah", "yep", "sure", "absolutely", "okay", "ok",
-                                            "sounds good", "that works", "makes sense", "mhmm", "of course"])
+                                            "sounds good", "that works", "makes sense", "mhmm", "of course",
+                                            "yes sir", "yes ma'am", "yea", "alright"])
             _is_no = any(w in t for w in ["no", "nope", "don't need", "don't want", "i'm good",
-                                           "skip", "no thanks", "not really", "not right now"])
+                                           "skip", "no thanks", "not really", "not right now",
+                                           "no sir", "no ma'am", "no thank"])
 
             build_handled = False
             next_step = None
             name = self.coach.customer_name or ""
             ctx = _get_discovery_context(self.coach)
 
-            if _asking_doors and _cust_number is not None and "door_sensors" not in self.coach._topics_done:
-                # Customer gave door count
+            # Use _build_current_item to determine context — much more reliable
+            # than scanning rep speech keywords
+            _cur = self._build_current_item
+
+            # If no current item set yet, default to first unchecked build item
+            if _cur is None:
+                for _key in _STAGE_ITEM_ORDER.get("build_system", []):
+                    if _key not in self.coach._topics_done:
+                        _cur = _key
+                        break
+
+            if _cur == "door_sensors" and _cust_number is not None:
                 self.coach._topics_done.add("door_sensors")
                 self.coach._topics_done.add("how_many_doors")
                 if "door sensor" not in self.coach._equipment_mentioned:
                     self.coach._equipment_mentioned.append("door sensor")
+                self._equipment_counts["door_sensors"] = _cust_number
                 suffix = f", {name}" if name else ""
                 next_step = (f"{_cust_number} doors — I'll get you {_cust_number} door sensors so all your entry points are covered. "
                              f"And how many windows are on the ground floor of your house that are accessible{suffix}?")
+                self._build_current_item = "window_sensors"
                 build_handled = True
 
-            elif _asking_windows and _cust_number is not None and "window_sensors" not in self.coach._topics_done:
-                # Customer gave window count
+            elif _cur == "window_sensors" and _cust_number is not None:
                 self.coach._topics_done.add("window_sensors")
                 self.coach._topics_done.add("how_many_windows")
                 if "window sensor" not in self.coach._equipment_mentioned:
                     self.coach._equipment_mentioned.append("window sensor")
-                # Include chime pitch with door+window confirmation
+                self._equipment_counts["window_sensors"] = _cust_number
                 chime = _personalize_chime(ctx, name)
                 next_step = (f"{_cust_number} windows — I'll get you {_cust_number} window sensors as well, "
                              f"that way every entry point is covered and monitored. {chime}")
+                self._build_current_item = "extra_equip"
                 build_handled = True
 
-            elif _asking_extras and "extra_equip" not in self.coach._topics_done:
+            elif _cur == "extra_equip" and (_is_yes or _is_no):
                 self.coach._topics_done.add("extra_equip")
-                if "motion sensor" not in self.coach._equipment_mentioned:
-                    self.coach._equipment_mentioned.append("motion sensor")
                 if _is_yes:
-                    next_step = _fallback_next_step("build_system", self.coach)
-                else:
-                    next_step = _fallback_next_step("build_system", self.coach)
+                    if "motion sensor" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("motion sensor")
+                    self._equipment_counts["motion_sensor"] = 1
+                self._build_current_item = "indoor_camera"
+                next_step = _fallback_next_step("build_system", self.coach)
                 build_handled = True
 
-            elif (_asking_camera or _asking_outdoor or _pitching_item) and (_is_yes or _is_no):
-                # Customer responding to an equipment pitch
-                if _asking_camera and "indoor_camera" not in self.coach._topics_done:
-                    self.coach._topics_done.add("indoor_camera")
-                    if "camera" not in self.coach._equipment_mentioned:
-                        self.coach._equipment_mentioned.append("camera")
-                    build_handled = True
-                elif _asking_outdoor and "outdoor_camera" not in self.coach._topics_done:
-                    self.coach._topics_done.add("outdoor_camera")
-                    if "outdoor camera" not in self.coach._equipment_mentioned:
-                        self.coach._equipment_mentioned.append("outdoor camera")
-                    build_handled = True
-                elif _pitching_item:
-                    # Generic "does that make sense" — find first unchecked item that
-                    # was just being presented and mark it done
-                    for _item in ["indoor_camera", "outdoor_camera", "panel_hub", "yard_sign"]:
-                        if _item not in self.coach._topics_done:
-                            self.coach._topics_done.add(_item)
-                            build_handled = True
-                            break
-                if build_handled:
-                    next_step = _fallback_next_step("build_system", self.coach)
+            elif _cur in ("indoor_camera", "outdoor_camera", "panel_hub", "yard_sign") and (_is_yes or _is_no):
+                self.coach._topics_done.add(_cur)
+                # Add equipment for yes responses
+                _equip_map = {"indoor_camera": "camera", "outdoor_camera": "outdoor camera",
+                              "panel_hub": "panel", "yard_sign": "yard sign"}
+                if _is_yes and _equip_map.get(_cur):
+                    ek = _equip_map[_cur]
+                    if ek not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append(ek)
+                    self._equipment_counts[_cur] = 1
+                # Advance to next item
+                _build_order = _STAGE_ITEM_ORDER.get("build_system", [])
+                _ci = _build_order.index(_cur) if _cur in _build_order else -1
+                self._build_current_item = _build_order[_ci + 1] if _ci + 1 < len(_build_order) else None
+                next_step = _fallback_next_step("build_system", self.coach)
+                build_handled = True
 
+            elif _cust_number is not None and _cur in ("door_sensors", "window_sensors"):
+                # Number given but _cur check above didn't match (shouldn't happen,
+                # but handle defensively)
+                pass  # fall through to generic handler below
+
+            # If handled, send guidance
             if build_handled:
-                self.coach.add_turn(speaker, text)
-                self.customer_buffer = []
-                if self._coach_task and not self._coach_task.done():
-                    self._coach_task.cancel()
                 opener = _quick_opener(text, "build_system")
                 self.coach.set_opener(opener)
                 if not next_step:
                     next_step = _fallback_next_step("build_system", self.coach)
                 if not next_step:
-                    # build_system done — move to recap
                     next_step = _fallback_next_step("recap", self.coach)
                 if next_step and name:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
                     next_step = _trim_long_suggestion(next_step)
                     self.coach.track_equipment_from_text(next_step)
-                    await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                     "opener": opener, "next_step": next_step})
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                 "opener": _quick_opener(text, "build_system") if not build_handled else opener,
+                                 "next_step": next_step or ""})
+                self._profile["equipment"] = self._build_equipment_list()
                 await self.send_checklist()
+                await self.send_profile()
                 return
+
+            # Unhandled customer response — still suppress Claude, re-show current prompt
+            next_step = _fallback_next_step("build_system", self.coach)
+            if next_step and name:
+                next_step = next_step.replace("[NAME]", name)
+            if next_step:
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                 "next_step": next_step})
+            return
 
         # ── Opener ──
         # Only show opener on speech_final (complete utterance) to prevent
@@ -1900,6 +1931,11 @@ async def websocket_endpoint(ws: WebSocket):
                             asyncio.create_task(session._fire_roleplay_response())
                     elif action == "update_profile":
                         await session.update_profile_field(msg.get("field", ""), msg.get("value", ""))
+                    elif action == "update_equipment_count":
+                        key = msg.get("key", "")
+                        qty = int(msg.get("qty", 0))
+                        session._equipment_counts[key] = qty
+                        print(f"[equipment] rep updated {key} = {qty}")
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:
