@@ -1513,11 +1513,9 @@ class Session:
             print("[roleplay] tts_active safety reset fired")
             self.tts_active = False
             if self.pending_rep_buffer:
+                # Move to rep_buffer — speech_final will trigger the response
                 self.rep_buffer.extend(self.pending_rep_buffer)
                 self.pending_rep_buffer.clear()
-                if self._roleplay_task and not self._roleplay_task.done():
-                    self._roleplay_task.cancel()
-                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
 
     # ── Transcript callback ──
 
@@ -1899,13 +1897,11 @@ class Session:
                                          "next_step": next_closing})
 
         if not speech_final:
-            # In roleplay, trigger AI response on is_final (don't wait for
-            # speech_final which requires 1.2s pause — too long for natural flow)
+            # In roleplay, buffer is_final text but DON'T trigger yet —
+            # wait for speech_final (600ms pause) so the AI doesn't cut
+            # in while the rep is mid-sentence.
             if self.roleplay_mode and self.roleplay_customer and is_final:
                 self.rep_buffer.append(text)
-                if self._roleplay_task and not self._roleplay_task.done():
-                    self._roleplay_task.cancel()
-                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response())
             return
 
         if self.pending_evaluation:
@@ -1977,12 +1973,10 @@ async def websocket_endpoint(ws: WebSocket):
                         was = session.tts_active
                         session.tts_active = msg.get("active", False)
                         if was and not session.tts_active and session.pending_rep_buffer:
+                            # Move buffered speech to rep_buffer but don't trigger —
+                            # let speech_final from Deepgram trigger the response
                             session.rep_buffer.extend(session.pending_rep_buffer)
                             session.pending_rep_buffer.clear()
-                            # Use delayed task (debounced) so more speech can accumulate
-                            if session._roleplay_task and not session._roleplay_task.done():
-                                session._roleplay_task.cancel()
-                            session._roleplay_task = asyncio.create_task(session._delayed_roleplay_response())
                     elif action == "update_profile":
                         await session.update_profile_field(msg.get("field", ""), msg.get("value", ""))
                     elif action == "update_equipment_count":
