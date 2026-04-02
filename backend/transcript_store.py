@@ -16,10 +16,25 @@ from pathlib import Path
 import httpx
 
 _BACKEND_DIR = Path(__file__).parent
-TRANSCRIPTS_DIR = _BACKEND_DIR / "transcripts"
-TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 
-TUNING_FILE = _BACKEND_DIR / "tuning_notes.json"
+# Use Railway persistent volume if DATA_DIR is set, otherwise local
+_data_env = os.environ.get("DATA_DIR", "")
+if _data_env:
+    _DATA_DIR = Path(_data_env)
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        TRANSCRIPTS_DIR = _DATA_DIR / "transcripts"
+        print(f"[transcript_store] using persistent storage: {_DATA_DIR}")
+    except Exception:
+        TRANSCRIPTS_DIR = _BACKEND_DIR / "transcripts"
+        print(f"[transcript_store] DATA_DIR not writable, using local: {TRANSCRIPTS_DIR}")
+else:
+    TRANSCRIPTS_DIR = _BACKEND_DIR / "transcripts"
+    print(f"[transcript_store] using local storage: {TRANSCRIPTS_DIR}")
+
+TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+
+TUNING_FILE = TRANSCRIPTS_DIR.parent / "tuning_notes.json"
 ANALYSIS_INTERVAL = 10  # run analysis every N sessions
 
 # ── Counter ──────────────────────────────────────────────────────────────
