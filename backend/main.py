@@ -1518,27 +1518,24 @@ class Session:
                 "i'm looking", "im looking", "get a system", "get a security",
                 "set up", "get this", "security system", "protect",
             ])
-            if self.intro_turns == 1:
-                if _wants_system:
-                    self.current_stage = "discovery"
-                    self.intro_turns = 2
-                    self.coach._topics_done.add("existing_customer")
-                    await self.send({"type": "call_guidance", "call_stage": "discovery",
-                        "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
-                    await self.send_checklist()
-                    return
-                self.coach._topics_done.add("existing_customer")
-                await self.send({"type": "call_guidance", "call_stage": "intro",
-                    "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
-                await self.send_checklist()
-                return
-            if self.intro_turns == 2:
+            _is_existing = any(w in t for w in [
+                "already a customer", "existing customer", "i already have",
+                "already have cove", "current customer",
+            ])
+            if _wants_system or _is_existing:
+                # Customer said they want a system — advance to discovery
                 self.current_stage = "discovery"
+                self.intro_turns = 2
                 self.coach._topics_done.add("existing_customer")
                 await self.send({"type": "call_guidance", "call_stage": "discovery",
                     "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
                 await self.send_checklist()
                 return
+            # Customer said something else (greeting, question, etc.) —
+            # stay in intro. Don't consume intro_turns for non-answers
+            # so rapid greetings don't eat up the counter.
+            self.intro_turns = max(self.intro_turns - 1, 0)
+            return
 
         # ── Fast-track collect_info ──
         # During collect_info, responses come rapid-fire (name, phone, email, address).
