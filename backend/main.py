@@ -9,11 +9,10 @@ import requests
 # Ensure backend modules are importable when run from project root
 sys.path.insert(0, os.path.dirname(__file__))
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
-import starlette.requests
 
 # Load from .env.example locally; on Railway, env vars are set directly
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
@@ -40,7 +39,7 @@ async def serve_index():
 
 
 @app.post("/api/feedback")
-async def post_feedback(request: starlette.requests.Request):
+async def post_feedback(request: Request):
     """Receive post-call feedback via REST (reliable even after WebSocket session ends).
     Finds the most recent transcript and attaches the feedback."""
     import json as _json
