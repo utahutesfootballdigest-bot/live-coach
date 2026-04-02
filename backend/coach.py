@@ -463,8 +463,10 @@ class CoachingEngine:
                               "basically", "literally", "probably", "definitely", "maybe",
                               "trying", "thinking", "wondering", "hoping", "getting",
                               "having", "going", "coming", "working", "living",
+                              "being", "feeling", "sitting", "standing", "running",
                               "glad", "happy", "sure", "sorry", "curious", "new",
-                              "my", "your", "his", "her", "our", "their", "its"}
+                              "my", "your", "his", "her", "our", "their", "its",
+                              "home", "here", "there", "now", "then", "about", "over"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
                         after = text[t_lower.index(prefix) + len(prefix):].strip()

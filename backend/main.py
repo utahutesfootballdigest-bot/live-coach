@@ -754,7 +754,9 @@ def _extract_name(text: str) -> str:
                           "doing", "interested", "looking", "calling", "here", "ready",
                           "not", "just", "also", "really", "very", "glad", "happy",
                           "sure", "sorry", "curious", "new",
-                          "my", "your", "his", "her", "our", "their", "its"}
+                          "my", "your", "his", "her", "our", "their", "its",
+                          "being", "feeling", "sitting", "standing", "running",
+                          "home", "here", "there", "now", "then", "about", "over"}
             words = []
             for w in after.split():
                 clean = w.strip(".,!?")
@@ -1087,6 +1089,7 @@ class Session:
         self._build_current_item: str | None = None  # which build_system item is being pitched next
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
         self._equipment_edits: set[str] = set()  # equipment keys the rep manually corrected
+        self._pitch_keywords_said: set[str] = set()  # closing pitch keywords rep already said
         self._user_feedback: str = ""  # post-call feedback from rep
 
     async def send(self, msg: dict):
@@ -2056,6 +2059,18 @@ class Session:
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
 
+        # ── Track pitch keywords in ANY stage so we can skip closing_pitch if already covered ──
+        if is_final:
+            _t_pitch = text.lower()
+            _PITCH_KEYWORDS = {
+                "no_contract": ["no contract", "month to month", "cancel anytime"],
+                "wireless": ["wireless", "twenty minutes", "20 minutes", "set it up yourself"],
+                "trial": ["sixty day", "60 day", "risk free", "risk-free", "full refund"],
+            }
+            for group, phrases in _PITCH_KEYWORDS.items():
+                if any(p in _t_pitch for p in phrases):
+                    self._pitch_keywords_said.add(group)
+
         # ── Auto-detect closing items from rep speech ──
         if self.current_stage == "closing" and is_final:
             t = text.lower()
@@ -2193,6 +2208,12 @@ async def websocket_endpoint(ws: WebSocket):
                             # "anything else to add?" or closing.
                             if new_stage == "recap" and session.coach:
                                 session.coach._topics_done.add("recap_done")
+                            # When entering closing, skip closing_pitch if the rep already
+                            # covered most of those talking points during the call
+                            if new_stage == "closing" and session.coach:
+                                if len(session._pitch_keywords_said) >= 2:
+                                    session.coach._topics_done.add("closing_pitch")
+                                    print(f"[closing] auto-skipped closing_pitch — rep already covered: {session._pitch_keywords_said}")
                             print(f"[stage] rep advanced to: {new_stage}")
                             # Show the first suggestion for the new stage
                             fallback = _fallback_next_step(new_stage, session.coach, session=session)
