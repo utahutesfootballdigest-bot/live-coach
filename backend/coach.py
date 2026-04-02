@@ -305,11 +305,13 @@ QUESTION_TOPICS = {
     },
     "had_system_before": {
         "rep_asks": ["had a security system", "had a system before", "ever had a security", "ever had a system",
-                     "ever had security", "had security before", "had a security before"],
+                     "ever had security", "had security before", "had a security before",
+                     "security system before", "system before"],
         "customer_answers": ["never had", "first time", "no i haven", "i had", "i was with", "i used to have",
                              "we had", "i've had", "had one with", "had adt", "had alder", "had ring",
                              "had simplisafe", "had vivint", "nope", "no this", "no it", "this would be",
-                             "this will be", "not yet", "no never", "no no", "no sir", "no ma'am"],
+                             "this will be", "not yet", "no never", "no no", "no sir", "no ma'am",
+                             "no i have not", "no i haven't", "this is my first"],
         "output_detect": ["had a security system", "had a system before", "ever had a security", "ever had a system"],
     },
     "prior_provider": {
@@ -452,6 +454,21 @@ class CoachingEngine:
                         self._topics_done.add(topic)
                         self._sync_topic_aliases(topic)
                         print(f"[coach] topic DONE (customer answered): {topic}")
+            # Short answer heuristic: if customer says just "no"/"yes"/"yeah" etc.,
+            # check if the rep recently asked a discovery question and mark it done
+            _short = t.strip().rstrip(".,!?")
+            if _short in ("no", "yes", "yeah", "yep", "nope", "sure", "okay", "ok"):
+                # Look at last 4 rep turns for a topic match
+                _recent_rep = [h["text"].lower() for h in self._history[-8:]
+                               if h["speaker"] == "rep"]
+                for topic, rules in QUESTION_TOPICS.items():
+                    if topic not in self._topics_done:
+                        for rep_text in _recent_rep:
+                            if any(phrase in rep_text for phrase in rules["rep_asks"]):
+                                self._topics_done.add(topic)
+                                self._sync_topic_aliases(topic)
+                                print(f"[coach] topic DONE (short answer to rep question): {topic}")
+                                break
             # Try to extract customer's first name
             if not self.customer_name:
                 t_lower = text.lower()
@@ -526,6 +543,8 @@ class CoachingEngine:
         "door_sensors": "how_many_doors",
         "how_many_windows": "window_sensors",
         "window_sensors": "how_many_windows",
+        "prior_provider": "had_system_before",
+        "had_system_before": "prior_provider",
     }
 
     def _sync_topic_aliases(self, topic: str):
