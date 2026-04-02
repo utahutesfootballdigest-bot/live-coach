@@ -491,6 +491,8 @@ class CoachingEngine:
         "smartphone": ["smartphone", "app access", "phone access", "remote"],
         "smoke detector": ["smoke detector", "smoke sensor"],
         "motion sensor": ["motion sensor", "motion detect"],
+        "glass break": ["glass break", "glass sensor"],
+        "co detector": ["carbon monoxide", "co detector", "c o detector"],
     }
 
     # Map equipment names → _STAGE_ITEM_ORDER keys so _topics_done stays in sync
@@ -506,6 +508,8 @@ class CoachingEngine:
         "smartphone": "yard_sign",
         "smoke detector": "extra_equip",
         "motion sensor": "extra_equip",
+        "glass break": "extra_equip",
+        "co detector": "extra_equip",
     }
 
     def _sync_equipment_to_topics(self, equip: str):

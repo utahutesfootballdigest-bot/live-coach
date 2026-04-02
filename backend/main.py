@@ -956,7 +956,7 @@ _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
     "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign"],
-    "recap": ["recap_done"],
+    "recap": [],  # recap is shown at end of build_system — this stage is just a transition
     "closing": ["closing_pitch", "closing_pricing", "closing_commitment", "closing_checkout", "closing_welcome"],
 }
 
@@ -1008,6 +1008,10 @@ def _build_recap_prompt(session) -> str:
         parts.append(f"{counts['window_sensors']} window sensor{'s' if counts['window_sensors'] != 1 else ''}")
     if counts.get("motion_sensor", 0) > 0:
         parts.append("a motion detector")
+    if counts.get("glass_break", 0) > 0:
+        parts.append("a glass break detector")
+    if counts.get("co_detector", 0) > 0:
+        parts.append("a carbon monoxide detector")
     if counts.get("indoor_camera", 0) > 0:
         parts.append("a free indoor camera")
     if counts.get("outdoor_camera", 0) > 0:
@@ -1254,6 +1258,8 @@ class Session:
         "yard sign": "yard_sign",
         "smartphone": "yard_sign",
         "smoke detector": "extra_equip",
+        "glass break": "extra_equip",
+        "co detector": "extra_equip",
         "chime": "door_sensors",  # chime is part of door/window sensor pitch
     }
 
@@ -1351,6 +1357,8 @@ class Session:
                 "yard sign":      {"key": "yard_sign",       "label": "Yard sign + stickers"},
                 "motion sensor":  {"key": "motion_sensor",   "label": "Motion detector"},
                 "smoke detector": {"key": "smoke_detector",  "label": "Smoke detector"},
+                "glass break":    {"key": "glass_break",     "label": "Glass break detector"},
+                "co detector":    {"key": "co_detector",     "label": "CO detector"},
             }
             info = _MAP.get(e)
             if info:
@@ -1936,14 +1944,30 @@ class Session:
                 self._build_current_item = "extra_equip"
                 build_handled = True
 
-            elif _cur == "extra_equip" and (_is_yes or _is_no):
+            elif _cur == "extra_equip" and (_is_yes or _is_no or
+                    any(w in t for w in ["motion", "glass break", "carbon monoxide", "co detector"])):
                 self.coach._topics_done.add("extra_equip")
-                if _is_yes:
+                # Detect which specific extras the customer wants
+                _wants_motion = any(w in t for w in ["motion", "motion sensor", "motion detect"])
+                _wants_glass = any(w in t for w in ["glass break", "glass sensor"])
+                _wants_co = any(w in t for w in ["carbon monoxide", "co detector", "c o detector", "carbon"])
+                if _is_yes and not (_wants_motion or _wants_glass or _wants_co):
+                    # Generic yes — default to motion sensor
+                    _wants_motion = True
+                if _wants_motion:
                     if "motion sensor" not in self.coach._equipment_mentioned:
                         self.coach._equipment_mentioned.append("motion sensor")
                     self._equipment_counts["motion_sensor"] = 1
                 else:
                     self._equipment_counts["motion_sensor"] = 0
+                if _wants_glass:
+                    if "glass break" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("glass break")
+                    self._equipment_counts["glass_break"] = 1
+                if _wants_co:
+                    if "co detector" not in self.coach._equipment_mentioned:
+                        self.coach._equipment_mentioned.append("co detector")
+                    self._equipment_counts["co_detector"] = 1
                 self._build_current_item = "indoor_camera"
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
@@ -2098,8 +2122,9 @@ class Session:
                 await self.send_checklist()
                 # Auto-advance: show the next closing item immediately
                 # so the rep can continue the monologue without waiting
-                # for a customer response
-                if speech_final:
+                # for a customer response. Fire on is_final (not just speech_final)
+                # so the rep doesn't have to pause for it to advance.
+                if is_final:
                     next_closing = _fallback_next_step("closing", self.coach, session=self)
                     if next_closing:
                         if self.coach.customer_name:
