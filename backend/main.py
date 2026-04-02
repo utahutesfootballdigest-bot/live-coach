@@ -1068,7 +1068,8 @@ def _calculate_pricing(session) -> dict:
         elif coupon["type"] == "monitoring_off":
             monitoring_discount = coupon["amount"]
 
-    equipment_total = max(0, subtotal - discount_total)
+    # Minimum equipment total is $99
+    equipment_total = max(99.00, subtotal - discount_total)
     adjusted_monthly = monthly_promo - monitoring_discount
 
     return {
