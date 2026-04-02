@@ -5,6 +5,7 @@ import os
 import sys
 import random
 import requests
+from datetime import datetime, timezone
 
 # Ensure backend modules are importable when run from project root
 sys.path.insert(0, os.path.dirname(__file__))
@@ -32,6 +33,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "recap", "closing"]
+_SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
 
 @app.get("/")
 async def serve_index():
@@ -117,7 +119,11 @@ async def get_insights():
             })
         except Exception:
             continue
-    return {"analyses": analyses, "transcripts": transcript_stats}
+    return {
+        "analyses": analyses,
+        "transcripts": transcript_stats,
+        "server_started_at": _SERVER_STARTED_AT,
+    }
 
 
 # ── Utilities (stateless) ─────────────────────────────────────────────────

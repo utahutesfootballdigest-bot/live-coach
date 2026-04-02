@@ -988,7 +988,7 @@ async function showInsights() {
   try {
     const resp = await fetch("/api/insights");
     const data = await resp.json();
-    container.innerHTML = renderInsights(data);
+    container.innerHTML = renderInsights(data) + renderTracker(data);
     // Wire up the Run Analysis button
     document.getElementById("run-analysis-btn")?.addEventListener("click", async () => {
       const btn = document.getElementById("run-analysis-btn");
@@ -1120,6 +1120,43 @@ function renderInsights(data) {
   }
 
   return parts.join('');
+}
+
+function renderTracker(data) {
+  const analyses = data.analyses || [];
+  const latest = analyses.length ? analyses[analyses.length - 1] : null;
+
+  const adjustmentsTime = latest?.analyzed_at
+    ? new Date(latest.analyzed_at).toLocaleString()
+    : "Never";
+
+  const adjustmentsActive = latest
+    ? (latest.coaching_additions?.length || 0) + (latest.user_feedback_actions?.length || 0) + (latest.roleplay_additions?.length || 0)
+    : 0;
+
+  const deployTime = data.server_started_at
+    ? new Date(data.server_started_at).toLocaleString()
+    : "Unknown";
+
+  return `
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--panel-border)">
+      <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Status Tracker</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text-muted)">Last analysis & adjustments</span>
+          <span style="color:${latest ? 'var(--accent)' : '#f87171'};font-weight:600">${adjustmentsTime}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text-muted)">Active adjustments</span>
+          <span style="color:var(--text-primary);font-weight:600">${adjustmentsActive} rule${adjustmentsActive !== 1 ? 's' : ''} applied</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text-muted)">Last Railway deploy</span>
+          <span style="color:var(--text-primary);font-weight:600">${deployTime}</span>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
