@@ -862,23 +862,26 @@ function handleCallGuidance(msg) {
     updateStagePillViewState();
   }
 
-  if (opener && call_stage !== "closing") {
-    const openerEl = document.getElementById("opener-text");
-    openerEl.textContent = opener;
-    document.getElementById("opener-card").style.display = "flex";
-    document.getElementById("next-step-card").style.display = "none";
-  }
+  // TEMPORARILY HIDDEN: say-first openers
+  // if (opener && call_stage !== "closing") {
+  //   const openerEl = document.getElementById("opener-text");
+  //   openerEl.textContent = opener;
+  //   document.getElementById("opener-card").style.display = "flex";
+  //   document.getElementById("next-step-card").style.display = "none";
+  // }
 
   if (next_step) {
     const nextStepEl = document.getElementById("next-step-text");
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
+    // TEMPORARILY HIDDEN: say-first openers
     // Ensure opener card is visible when next_step arrives — never show
     // a "Then" bubble without a "Say First" bubble above it
-    const openerCard = document.getElementById("opener-card");
-    if (openerCard.style.display === "none" && document.getElementById("opener-text").textContent) {
-      openerCard.style.display = "flex";
-    }
+    // const openerCard = document.getElementById("opener-card");
+    // if (openerCard.style.display === "none" && document.getElementById("opener-text").textContent) {
+    //   openerCard.style.display = "flex";
+    // }
+    document.getElementById("opener-card").style.display = "none";
   }
 }
 

@@ -1803,7 +1803,7 @@ class Session:
                 prompt = self._COLLECT_INFO_PROMPTS[last]
                 print(f"[go_back] rewound to {last}: {prompt[:40]}")
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                 "opener": "Let me get that again.", "next_step": prompt})
+                                 "next_step": prompt})  # opener hidden
                 return
 
         # In build_system: rewind equipment
@@ -1815,7 +1815,7 @@ class Session:
                 fallback = _fallback_next_step("build_system", self.coach, session=self)
                 if fallback:
                     await self.send({"type": "call_guidance", "call_stage": "build_system",
-                                     "opener": "Let me go back to that.", "next_step": fallback})
+                                     "next_step": fallback})  # opener hidden
                 return
 
         # In discovery: rewind topic
@@ -1829,7 +1829,7 @@ class Session:
                     if fallback:
                         print(f"[go_back] rewound discovery topic: {topic}")
                         await self.send({"type": "call_guidance", "call_stage": "discovery",
-                                         "opener": "Let me go back.", "next_step": fallback})
+                                         "next_step": fallback})  # opener hidden
                     return
 
         print("[go_back] nothing to rewind")
@@ -1864,8 +1864,10 @@ class Session:
                     raw_next = ""  # fall through to fallback
 
             if raw_next:
-                opener_used = self.coach._last_opener if self.coach else ""
-                cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
+                # TEMPORARILY DISABLED: fluff-stripping (openers hidden)
+                # opener_used = self.coach._last_opener if self.coach else ""
+                # cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
+                cleaned_next = raw_next
                 suggestion["next_step"] = cleaned_next
             else:
                 # P0 FIX: Fallback for empty Then — generate a stage-appropriate
@@ -1909,11 +1911,11 @@ class Session:
             if cleaned_next and self.coach and self.current_stage != "build_system":
                 self.coach.track_equipment_from_text(cleaned_next)
 
-            # Always include opener so frontend never shows a Then without a Say First
-            opener_used = self.coach._last_opener if self.coach else ""
+            # TEMPORARILY DISABLED: opener in guidance (openers hidden)
+            # opener_used = self.coach._last_opener if self.coach else ""
             guidance_msg = {"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next}
-            if opener_used:
-                guidance_msg["opener"] = opener_used
+            # if opener_used:
+            #     guidance_msg["opener"] = opener_used
             await self.send(guidance_msg)
             await self.send_checklist()
             # Update profile equipment list
@@ -2143,8 +2145,10 @@ class Session:
                 "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
 
             # Only advance if the customer gave the expected info type
-            opener = _quick_opener(text, "collect_info")
-            self.coach.set_opener(opener)
+            # TEMPORARILY DISABLED: openers hidden
+            # opener = _quick_opener(text, "collect_info")
+            # self.coach.set_opener(opener)
+            opener = ""
             next_step = None
 
             if "full_name" not in self._collect_info_done:
@@ -2208,10 +2212,12 @@ class Session:
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     # Don't auto-advance to build_system — rep must click
                     # "INFO COMPLETE" to advance. Just show coverage confirmation.
-                    opener = _pick(["Awesome, we have fantastic coverage in your area.",
-                                    "Great news — we have great coverage out there.",
-                                    "Perfect, we can definitely service that area."])
-                    self.coach.set_opener(opener)
+                    # TEMPORARILY DISABLED: openers hidden
+                    # opener = _pick(["Awesome, we have fantastic coverage in your area.",
+                    #                 "Great news — we have great coverage out there.",
+                    #                 "Perfect, we can definitely service that area."])
+                    # self.coach.set_opener(opener)
+                    opener = ""
                     next_step = "We have great coverage in your area, so I can definitely help you out. Go ahead and click INFO COMPLETE when you're ready to build the system."
                     self.coach._topics_done.add("full_name")
                     self.coach._topics_done.add("phone_number")
@@ -2219,7 +2225,7 @@ class Session:
                     self.coach._topics_done.add("address")
 
             if next_step:
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener, "next_step": next_step})
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "next_step": next_step})  # opener hidden
                 await self.send_checklist()
                 await self.send_profile()
                 await self.send_pricing()
@@ -2376,8 +2382,10 @@ class Session:
 
             # If handled, send guidance
             if build_handled:
-                opener = _quick_opener(text, "build_system")
-                self.coach.set_opener(opener)
+                # TEMPORARILY DISABLED: openers hidden
+                # opener = _quick_opener(text, "build_system")
+                # self.coach.set_opener(opener)
+                opener = ""
                 if not next_step:
                     next_step = _fallback_next_step("build_system", self.coach, session=self)
                 if not next_step:
@@ -2388,7 +2396,6 @@ class Session:
                 if next_step:
                     next_step = _trim_long_suggestion(next_step)
                 await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                 "opener": _quick_opener(text, "build_system") if not build_handled else opener,
                                  "next_step": next_step or ""})
                 self._profile["equipment"] = self._build_equipment_list()
                 await self.send_checklist()
@@ -2418,10 +2425,11 @@ class Session:
                         if h["speaker"] == "rep":
                             _last_rep = h["text"]
                             break
-                opener = _quick_opener(text, self.current_stage, _last_rep)
+                # TEMPORARILY DISABLED: openers hidden
+                # opener = _quick_opener(text, self.current_stage, _last_rep)
                 self.opener_shown = True
-                self.coach.set_opener(opener)
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener})
+                # self.coach.set_opener(opener)
+                # await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener})
 
         if not is_final or self.coach is None:
             return
@@ -2723,7 +2731,7 @@ async def websocket_endpoint(ws: WebSocket):
                                 fallback = fallback.replace("[NAME]", session.coach.customer_name)
                             transition = _stage_transition(new_stage)
                             await session.send({"type": "call_guidance", "call_stage": new_stage,
-                                                "opener": transition, "next_step": fallback or ""})
+                                                "next_step": fallback or ""})  # opener hidden
                             await session.send_checklist()
                     elif action == "go_back":
                         await session.go_back()

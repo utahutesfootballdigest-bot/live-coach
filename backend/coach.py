@@ -733,40 +733,12 @@ class CoachingEngine:
                 "has NOT yet covered and suggest that instead."
             )
 
-        # Pass the instant opener so Claude writes next_step that flows from it
-        opener_note = ""
-        if self._last_opener:
-            opener_note = (
-                f"\n\n⚠️ OPENER ALREADY SHOWN: \"{self._last_opener}\"\n"
-                "CRITICAL: The rep reads the opener FIRST, then reads your next_step IMMEDIATELY AFTER — as one continuous paragraph.\n"
-                "Your next_step must flow naturally from the opener like a second sentence in the same thought.\n\n"
-                "RULES:\n"
-                "1. Do NOT start next_step with ANY acknowledgement, affirmative, or warmth (no 'Perfect', 'Awesome', 'I hear you', 'That's great', 'No worries', etc.) — the opener already did that.\n"
-                "2. Do NOT restate or paraphrase what the customer just said — the opener already acknowledged them.\n"
-                "3. START next_step with the actual substance: the next question, the next piece of information, or the next script action.\n"
-                "4. The combined result (opener + next_step) should read like ONE natural sentence a human would say.\n\n"
-                "EXAMPLES — read the opener + next_step together as the rep would say them:\n\n"
-                "Opener: \"Keeping the family safe is what it's all about.\"\n"
-                "  BAD next_step: \"I totally get it. So are we talking about little kids or teenagers?\" (double acknowledgement)\n"
-                "  GOOD next_step: \"Are we talking about little kids or teenagers?\" (flows directly)\n\n"
-                "Opener: \"That makes a lot of sense — being able to keep an eye on things is key.\"\n"
-                "  BAD next_step: \"I understand that completely. Let me get some info.\" (repeats the empathy)\n"
-                "  GOOD next_step: \"Let me get some information from you. Could you spell your first and last name for me?\"\n\n"
-                "Opener: \"Great question — let me explain.\"\n"
-                "  BAD next_step: \"That's a really good question. So here's how it works...\" (says 'good question' again)\n"
-                "  GOOD next_step: \"The panel runs on cellular, so even if your power or Wi-Fi goes down, you're still protected.\"\n\n"
-                "Opener: \"No problem at all — I've got you.\"\n"
-                "  BAD next_step: \"No worries, I'll definitely help you out. So what we can do is...\" (double reassurance)\n"
-                "  GOOD next_step: \"We accept any standard Visa, Mastercard, or Discover card. Do you have another card you could try?\"\n\n"
-                "Opener: \"Perfect, I'll get those covered for you.\"\n"
-                "  BAD next_step: \"Got it, I'll make sure those are all taken care of. Now how many windows...\" (repeats confirmation)\n"
-                "  GOOD next_step: \"How many windows are on the ground floor of your house?\""
-            )
-        else:
-            opener_note = (
-                "\n\n⚠️ NO OPENER SHOWN — your next_step is the ONLY thing the rep sees. "
-                "Start with a brief transition (like 'Perfect,' or 'Got it,') then go straight "
-                "into the next script question. Keep it in one smooth line."
+        # TEMPORARILY DISABLED: opener integration — openers are hidden,
+        # so Claude should write self-contained next_steps.
+        opener_note = (
+            "\n\n⚠️ Your next_step is the ONLY thing the rep sees. "
+            "Start with a brief, natural transition (like 'Perfect,' or 'Got it,') then go straight "
+            "into the next script question. Keep it in one smooth line."
             )
 
         # Inject tuning notes from auto-analysis (if any)
