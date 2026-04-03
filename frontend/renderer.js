@@ -339,6 +339,8 @@ function showMainScreen() {
   _currentCallStage = "intro";
   renderChecklist("discovery");
   document.getElementById("customer-profile").style.display = "block";
+  // Render empty equipment list with the "Add Equipment" dropdown
+  renderEquipmentList([]);
 }
 
 function showCallEndedScreen() {
@@ -922,12 +924,9 @@ const ALL_EQUIPMENT = [
 
 function renderEquipmentList(equipment) {
   const container = document.getElementById("profile-equipment");
-  if (!equipment || !equipment.length) {
-    container.innerHTML = "—";
-    return;
-  }
   container.innerHTML = "";
   const shownKeys = new Set();
+  if (!equipment) equipment = [];
   equipment.forEach(item => {
     shownKeys.add(item.key);
     const row = document.createElement("div");

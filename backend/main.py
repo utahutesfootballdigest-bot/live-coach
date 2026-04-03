@@ -1012,8 +1012,8 @@ def _build_context_from_transcript(checked_topic: str, coach) -> str:
 #   - Hub + panel: $45 each ($90 total, down from $250 retail)
 #   - Outdoor/doorbell cameras: 50% off retail
 _EQUIPMENT_PRICES = {
-    "door_sensors": 4.80,       # retail $16, 70% off
-    "window_sensors": 4.80,     # retail $16, 70% off
+    "door_sensors": 4.50,       # retail $15, pre-sale price
+    "window_sensors": 4.50,     # retail $15, pre-sale price
     "motion_sensor": 15.00,     # retail $50, 70% off
     "glass_break": 15.00,       # retail $50, 70% off
     "co_detector": 37.50,       # retail $125, 70% off
