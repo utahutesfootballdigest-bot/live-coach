@@ -1029,8 +1029,8 @@ _EQUIPMENT_PRICES = {
     "secondary_siren": 45.00,   # retail $150, 70% off
 }
 _MONITORING_PRICES = {
-    "plus": {"promo": 29.99, "standard": 32.99},
-    "basic": {"promo": 17.99, "standard": 22.99},
+    "plus": {"promo": 32.99, "standard": 32.99},  # LOWRATE promo takes this to $29.99
+    "basic": {"promo": 22.99, "standard": 22.99},
 }
 _PROMO_MONTHS = 6  # first N months at promo rate
 
@@ -1107,11 +1107,17 @@ def _build_pricing_prompt(session) -> str:
     name = session.coach.customer_name if session.coach else ""
     suffix = f", {name}" if name else ""
 
-    parts = [
-        f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
-        f"${pricing['monthly_promo']:.2f} per month. "
-        f"After that, it goes to the standard rate of ${pricing['monthly_standard']:.2f}. "
-    ]
+    parts = []
+    if pricing['monthly_promo'] < pricing['monthly_standard']:
+        parts.append(
+            f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
+            f"${pricing['monthly_promo']:.2f} per month. "
+            f"After that, it goes to the standard rate of ${pricing['monthly_standard']:.2f}. "
+        )
+    else:
+        parts.append(
+            f"On the monthly monitoring, it's just ${pricing['monthly_standard']:.2f} per month. "
+        )
 
     if pricing["discount_total"] > 0:
         parts.append(
