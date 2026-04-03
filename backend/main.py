@@ -1962,6 +1962,10 @@ class Session:
                 "looking to get", "looking for", "interested in", "i want", "i need",
                 "i'm looking", "im looking", "get a system", "get a security",
                 "set up", "get this", "security system", "protect",
+                "planning to get", "planning to switch", "planning on getting",
+                "want to get", "want to switch", "thinking about", "thinking of getting",
+                "get one", "looking into", "ready to", "need a system",
+                "switch to", "switching to", "not yet", "not a customer",
             ])
             _is_existing = any(w in t for w in [
                 "already a customer", "existing customer", "i already have",

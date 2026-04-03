@@ -523,6 +523,8 @@ class CoachingEngine:
                               "planning", "switching", "moving", "buying", "checking",
                               "being", "feeling", "sitting", "standing", "running",
                               "glad", "happy", "sure", "sorry", "curious", "new",
+                              "fantastic", "wonderful", "terrible", "awesome", "amazing",
+                              "perfect", "excellent", "pretty", "super", "blessed",
                               "my", "your", "his", "her", "our", "their", "its",
                               "home", "here", "there", "now", "then", "about", "over",
                               "in", "on", "up", "out", "at", "from", "with", "for",

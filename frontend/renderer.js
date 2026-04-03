@@ -335,6 +335,10 @@ function showMainScreen() {
   document.getElementById("main-screen").style.display = "flex";
   document.getElementById("call-timer-display").style.display = "flex";
   startTimer();
+  // Show checklist immediately so rep can manually check/uncheck from the start
+  _currentCallStage = "intro";
+  renderChecklist("discovery");
+  document.getElementById("customer-profile").style.display = "block";
 }
 
 function showCallEndedScreen() {
