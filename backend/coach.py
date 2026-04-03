@@ -309,14 +309,23 @@ QUESTION_TOPICS = {
                      "security system before", "system before"],
         "customer_answers": ["never had", "first time", "no i haven", "i had", "i was with", "i used to have",
                              "we had", "i've had", "had one with", "had adt", "had alder", "had ring",
-                             "had simplisafe", "had vivint", "nope", "no this", "no it", "this would be",
-                             "this will be", "not yet", "no never", "no no", "no sir", "no ma'am",
-                             "no i have not", "no i haven't", "this is my first"],
+                             "had simplisafe", "had vivint", "this would be",
+                             "this will be", "no i have not", "no i haven't", "this is my first",
+                             "had a system", "had security", "had one before"],
+        # NOTE: Generic short answers ("not yet", "nope", "no sir") removed —
+        # they were triggering from existing_customer context. These are
+        # handled by the short-answer heuristic which checks recent rep speech.
         "output_detect": ["had a security system", "had a system before", "ever had a security", "ever had a system"],
     },
     "prior_provider": {
         "rep_asks": ["who did you have", "who were you with", "who was your provider", "anything you liked"],
-        "customer_answers": ["i had", "i was with", "we had", "i've had", "had adt", "had alder", "had ring", "had simplisafe", "had vivint", "nothing really"],
+        "customer_answers": ["i had", "i was with", "we had", "i've had",
+                             "had adt", "had alder", "had ring", "had simplisafe", "had vivint",
+                             "from adt", "from alder", "from ring", "from simplisafe", "from vivint",
+                             "with adt", "with alder", "with ring", "with simplisafe", "with vivint",
+                             "have adt", "have alder", "have ring", "have simplisafe", "have vivint",
+                             "got adt", "got alder", "got ring", "got simplisafe", "got vivint",
+                             "nothing really"],
         "output_detect": ["who did you have", "who were you with", "anything you liked", "previous system"],
     },
     "who_protecting": {
@@ -492,6 +501,7 @@ class CoachingEngine:
                               "basically", "literally", "probably", "definitely", "maybe",
                               "trying", "thinking", "wondering", "hoping", "getting",
                               "having", "going", "coming", "working", "living", "using",
+                              "planning", "switching", "moving", "buying", "checking",
                               "being", "feeling", "sitting", "standing", "running",
                               "glad", "happy", "sure", "sorry", "curious", "new",
                               "my", "your", "his", "her", "our", "their", "its",

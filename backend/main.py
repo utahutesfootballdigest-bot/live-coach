@@ -1975,10 +1975,24 @@ class Session:
                          "yes sir", "no sir", "yes ma'am", "no ma'am", "little kids", "teenagers",
                          "my family", "my kids", "my wife", "my husband", "just me", "me and my",
                          "not yet", "not sure", "i think", "let me", "give me", "hold on",
-                         "sounds good", "that works", "thank you", "thanks", "alright", "fine"}
+                         "sounds good", "that works", "thank you", "thanks", "alright", "fine",
+                         "of course", "yeah of course", "yes of course", "sure thing",
+                         "go ahead", "absolutely", "right", "correct", "yea", "mhmm",
+                         "no problem", "no worries", "one second", "one moment",
+                         "yeah sure", "yes please", "please", "i will", "i can",
+                         "yeah i can", "sure can", "that's me", "that's correct"}
+            # Also block individual filler words that aren't names
+            _NOT_NAME_WORDS = {"yeah", "yes", "no", "nope", "sure", "okay", "ok",
+                               "of", "course", "right", "well", "just", "alright",
+                               "please", "absolutely", "totally", "definitely",
+                               "mhmm", "hmm", "um", "uh"}
             _is_short_alpha = len(t.split()) <= 4 and t.replace(" ", "").isalpha()
+            # Check if ALL words are filler — if so, it's not a name
+            _all_filler = all(w in _NOT_NAME_WORDS for w in t.split())
             _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (
-                _is_short_alpha and t.strip() not in _NOT_NAMES and not any(phrase in t for phrase in _NOT_NAMES)
+                _is_short_alpha and not _all_filler
+                and t.strip() not in _NOT_NAMES
+                and not any(phrase in t for phrase in _NOT_NAMES)
             )
             _has_phone_digits = _digit_count >= 7
             _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook",
@@ -2304,8 +2318,7 @@ class Session:
             _BUILD_ENTRY_PHRASES = ["how many doors", "doors go in and out",
                                      "how many windows", "ground floor windows",
                                      "door sensor", "window sensor",
-                                     "let's build", "build your system",
-                                     "dive right in"]
+                                     "let's build", "build your system"]
             if any(p in _t_stage for p in _BUILD_ENTRY_PHRASES):
                 print(f"[stage] auto-transitioning collect_info → build_system (rep said: {text[:40]})")
                 self.current_stage = "build_system"
