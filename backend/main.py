@@ -1043,6 +1043,7 @@ _COUPON_CODES = {
     "SYSTEM4FREE":    {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
     "LABORDAY":       {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
     "PRIMEFLASHDEAL": {"type": "free_hub_panel", "min_order": 99, "label": "Free Hub & Panel"},
+    "BIGSPRINGDEAL":  {"type": "free_hub_panel", "min_order": 99, "label": "Big Spring Deal — Free Hub & Panel"},
     "LDEXTRA50":      {"type": "flat_off", "amount": 50, "label": "$50 off order"},
     "COVE15":         {"type": "flat_off", "amount": 15, "label": "$15 off order"},
     "LOWRATE":        {"type": "monitoring_off", "amount": 3, "months": 6, "label": "$3/mo off monitoring (6 months)"},
