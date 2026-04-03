@@ -705,12 +705,26 @@ def _spoken_numbers_to_numerals(text: str) -> str:
 def _extract_email(text: str) -> str:
     """Extract email from spoken text like 'joe at gmail dot com'."""
     t = text.lower().strip()
-    # Remove filler prefixes first
+    # Remove filler prefixes — be aggressive since email has no spaces anyway
     for filler in ["my email is ", "email is ", "the email is ", "it's ", "it is ",
                     "yeah it's ", "yes it's ", "yep it's ", "yep its ", "yep ",
-                    "yeah ", "yes ", "sure it's ", "sure its ", "so it's ", "so its "]:
+                    "yeah ", "yes ", "sure it's ", "sure its ", "so it's ", "so its ",
+                    "that's ", "yes that's ", "yeah that's ", "that is ", "yes that is ",
+                    "alright it's ", "okay it's ", "ok it's ",
+                    "yeah that would be ", "that would be ", "so that's "]:
         if t.startswith(filler):
             t = t[len(filler):]
+    # Convert spoken digits to numerals in email (e.g. "eight two" → "82")
+    _EMAIL_DIGITS = {"zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+                     "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9"}
+    _email_words = t.split()
+    _rebuilt = []
+    for w in _email_words:
+        if w in _EMAIL_DIGITS:
+            _rebuilt.append(_EMAIL_DIGITS[w])
+        else:
+            _rebuilt.append(w)
+    t = " ".join(_rebuilt)
     # Fix common speech-to-text splits and stutters
     t = t.replace("g mail", "gmail").replace("hot mail", "hotmail")
     t = t.replace("out look", "outlook").replace("ya hoo", "yahoo")
@@ -719,6 +733,28 @@ def _extract_email(text: str) -> str:
     t = t.replace("h hotmail", "hotmail").replace("o outlook", "outlook")
     # Replace spoken email patterns
     t = t.replace(" at ", "@").replace(" dot ", ".")
+    # If no "@" but has a domain (gmail, yahoo, aol, etc.), try to insert @
+    # This handles STT dropping "at" — e.g. "kyle alder dot com" → "kyle@alder.com"
+    if "@" not in t:
+        for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com"]:
+            if domain in t:
+                idx = t.index(domain)
+                # Find the space before the domain to insert @
+                before = t[:idx].rstrip()
+                if before:
+                    # Find the last space — everything after it is the domain prefix
+                    last_space = before.rfind(" ")
+                    if last_space >= 0:
+                        t = before[:last_space + 1] + before[last_space + 1:] + "@" + domain
+                    else:
+                        t = before + "@" + domain
+                break
+        else:
+            # No known domain — try inserting @ before last word before .com/.org etc
+            import re as _re_email2
+            m = _re_email2.search(r'(\S+)\s+(\S+\.com|\.org|\.net|\.edu)', t)
+            if m:
+                t = t[:m.start()] + m.group(1) + "@" + m.group(2)
     # Remove remaining spaces (email has no spaces)
     result = t.replace(" ", "")
     # Final dedup: "ggmail" -> "gmail", "yyahoo" -> "yahoo"
@@ -738,14 +774,42 @@ def _extract_email(text: str) -> str:
 
 def _extract_name(text: str) -> str:
     """Extract just the name from customer speech like 'my name is joe bonnie'
-    or 'yeah my first name is joe and my last name is bonnie'."""
+    or 'yeah my first name is joe and my last name is bonnie'
+    or spelled out: 'k y l e then my last name is b o n n i e'."""
+    import re as _re_name
     t = text.lower().strip()
 
-    # Try to extract after "my name is" / "name is" / "it's" / "i'm"
-    # Note: "i'm" and "it's" are risky prefixes — customers say "i'm actually",
-    # "i'm already" etc. Only use them if preceded by "name" context or very short.
+    # ── Handle letter-by-letter spelling ──
+    # Detect patterns like "k y l e" (single letters separated by spaces)
+    # or "it is j e o f f" — common when customer spells their name
+    _letters = _re_name.findall(r'\b[a-zA-Z]\b', text)
+    if len(_letters) >= 3:
+        # Transition/filler words to skip between spelled letter clusters
+        _SPELL_FILLER = {"then", "and", "my", "last", "name", "is", "that's", "it",
+                         "first", "it's", "that", "yeah", "yes", "the", "of", "course",
+                         "yep", "okay", "ok", "sure", "so", "well", "um", "uh", "a"}
+        words = text.split()
+        spelled_parts = []
+        current_spell = []
+        for w in words:
+            clean = w.strip(".,!?").lower()
+            if len(clean) == 1 and clean.isalpha():
+                current_spell.append(clean)
+            else:
+                if len(current_spell) >= 2:
+                    spelled_parts.append("".join(current_spell).capitalize())
+                current_spell = []
+                # Skip filler/transition words
+                if clean in _SPELL_FILLER:
+                    continue
+        if len(current_spell) >= 2:
+            spelled_parts.append("".join(current_spell).capitalize())
+        if spelled_parts:
+            return " ".join(spelled_parts[:3])  # max 3 name parts
+
+    # ── Handle "my name is X" / "name is X" patterns ──
     for prefix in ["my name is ", "my first name is ", "first name is ", "name is ",
-                    "this is "]:
+                    "this is ", "it is ", "that is ", "that's "]:
         if prefix in t:
             after = text[t.index(prefix) + len(prefix):].strip()
             # Remove filler words between first and last name
@@ -754,7 +818,8 @@ def _extract_name(text: str) -> str:
                 after = after.replace(filler, " ")
             # Take the name words (stop at non-name words)
             _STOP_WORDS = {"and", "my", "the", "so", "but", "yeah", "yes", "that", "is",
-                           "it", "i", "we", "at", "on", "in", "from", "with"}
+                           "it", "i", "we", "at", "on", "in", "from", "with", "then",
+                           "yep", "okay", "ok"}
             _NOT_NAMES = {"actually", "already", "currently", "still", "honestly",
                           "basically", "literally", "probably", "definitely", "maybe",
                           "trying", "thinking", "wondering", "hoping", "getting",
@@ -782,11 +847,15 @@ def _extract_name(text: str) -> str:
             if words:
                 return " ".join(words)
 
-    # Fallback: if short text (≤4 words), might just be the name
+    # ── Fallback: if short text (≤4 words), might just be the name ──
     parts = text.strip().split()
     if len(parts) <= 4:
+        _FILLER = {"my", "is", "the", "yeah", "yes", "it", "its", "be",
+                   "that", "then", "yep", "okay", "ok", "and", "gonna",
+                   "would", "will", "just", "well", "so", "a", "an", "of",
+                   "to", "for", "i", "i'm", "i'd", "let", "me", "hi"}
         words = [w.capitalize() for w in parts if w.isalpha() and len(w) >= 2
-                 and w.lower() not in {"my", "is", "the", "yeah", "yes", "it", "its"}]
+                 and w.lower() not in _FILLER]
         if words:
             return " ".join(words)
 
@@ -2004,14 +2073,29 @@ class Session:
             self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
             if self._coach_task and not self._coach_task.done():
                 self._coach_task.cancel()
+
+            # ── Accumulate recent customer turns since the last rep question ──
+            # Customers split info across multiple segments ("seven zero two"
+            # then "six one five eight two eight two"). Analyze them together.
+            _recent_customer_texts = []
+            for _h in reversed(self.coach._history[-10:]):
+                if _h["speaker"] == "customer":
+                    _recent_customer_texts.insert(0, _h["text"])
+                elif _h["speaker"] == "rep":
+                    break  # stop at the rep's last turn
+            _combined = " ".join(_recent_customer_texts)
+            _combined_lower = _combined.lower()
+
+            # Use combined text for detection, single turn for fallback
             t = text.lower()
 
             # Detect what TYPE of info the customer just gave
             # Count digits — both actual digits AND spoken number words
             _SPOKEN_DIGITS = {"zero", "one", "two", "three", "four", "five",
                               "six", "seven", "eight", "nine", "oh"}
-            _digit_count = sum(c.isdigit() for c in t)
-            _digit_count += sum(1 for w in t.split() if w in _SPOKEN_DIGITS)
+            # Count on combined text so split phone numbers get full digit count
+            _digit_count = sum(c.isdigit() for c in _combined_lower)
+            _digit_count += sum(1 for w in _combined_lower.split() if w in _SPOKEN_DIGITS)
 
             _NOT_NAMES = {"yes", "no", "yeah", "yep", "nope", "okay", "ok", "sure", "hello", "hi",
                          "yes sir", "no sir", "yes ma'am", "no ma'am", "little kids", "teenagers",
@@ -2046,17 +2130,20 @@ class Session:
             _is_short_alpha = len(t.split()) <= 4 and t.replace(" ", "").isalpha()
             # Check if ALL words are filler — if so, it's not a name
             _all_filler = all(w in _NOT_NAME_WORDS for w in t.split())
-            _has_name_words = any(w in t for w in ["my name is", "first name", "last name"]) or (
+            _has_name_words = any(w in _combined_lower for w in ["my name is", "first name", "last name", "name is"]) or (
                 _is_short_alpha and not _all_filler
                 and t.strip() not in _NOT_NAMES
                 and not any(phrase in t for phrase in _NOT_NAMES)
             )
+            # Use combined text for phone/email/address so split responses are captured
             _has_phone_digits = _digit_count >= 7
-            _has_email = "@" in t or any(w in t for w in ["gmail", "yahoo", "hotmail", "aol", "outlook",
-                                                           "dot com", "at gmail", "at yahoo", "at hotmail",
-                                                           "at aol", "at outlook"])
-            _has_address = any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard",
-                                                 "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
+            _has_email = "@" in _combined_lower or any(w in _combined_lower for w in [
+                "gmail", "yahoo", "hotmail", "aol", "outlook",
+                "dot com", "at gmail", "at yahoo", "at hotmail",
+                "at aol", "at outlook"])
+            _has_address = any(w in _combined_lower for w in [
+                "street", "drive", "avenue", "road", "lane", "boulevard",
+                "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
 
             # Only advance if the customer gave the expected info type
             opener = _quick_opener(text, "collect_info")
@@ -2069,52 +2156,53 @@ class Session:
                 # AND doesn't contain equipment/number words (avoids "a windows would be six")
                 _EQUIP_WORDS = {"door", "doors", "window", "windows", "sensor", "sensors",
                                 "camera", "panel", "motion", "detector", "hub"}
+                # Check combined text for name indicators (customer may say
+                # "my name is" in one turn and the actual name in the next)
+                _has_name_in_combined = any(w in _combined_lower for w in [
+                    "my name is", "first name", "last name", "name is"])
                 _looks_like_name = (
-                    _has_name_words or
+                    _has_name_words or _has_name_in_combined or
                     (_is_short_alpha and not _has_phone_digits and not _has_email
                      and not _has_address and _digit_count == 0
                      and not any(w in t.split() for w in _EQUIP_WORDS))
                 )
                 if _looks_like_name:
                     self._collect_info_done.add("full_name")
-                    self._profile["name"] = _extract_name(text)
+                    # Use combined text if it has name context, otherwise just current turn
+                    _name_source = _combined if _has_name_in_combined else text
+                    self._profile["name"] = _extract_name(_name_source)
                     next_step = "And what's your best phone number?"
             elif "phone_number" not in self._collect_info_done:
                 if _has_phone_digits:
                     self._collect_info_done.add("phone_number")
-                    # Extract digits from both numerals and spoken words
-                    digits = _spoken_to_digits(text)
+                    # Extract digits from combined customer turns (handles split segments)
+                    digits = _spoken_to_digits(_combined)
                     if not digits:
-                        digits = "".join(c for c in text if c.isdigit())
+                        digits = "".join(c for c in _combined if c.isdigit())
                     if len(digits) == 10:
                         self._profile["phone"] = f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
                     elif len(digits) >= 7:
                         self._profile["phone"] = digits
                     else:
-                        self._profile["phone"] = text.strip()
+                        self._profile["phone"] = _combined.strip()
                     next_step = "And your email so I can send all this information over to you by the end of the call?"
             elif "email" not in self._collect_info_done:
                 if _has_email:
                     self._collect_info_done.add("email")
-                    # Customer may split email across segments ("gonzales flaubert"
-                    # then "at gmail dot com"). Combine recent customer turns.
-                    _email_parts = []
-                    for _h in reversed(self.coach._history[-6:]):
-                        if _h["speaker"] == "customer":
-                            _email_parts.insert(0, _h["text"])
-                        elif _h["speaker"] == "rep":
-                            break  # stop at the rep's prompt
-                    _combined_email = " ".join(_email_parts) if _email_parts else text
-                    self._profile["email"] = _extract_email(_combined_email)
+                    # Use accumulated customer turns (already combined above)
+                    self._profile["email"] = _extract_email(_combined)
                     next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:
                     self._collect_info_done.add("address")
-                    # Clean up address — remove filler, convert spoken numbers
-                    addr = text.strip()
+                    # Use combined customer turns for address (often split across
+                    # 3-4 segments: "five five" / "fitch meadow lane" / "south windsor" / "zero six...")
+                    addr = _combined.strip()
                     for filler in ["the address is ", "address is ", "it is ", "it's ",
                                    "this is ", "we're at ", "i'm at ", "yeah it's ",
-                                   "yeah ", "yes "]:
+                                   "yeah ", "yes ", "alright ", "okay ", "let me ",
+                                   "give me a second ", "that will be ", "that would be ",
+                                   "alright that will be ", "alright let me "]:
                         if addr.lower().startswith(filler):
                             addr = addr[len(filler):]
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
