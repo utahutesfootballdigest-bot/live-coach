@@ -1099,8 +1099,8 @@ _EQUIPMENT_PRICES = {
     "secondary_siren": 45.00,   # retail $150, 70% off
 }
 _MONITORING_PRICES = {
-    "plus": {"promo": 32.99, "standard": 32.99},  # LOWRATE promo takes this to $29.99
-    "basic": {"promo": 22.99, "standard": 22.99},
+    "plus": {"promo": 29.99, "standard": 32.99},  # LOWRATE takes to $26.99
+    "basic": {"promo": 17.99, "standard": 22.99},  # LOWRATE takes to $14.99
 }
 _PROMO_MONTHS = 6  # first N months at promo rate
 
@@ -2202,7 +2202,10 @@ class Session:
                                    "this is ", "we're at ", "i'm at ", "yeah it's ",
                                    "yeah ", "yes ", "alright ", "okay ", "let me ",
                                    "give me a second ", "that will be ", "that would be ",
-                                   "alright that will be ", "alright let me "]:
+                                   "alright that will be ", "alright let me ",
+                                   "of course ", "of course that is ", "of course it's ",
+                                   "sure ", "sure it's ", "yep ", "yep it's ",
+                                   "so that's ", "so it's ", "that's "]:
                         if addr.lower().startswith(filler):
                             addr = addr[len(filler):]
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
@@ -2381,11 +2384,8 @@ class Session:
                 if not next_step:
                     next_step = _fallback_next_step("build_system", self.coach, session=self)
                 if not next_step:
-                    # All build items done — show recap. Mark recap_done so it
-                    # won't be repeated when the rep clicks into the recap stage.
+                    # All build items done — show recap prompt
                     next_step = _fallback_next_step("recap", self.coach, session=self)
-                    if next_step:
-                        self.coach._topics_done.add("recap_done")
                 if next_step and name:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
@@ -2709,11 +2709,10 @@ async def websocket_endpoint(ws: WebSocket):
                             session.current_stage = new_stage
                             if new_stage == "build_system":
                                 session._build_current_item = "door_sensors"
-                            # When entering recap, auto-mark recap_done — the rep already
-                            # delivered the recap at end of build_system. Skip straight to
-                            # "anything else to add?" or closing.
+                            # When entering recap, show the recap prompt — don't auto-mark
+                            # as done so the rep sees the equipment summary to read.
                             if new_stage == "recap" and session.coach:
-                                session.coach._topics_done.add("recap_done")
+                                pass  # let _fallback_next_step generate the recap prompt
                             # When entering closing, skip closing_pitch if the rep already
                             # covered most of those talking points during the call
                             if new_stage == "closing" and session.coach:

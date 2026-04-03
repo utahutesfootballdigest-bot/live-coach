@@ -54,7 +54,7 @@ STAGE_SCRIPT: dict[str, list[str]] = {
         "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry.",
         "We don't charge anything for the installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself. The whole thing usually takes about 20 minutes — it's super easy. And if you need help, our tech support team will walk you through it over the phone.",
         "We also have a 60-day risk-free trial — so you can try everything out, and if you decide it's not the right fit, you can return it for a full refund within 60 days.",
-        "On the monthly monitoring, it's just $32.99 per month. And the equipment that would usually cost $____ — with all the discounts and promotions today, I'm gonna get your total down to just $____.",
+        "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment that would usually cost $____ — with all the discounts and promotions today, I'm gonna get your total down to just $____.",
         "Does that sound like it will work for you, [NAME]?",
         "[Guide through checkout] Go ahead and scroll down — you'll need to fill in your email, monitored address, emergency contact, and create a verbal password. The verbal password is just for when you call in or when our monitoring team calls you — they'll use it to verify your identity. Let me know once you're ready to place the order.",
         "[After order placed] Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — that's usually 3 to 7 business days. Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount. Is there anything else I can help you with?",
@@ -445,15 +445,27 @@ class CoachingEngine:
         if speaker == "rep":
             if any(kw in t for kw in self._Q_KEYWORDS):
                 self._rep_questions.append(text.strip())
+            # Don't track equipment when the rep is ASKING about it
+            # ("we have a motion detector... do you think you'd need any?")
+            # Only track when the rep is CONFIRMING/ADDING it.
+            _is_question = any(q in t for q in [
+                "do you think", "would you like", "do you need", "you'd need",
+                "you think you", "want to add", "like to add", "need any",
+                "we also have a", "we have a motion", "we have a glass",
+                "percent off", "% off", "either of those",
+            ])
             for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
                 if equip not in self._equipment_mentioned:
                     # Don't count "built-in motion sensor" or "with a motion sensor"
-                    # in camera descriptions as a separate motion sensor —
-                    # the indoor camera has one built in
+                    # in camera descriptions as a separate motion sensor
                     if equip == "motion sensor" and any(p in t for p in [
                         "built-in motion sensor", "built in motion sensor",
                         "with a motion sensor", "with a built in",
                     ]):
+                        continue
+                    # Don't track extras or optional items from questions —
+                    # only from confirmations like "I'll add a motion detector"
+                    if _is_question and equip in ("motion sensor", "glass break", "co detector", "outdoor camera"):
                         continue
                     if any(kw in t for kw in keywords):
                         self._equipment_mentioned.append(equip)
@@ -529,7 +541,8 @@ class CoachingEngine:
                               "glad", "happy", "sure", "sorry", "curious", "new",
                               "fantastic", "wonderful", "terrible", "awesome", "amazing",
                               "perfect", "excellent", "pretty", "super", "blessed", "only",
-                              "telling", "around", "calling", "sitting", "looking",
+                              "telling", "around", "sitting",
+                              "processing", "done", "finished", "waiting", "holding",
                               "my", "your", "his", "her", "our", "their", "its",
                               "home", "here", "there", "now", "then", "about", "over",
                               "in", "on", "up", "out", "at", "from", "with", "for",
@@ -644,14 +657,20 @@ class CoachingEngine:
     def track_equipment_from_text(self, text: str):
         """Track equipment mentioned in any text (e.g. Claude's suggested next_step)."""
         t = text.lower()
+        _is_question = any(q in t for q in [
+            "do you think", "would you like", "do you need", "you'd need",
+            "want to add", "like to add", "need any",
+        ])
         for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
             if equip not in self._equipment_mentioned:
-                # Don't count "built-in motion sensor" or "with a motion sensor"
-                # in camera descriptions as a separate motion sensor
+                # Don't count camera-context motion sensor
                 if equip == "motion sensor" and any(p in t for p in [
                     "built-in motion sensor", "built in motion sensor",
                     "with a motion sensor", "with a built in",
                 ]):
+                    continue
+                # Don't track extras or optional items from questions about them
+                if _is_question and equip in ("motion sensor", "glass break", "co detector", "outdoor camera"):
                     continue
                 if any(kw in t for kw in keywords):
                     self._equipment_mentioned.append(equip)

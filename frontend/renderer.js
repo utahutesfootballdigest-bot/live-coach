@@ -808,8 +808,11 @@ function handleChecklistUpdate(msg) {
           row.classList.toggle("checked", _currentChecklist[key]);
         }
       });
-      // NOTE: Do NOT auto-advance from AI checks — only rep manual checks
-      // should trigger stage advancement. AI checks are often premature.
+      // Auto-advance: when AI checks complete all items in a stage,
+      // auto-check section-complete and advance to next stage.
+      if (_viewingStage) {
+        _checkAutoAdvance(_viewingStage);
+      }
     }
   }
 }
