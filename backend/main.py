@@ -1005,23 +1005,28 @@ def _build_context_from_transcript(checked_topic: str, coach) -> str:
     return ""
 
 
-# ── Equipment pricing table (pre-sale prices from covesmart.com) ──────
+# ── Equipment pricing table ───────────────────────────────────────────
+# Prices reflect the website's automatic pre-sale discounts:
+#   - Sensors & accessories: 70% off retail (retail prices noted in comments)
+#   - Indoor camera: free
+#   - Hub + panel: $45 each ($90 total, down from $250 retail)
+#   - Outdoor/doorbell cameras: 50% off retail
 _EQUIPMENT_PRICES = {
-    "door_sensors": 16.00,
-    "window_sensors": 16.00,
-    "motion_sensor": 50.00,
-    "glass_break": 50.00,
-    "co_detector": 125.00,
-    "smoke_detector": 95.00,
-    "indoor_camera": 59.99,
-    "outdoor_camera": 159.99,  # solar outdoor camera
-    "doorbell_camera": 99.99,
-    "panel_hub": 250.00,  # hub ($100) + touchscreen panel ($150)
-    "yard_sign": 0.00,  # free
-    "key_fob": 30.00,
-    "panic_button": 30.00,
-    "flood_sensor": 60.00,
-    "secondary_siren": 150.00,
+    "door_sensors": 4.80,       # retail $16, 70% off
+    "window_sensors": 4.80,     # retail $16, 70% off
+    "motion_sensor": 15.00,     # retail $50, 70% off
+    "glass_break": 15.00,       # retail $50, 70% off
+    "co_detector": 37.50,       # retail $125, 70% off
+    "smoke_detector": 28.50,    # retail $95, 70% off
+    "indoor_camera": 0.00,      # free with system
+    "outdoor_camera": 79.99,    # retail $159.99, 50% off
+    "doorbell_camera": 49.99,   # retail $99.99, 50% off
+    "panel_hub": 90.00,         # hub $45 + panel $45 (retail $250)
+    "yard_sign": 0.00,          # free
+    "key_fob": 9.00,            # retail $30, 70% off
+    "panic_button": 9.00,       # retail $30, 70% off
+    "flood_sensor": 18.00,      # retail $60, 70% off
+    "secondary_siren": 45.00,   # retail $150, 70% off
 }
 _MONITORING_PRICES = {
     "plus": {"promo": 29.99, "standard": 32.99},
@@ -1547,6 +1552,27 @@ class Session:
             if info:
                 qty = self._equipment_counts.get(info["key"], 1)
                 items.append({"key": info["key"], "label": info["label"], "qty": qty})
+                seen.add(info["key"])
+        # Also include items from _equipment_counts that weren't in _equipment_mentioned
+        # (e.g., rep manually added via "Add Equipment" button)
+        _COUNTS_MAP = {
+            "door_sensors":    "Door sensors",
+            "window_sensors":  "Window sensors",
+            "motion_sensor":   "Motion detector",
+            "glass_break":     "Glass break detector",
+            "co_detector":     "CO detector",
+            "smoke_detector":  "Smoke detector",
+            "indoor_camera":   "Indoor camera",
+            "outdoor_camera":  "Outdoor camera",
+            "doorbell_camera": "Doorbell camera",
+            "panel_hub":       "Panel + hub",
+            "yard_sign":       "Yard sign + stickers",
+            "key_fob":         "Key fob",
+            "flood_sensor":    "Flood sensor",
+        }
+        for key, qty in self._equipment_counts.items():
+            if key not in seen and key in _COUNTS_MAP:
+                items.append({"key": key, "label": _COUNTS_MAP[key], "qty": qty})
         return items
 
     async def toggle_topic(self, topic: str, checked: bool):
@@ -2506,6 +2532,33 @@ async def websocket_endpoint(ws: WebSocket):
                         session._equipment_counts[key] = qty
                         session._equipment_edits.add(key)
                         print(f"[equipment] rep updated {key} = {qty}")
+                        # Refresh profile + pricing after manual edit
+                        session._profile["equipment"] = session._build_equipment_list()
+                        await session.send_profile()
+                        await session.send_pricing()
+                    elif action == "add_equipment":
+                        key = msg.get("key", "")
+                        qty = int(msg.get("qty", 1))
+                        # Add to equipment tracking so it shows in profile
+                        _ADD_KEY_TO_EQUIP = {
+                            "door_sensors": "door sensor", "window_sensors": "window sensor",
+                            "motion_sensor": "motion sensor", "glass_break": "glass break",
+                            "co_detector": "co detector", "smoke_detector": "smoke detector",
+                            "indoor_camera": "camera", "outdoor_camera": "outdoor camera",
+                            "doorbell_camera": "outdoor camera",
+                            "panel_hub": "panel", "yard_sign": "yard sign",
+                            "key_fob": "key fob", "flood_sensor": "flood sensor",
+                        }
+                        equip_name = _ADD_KEY_TO_EQUIP.get(key)
+                        if equip_name and session.coach:
+                            if equip_name not in session.coach._equipment_mentioned:
+                                session.coach._equipment_mentioned.append(equip_name)
+                        session._equipment_counts[key] = qty
+                        session._equipment_edits.add(key)
+                        print(f"[equipment] rep manually added {key} = {qty}")
+                        session._profile["equipment"] = session._build_equipment_list()
+                        await session.send_profile()
+                        await session.send_pricing()
                     elif action == "apply_coupon":
                         await session.apply_coupon(msg.get("code", ""))
                     elif action == "remove_coupon":

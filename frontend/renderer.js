@@ -899,6 +899,23 @@ function handleProfileUpdate(msg) {
   }
 }
 
+// All possible equipment items for the "Add Equipment" dropdown
+const ALL_EQUIPMENT = [
+  { key: "door_sensors",    label: "Door sensors" },
+  { key: "window_sensors",  label: "Window sensors" },
+  { key: "motion_sensor",   label: "Motion detector" },
+  { key: "glass_break",     label: "Glass break detector" },
+  { key: "co_detector",     label: "CO detector" },
+  { key: "smoke_detector",  label: "Smoke detector" },
+  { key: "indoor_camera",   label: "Indoor camera" },
+  { key: "outdoor_camera",  label: "Outdoor camera" },
+  { key: "doorbell_camera", label: "Doorbell camera" },
+  { key: "panel_hub",       label: "Panel + hub" },
+  { key: "yard_sign",       label: "Yard sign + stickers" },
+  { key: "key_fob",         label: "Key fob" },
+  { key: "flood_sensor",    label: "Flood sensor" },
+];
+
 function renderEquipmentList(equipment) {
   const container = document.getElementById("profile-equipment");
   if (!equipment || !equipment.length) {
@@ -906,7 +923,9 @@ function renderEquipmentList(equipment) {
     return;
   }
   container.innerHTML = "";
+  const shownKeys = new Set();
   equipment.forEach(item => {
+    shownKeys.add(item.key);
     const row = document.createElement("div");
     row.className = "equip-row" + (item.qty === 0 ? " equip-declined" : "");
 
@@ -930,6 +949,35 @@ function renderEquipmentList(equipment) {
     row.appendChild(qtyInput);
     container.appendChild(row);
   });
+
+  // "Add Equipment" dropdown — shows items not yet in the list
+  const remaining = ALL_EQUIPMENT.filter(e => !shownKeys.has(e.key));
+  if (remaining.length > 0) {
+    const addRow = document.createElement("div");
+    addRow.className = "equip-add-row";
+    const select = document.createElement("select");
+    select.className = "equip-add-select";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "+ Add equipment...";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    remaining.forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.key;
+      opt.textContent = e.label;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", () => {
+      if (select.value) {
+        send({ action: "add_equipment", key: select.value, qty: 1 });
+        select.value = "";
+      }
+    });
+    addRow.appendChild(select);
+    container.appendChild(addRow);
+  }
 }
 
 // Rep edits profile fields — send updates to backend

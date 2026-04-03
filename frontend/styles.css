@@ -781,6 +781,29 @@ html, body {
   opacity: 0.4;
 }
 
+.equip-add-row {
+  padding: 3px 0 1px;
+}
+.equip-add-select {
+  width: 100%;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  padding: 3px 4px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.equip-add-select:focus {
+  border-color: var(--accent);
+}
+.equip-add-select option {
+  background: var(--panel-bg);
+  color: var(--text-primary);
+}
+
 /* Pricing breakdown */
 .pricing-breakdown {
   font-size: 10px;

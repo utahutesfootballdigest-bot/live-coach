@@ -469,6 +469,25 @@ class CoachingEngine:
         # Track customer facts and mark topics done when customer answers
         if speaker == "customer":
             self._customer_facts.append(text.strip())
+            # Track equipment the customer explicitly requests
+            _CUSTOMER_EQUIP_PHRASES = {
+                "outdoor camera": ["doorbell camera", "doorbell cam", "outdoor camera",
+                                   "outdoor cam", "camera outside", "outside camera",
+                                   "add the doorbell", "add a doorbell", "want the doorbell",
+                                   "want a doorbell"],
+                "motion sensor": ["motion sensor", "motion detector", "add a motion",
+                                  "want a motion", "add the motion"],
+                "glass break": ["glass break", "add a glass", "want a glass"],
+                "co detector": ["carbon monoxide", "co detector", "add a carbon",
+                                "add a co", "want a co"],
+                "smoke detector": ["smoke detector", "add a smoke", "want a smoke"],
+            }
+            for equip, phrases in _CUSTOMER_EQUIP_PHRASES.items():
+                if equip not in self._equipment_mentioned:
+                    if any(p in t for p in phrases):
+                        self._equipment_mentioned.append(equip)
+                        self._sync_equipment_to_topics(equip)
+                        print(f"[coach] equipment tracked (customer requested): {equip}")
             for topic, rules in QUESTION_TOPICS.items():
                 if topic not in self._topics_done and rules["customer_answers"]:
                     if any(phrase in t for phrase in rules["customer_answers"]):
