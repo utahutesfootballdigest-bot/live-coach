@@ -1026,6 +1026,7 @@ _EQUIPMENT_PRICES = {
     "key_fob": 9.00,            # retail $30, 70% off
     "panic_button": 9.00,       # retail $30, 70% off
     "flood_sensor": 18.00,      # retail $60, 70% off
+    "medical_pendant": 9.00,    # retail $30, 70% off
     "secondary_siren": 45.00,   # retail $150, 70% off
 }
 _MONITORING_PRICES = {
@@ -1065,8 +1066,9 @@ def _calculate_pricing(session) -> dict:
     equipment_total = subtotal
     discount_total = 0.0
     discount_label = ""
-    monthly_promo = _MONITORING_PRICES["plus"]["promo"]
-    monthly_standard = _MONITORING_PRICES["plus"]["standard"]
+    plan = session._plan if hasattr(session, '_plan') else "plus"
+    monthly_promo = _MONITORING_PRICES[plan]["promo"]
+    monthly_standard = _MONITORING_PRICES[plan]["standard"]
     monitoring_discount = 0.0
 
     # Apply coupons
@@ -1237,6 +1239,7 @@ class Session:
         self._applied_coupons: list[str] = []  # coupon codes applied to this session
         self._pitch_keywords_said: set[str] = set()  # closing pitch keywords rep already said
         self._closing_pitch_groups_said: set[str] = set()  # tracks 3 closing_pitch sub-groups
+        self._plan: str = "plus"  # "plus" or "basic"
         self._user_feedback: str = ""  # post-call feedback from rep
 
     async def send(self, msg: dict):
@@ -1311,6 +1314,7 @@ class Session:
             self._equipment_counts = {}
             self._equipment_edits = set()
             self._closing_pitch_groups_said = set()
+            self._plan = "plus"
             return
 
         # ── Save transcript immediately (feedback attached later via REST) ──
@@ -1576,6 +1580,7 @@ class Session:
             "yard_sign":       "Yard sign + stickers",
             "key_fob":         "Key fob",
             "flood_sensor":    "Flood sensor",
+            "medical_pendant": "Medical pendant",
         }
         for key, qty in self._equipment_counts.items():
             if key not in seen and key in _COUNTS_MAP:
@@ -2228,15 +2233,14 @@ class Session:
                 _wants_motion = any(w in t for w in ["motion", "motion sensor", "motion detect"])
                 _wants_glass = any(w in t for w in ["glass break", "glass sensor"])
                 _wants_co = any(w in t for w in ["carbon monoxide", "co detector", "c o detector", "carbon"])
-                if _is_yes and not (_wants_motion or _wants_glass or _wants_co):
-                    # Generic yes — default to motion sensor
-                    _wants_motion = True
+                # NOTE: Do NOT default generic "yes" to motion sensor — this was
+                # causing phantom motion detectors. If customer says "yes" without
+                # specifying which extra, the rep should clarify. Only add what
+                # the customer explicitly names.
                 if _wants_motion:
                     if "motion sensor" not in self.coach._equipment_mentioned:
                         self.coach._equipment_mentioned.append("motion sensor")
                     self._equipment_counts["motion_sensor"] = 1
-                else:
-                    self._equipment_counts["motion_sensor"] = 0
                 if _wants_glass:
                     if "glass break" not in self.coach._equipment_mentioned:
                         self.coach._equipment_mentioned.append("glass break")
@@ -2397,6 +2401,12 @@ class Session:
                 "glass_break": ["glass break"],
             }
             for eq_key, eq_phrases in _EQUIP_QTY_PATTERNS.items():
+                # Skip motion sensor in camera descriptions
+                if eq_key == "motion_sensor" and any(p in _t_eq for p in [
+                    "built-in motion", "built in motion", "with a motion",
+                    "camera", "night vision", "two-way audio", "two way audio",
+                ]):
+                    continue
                 if any(p in _t_eq for p in eq_phrases):
                     # Look for a number near the equipment mention
                     import re as _re_eq
@@ -2467,6 +2477,15 @@ class Session:
                     if item not in self._rep_overrides:
                         self.coach._topics_done.add(item)
                 await self.send_checklist()
+                # Show the NEXT closing prompt after a speech pause so the
+                # rep knows what to say next (but don't push mid-sentence).
+                if speech_final:
+                    next_closing = _fallback_next_step("closing", self.coach, session=self)
+                    if next_closing:
+                        if self.coach.customer_name:
+                            next_closing = next_closing.replace("[NAME]", self.coach.customer_name)
+                        await self.send({"type": "call_guidance", "call_stage": "closing",
+                                         "next_step": next_closing})
 
         if not speech_final:
             # In roleplay, buffer is_final text but DON'T trigger yet —
@@ -2574,6 +2593,7 @@ async def websocket_endpoint(ws: WebSocket):
                             "doorbell_camera": "outdoor camera",
                             "panel_hub": "panel", "yard_sign": "yard sign",
                             "key_fob": "key fob", "flood_sensor": "flood sensor",
+                            "medical_pendant": "medical pendant",
                         }
                         equip_name = _ADD_KEY_TO_EQUIP.get(key)
                         if equip_name and session.coach:
@@ -2589,6 +2609,12 @@ async def websocket_endpoint(ws: WebSocket):
                         await session.apply_coupon(msg.get("code", ""))
                     elif action == "remove_coupon":
                         await session.remove_coupon(msg.get("code", ""))
+                    elif action == "set_plan":
+                        plan = msg.get("plan", "plus")
+                        if plan in ("plus", "basic"):
+                            session._plan = plan
+                            print(f"[plan] switched to Cove {plan.title()}")
+                            await session.send_pricing()
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:

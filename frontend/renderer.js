@@ -929,6 +929,7 @@ const ALL_EQUIPMENT = [
   { key: "yard_sign",       label: "Yard sign + stickers" },
   { key: "key_fob",         label: "Key fob" },
   { key: "flood_sensor",    label: "Flood sensor" },
+  { key: "medical_pendant", label: "Medical pendant" },
 ];
 
 function renderEquipmentList(equipment) {
@@ -1089,6 +1090,19 @@ document.getElementById("coupon-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     document.getElementById("coupon-apply-btn").click();
   }
+});
+
+// ── Plan Toggle ──────────────────────────────────────────────────────────
+
+document.getElementById("plan-plus-btn").addEventListener("click", () => {
+  document.getElementById("plan-plus-btn").classList.add("plan-active");
+  document.getElementById("plan-basic-btn").classList.remove("plan-active");
+  send({ action: "set_plan", plan: "plus" });
+});
+document.getElementById("plan-basic-btn").addEventListener("click", () => {
+  document.getElementById("plan-basic-btn").classList.add("plan-active");
+  document.getElementById("plan-plus-btn").classList.remove("plan-active");
+  send({ action: "set_plan", plan: "basic" });
 });
 
 // ── Transcript Download ───────────────────────────────────────────────────

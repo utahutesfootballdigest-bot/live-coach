@@ -481,6 +481,10 @@ class CoachingEngine:
                 "co detector": ["carbon monoxide", "co detector", "add a carbon",
                                 "add a co", "want a co"],
                 "smoke detector": ["smoke detector", "add a smoke", "want a smoke"],
+                "key fob": ["key fob", "key fobs", "keyfob", "add a key fob",
+                             "want a key fob", "want key fob"],
+                "medical pendant": ["medical pendant", "medical alert", "panic pendant",
+                                    "medical button", "add a medical", "want a medical"],
             }
             for equip, phrases in _CUSTOMER_EQUIP_PHRASES.items():
                 if equip not in self._equipment_mentioned:
@@ -560,6 +564,8 @@ class CoachingEngine:
         "motion sensor": ["motion sensor", "motion detect"],
         "glass break": ["glass break", "glass sensor"],
         "co detector": ["carbon monoxide", "co detector", "c o detector"],
+        "key fob": ["key fob", "keyfob", "key fobs"],
+        "medical pendant": ["medical pendant", "medical alert", "panic pendant"],
     }
 
     # Map equipment names → _STAGE_ITEM_ORDER keys so _topics_done stays in sync
@@ -577,6 +583,8 @@ class CoachingEngine:
         "motion sensor": "extra_equip",
         "glass break": "extra_equip",
         "co detector": "extra_equip",
+        "key fob": "extra_equip",
+        "medical pendant": "extra_equip",
     }
 
     def _sync_equipment_to_topics(self, equip: str):
