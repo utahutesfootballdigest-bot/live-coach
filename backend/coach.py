@@ -525,6 +525,7 @@ class CoachingEngine:
                               "glad", "happy", "sure", "sorry", "curious", "new",
                               "fantastic", "wonderful", "terrible", "awesome", "amazing",
                               "perfect", "excellent", "pretty", "super", "blessed", "only",
+                              "telling", "around", "calling", "sitting", "looking",
                               "my", "your", "his", "her", "our", "their", "its",
                               "home", "here", "there", "now", "then", "about", "over",
                               "in", "on", "up", "out", "at", "from", "with", "for",

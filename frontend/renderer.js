@@ -337,6 +337,7 @@ function showMainScreen() {
   startTimer();
   // Show checklist immediately so rep can manually check/uncheck from the start
   _currentCallStage = "intro";
+  _repManualStageSelect = false;
   renderChecklist("discovery");
   document.getElementById("customer-profile").style.display = "block";
   // Render empty equipment list with the "Add Equipment" dropdown
@@ -745,6 +746,7 @@ function _advanceToNextStage(stage) {
   const curIdx = STAGE_ORDER.indexOf(stage);
   if (curIdx >= 0 && curIdx < STAGE_ORDER.length - 1) {
     const nextStage = STAGE_ORDER[curIdx + 1];
+    _repManualStageSelect = false;  // clear so auto-advance works for the new stage
     send({ action: "advance_stage", stage: nextStage });
   }
 }
@@ -813,6 +815,7 @@ function handleChecklistUpdate(msg) {
 }
 
 let _currentCallStage = null;
+let _repManualStageSelect = false;  // true when rep clicked a stage pill
 
 // Make stage pills clickable — rep can click any done/active stage to view its checklist
 STAGE_ORDER.forEach((stage) => {
@@ -821,6 +824,7 @@ STAGE_ORDER.forEach((stage) => {
   el.addEventListener("click", () => {
     // Only allow clicking stages that have a checklist
     if (!STAGE_CHECKLIST[stage]) return;
+    _repManualStageSelect = true;
     renderChecklist(stage);
   });
 });
@@ -843,9 +847,14 @@ function handleCallGuidance(msg) {
       if (idx < activeIdx) el.classList.add("stage-done");
       else if (idx === activeIdx) el.classList.add("stage-active");
     });
-    // Auto-advance checklist to new stage when the stage changes
-    // Rep can still click back to a previous stage anytime
-    if (stageChanged) {
+    // Auto-advance checklist ONLY if:
+    // 1. Rep hasn't manually selected a stage (clicking a pill)
+    // 2. The new stage is forward progress (not jumping backward)
+    // This prevents the screen from "glitching" to different pages.
+    const viewIdx = _viewingStage ? STAGE_ORDER.indexOf(_viewingStage) : -1;
+    const newIdx = STAGE_ORDER.indexOf(call_stage);
+    const isForward = newIdx > viewIdx;
+    if (!_repManualStageSelect && stageChanged && isForward) {
       renderChecklist(call_stage);
     } else if (!_viewingStage || !document.getElementById("stage-checklist").children.length) {
       renderChecklist(call_stage);

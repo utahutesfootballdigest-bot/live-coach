@@ -2017,12 +2017,27 @@ class Session:
                          "go ahead", "absolutely", "right", "correct", "yea", "mhmm",
                          "no problem", "no worries", "one second", "one moment",
                          "yeah sure", "yes please", "please", "i will", "i can",
-                         "yeah i can", "sure can", "that's me", "that's correct"}
-            # Also block individual filler words that aren't names
+                         "yeah i can", "sure can", "that's me", "that's correct",
+                         "you got it", "you got it yep", "that is correct",
+                         "go ahead", "let me", "hold on", "one sec", "one moment",
+                         "i'm good", "i'm here", "i'm ready", "i'm on"}
+            # Also block individual filler words that aren't names —
+            # if ALL words in the response are in this set, reject as name
             _NOT_NAME_WORDS = {"yeah", "yes", "no", "nope", "sure", "okay", "ok",
                                "of", "course", "right", "well", "just", "alright",
                                "please", "absolutely", "totally", "definitely",
-                               "mhmm", "hmm", "um", "uh"}
+                               "mhmm", "hmm", "um", "uh",
+                               "you", "got", "it", "yep", "yea", "that", "this",
+                               "i", "we", "he", "she", "they", "me", "my", "the",
+                               "is", "was", "are", "am", "be", "do", "did", "can",
+                               "a", "an", "so", "if", "or", "and", "but", "not",
+                               "too", "to", "for", "at", "in", "on", "up", "oh",
+                               "go", "ahead", "let", "now", "here", "there",
+                               "thank", "thanks", "sir", "ma'am", "hi", "hey",
+                               "will", "would", "should", "shall", "could",
+                               "hold", "one", "second", "moment", "good", "great",
+                               "fine", "nice", "cool", "perfect", "awesome",
+                               "what", "how", "when", "where", "why", "who"}
             _is_short_alpha = len(t.split()) <= 4 and t.replace(" ", "").isalpha()
             # Check if ALL words are filler — if so, it's not a name
             _all_filler = all(w in _NOT_NAME_WORDS for w in t.split())
