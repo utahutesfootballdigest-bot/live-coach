@@ -1224,6 +1224,7 @@ class Session:
         self._equipment_edits: set[str] = set()  # equipment keys the rep manually corrected
         self._applied_coupons: list[str] = []  # coupon codes applied to this session
         self._pitch_keywords_said: set[str] = set()  # closing pitch keywords rep already said
+        self._closing_pitch_groups_said: set[str] = set()  # tracks 3 closing_pitch sub-groups
         self._user_feedback: str = ""  # post-call feedback from rep
 
     async def send(self, msg: dict):
@@ -1297,6 +1298,7 @@ class Session:
             self._build_current_item = None
             self._equipment_counts = {}
             self._equipment_edits = set()
+            self._closing_pitch_groups_said = set()
             return
 
         # ── Save transcript immediately (feedback attached later via REST) ──
@@ -1339,6 +1341,7 @@ class Session:
         self._rep_overrides = set()
         self._build_current_item = None
         self._equipment_counts = {}
+        self._closing_pitch_groups_said = set()
 
         if self.mic_queue:
             self.mic_queue.put_nowait(None)
@@ -1990,7 +1993,18 @@ class Session:
             next_step = None
 
             if "full_name" not in self._collect_info_done:
-                if _has_name_words or (not _has_phone_digits and not _has_email and not _has_address):
+                # Only accept as name if it explicitly has name words, OR
+                # it's a short alphabetic phrase that doesn't match other info types
+                # AND doesn't contain equipment/number words (avoids "a windows would be six")
+                _EQUIP_WORDS = {"door", "doors", "window", "windows", "sensor", "sensors",
+                                "camera", "panel", "motion", "detector", "hub"}
+                _looks_like_name = (
+                    _has_name_words or
+                    (_is_short_alpha and not _has_phone_digits and not _has_email
+                     and not _has_address and _digit_count == 0
+                     and not any(w in t.split() for w in _EQUIP_WORDS))
+                )
+                if _looks_like_name:
                     self._collect_info_done.add("full_name")
                     self._profile["name"] = _extract_name(text)
                     next_step = "And what's your best phone number?"
@@ -2281,6 +2295,64 @@ class Session:
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
 
+        # ── Auto-detect stage transition: collect_info → build_system ──
+        # If the rep starts asking build_system questions while we think we're
+        # still in collect_info, auto-transition so customer answers about
+        # doors/windows don't get misinterpreted as names/addresses.
+        if is_final and self.current_stage == "collect_info":
+            _t_stage = text.lower()
+            _BUILD_ENTRY_PHRASES = ["how many doors", "doors go in and out",
+                                     "how many windows", "ground floor windows",
+                                     "door sensor", "window sensor",
+                                     "let's build", "build your system",
+                                     "dive right in"]
+            if any(p in _t_stage for p in _BUILD_ENTRY_PHRASES):
+                print(f"[stage] auto-transitioning collect_info → build_system (rep said: {text[:40]})")
+                self.current_stage = "build_system"
+                self._build_current_item = "door_sensors"
+                # Mark all collect_info as done so we don't go back
+                for ci_key in ("full_name", "phone_number", "email", "address"):
+                    self.coach._topics_done.add(ci_key)
+                    self._collect_info_done.add(ci_key)
+                await self.send_checklist()
+
+        # ── Extract equipment quantities from rep speech ──
+        # When the rep says "three door sensors" or "six window sensors", capture
+        # the number into _equipment_counts so it shows correctly in the profile.
+        if is_final:
+            _t_eq = text.lower()
+            _SPOKEN_NUMS_EQ = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                               "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+                               "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15}
+            _EQUIP_QTY_PATTERNS = {
+                "door_sensors": ["door sensor"],
+                "window_sensors": ["window sensor"],
+                "motion_sensor": ["motion sensor", "motion detect"],
+                "co_detector": ["carbon monoxide", "co detector"],
+                "glass_break": ["glass break"],
+            }
+            for eq_key, eq_phrases in _EQUIP_QTY_PATTERNS.items():
+                if any(p in _t_eq for p in eq_phrases):
+                    # Look for a number near the equipment mention
+                    import re as _re_eq
+                    _eq_num = None
+                    # Try digit numerals first
+                    _digit_matches = _re_eq.findall(r'\d+', _t_eq)
+                    if _digit_matches:
+                        _eq_num = int(_digit_matches[0])
+                    else:
+                        # Try spoken numbers
+                        for word in _t_eq.split():
+                            if word in _SPOKEN_NUMS_EQ:
+                                _eq_num = _SPOKEN_NUMS_EQ[word]
+                                break
+                    if _eq_num is not None and _eq_num > 0:
+                        if eq_key not in self._equipment_counts or self._equipment_counts[eq_key] <= 1:
+                            self._equipment_counts[eq_key] = _eq_num
+                            print(f"[equipment] qty from rep speech: {eq_key} = {_eq_num}")
+                            self._profile["equipment"] = self._build_equipment_list()
+                            await self.send_profile()
+
         # ── Track pitch keywords in ANY stage so we can skip closing_pitch if already covered ──
         if is_final:
             _t_pitch = text.lower()
@@ -2294,12 +2366,24 @@ class Session:
                     self._pitch_keywords_said.add(group)
 
         # ── Auto-detect closing items from rep speech ──
+        # Only update checklist — do NOT auto-advance or show next_step.
+        # The rep reads the closing script at their own pace; pushing the
+        # next item mid-speech was cutting them off (user feedback 2026-04-02).
         if self.current_stage == "closing" and is_final:
             t = text.lower()
             _closing_detected = []
-            if any(w in t for w in ["no contract", "month to month", "cancel anytime", "wireless",
-                                     "twenty minutes", "20 minutes", "sixty day", "60 day",
-                                     "risk free", "risk-free", "full refund"]):
+            # closing_pitch is a LONG multi-part script (no contract + wireless +
+            # 60-day trial). Require 2+ of the 3 groups before marking done so
+            # we don't advance after just one phrase.
+            _CLOSING_PITCH_GROUPS = {
+                "no_contract": ["no contract", "month to month", "cancel anytime"],
+                "wireless": ["wireless", "twenty minutes", "20 minutes", "set it up yourself"],
+                "trial": ["sixty day", "60 day", "risk free", "risk-free", "full refund"],
+            }
+            for group, phrases in _CLOSING_PITCH_GROUPS.items():
+                if any(p in t for p in phrases):
+                    self._closing_pitch_groups_said.add(group)
+            if len(self._closing_pitch_groups_said) >= 2:
                 _closing_detected.append("closing_pitch")
             if any(w in t for w in ["29.99", "twenty nine", "32.99", "thirty two",
                                      "per month", "monthly monitoring", "total", "discounts",
@@ -2318,16 +2402,6 @@ class Session:
                     if item not in self._rep_overrides:
                         self.coach._topics_done.add(item)
                 await self.send_checklist()
-                # Auto-advance: show the next closing item after a speech pause.
-                # Use speech_final (not is_final) to avoid advancing mid-sentence
-                # while the rep is still reading the current item.
-                if speech_final:
-                    next_closing = _fallback_next_step("closing", self.coach, session=self)
-                    if next_closing:
-                        if self.coach.customer_name:
-                            next_closing = next_closing.replace("[NAME]", self.coach.customer_name)
-                        await self.send({"type": "call_guidance", "call_stage": "closing",
-                                         "next_step": next_closing})
 
         if not speech_final:
             # In roleplay, buffer is_final text but DON'T trigger yet —

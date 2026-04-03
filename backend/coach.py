@@ -368,9 +368,13 @@ QUESTION_TOPICS = {
         "output_detect": ["email address", "email for you", "good email", "best email", "your email", "and your email"],
     },
     "address": {
-        "rep_asks": ["address", "where are we setting", "where are you looking to get"],
+        "rep_asks": ["what's the address", "what is the address", "what address", "your address",
+                     "the address you", "home address", "shipping address", "verify the address",
+                     "where are we setting", "where are you looking to get",
+                     "where is the home", "where is your home"],
         "customer_answers": ["drive", "street", "avenue", "road", "lane", "boulevard", "florida", "texas", "california"],
-        "output_detect": ["address", "where are we setting", "what's the address"],
+        "output_detect": ["what's the address", "what is the address", "your address",
+                          "where are we setting", "the address you"],
     },
     "how_many_doors": {
         "rep_asks": ["how many doors", "doors go in and out"],
@@ -434,6 +438,14 @@ class CoachingEngine:
                 self._rep_questions.append(text.strip())
             for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
                 if equip not in self._equipment_mentioned:
+                    # Don't count "built-in motion sensor" or "with a motion sensor"
+                    # in camera descriptions as a separate motion sensor —
+                    # the indoor camera has one built in
+                    if equip == "motion sensor" and any(p in t for p in [
+                        "built-in motion sensor", "built in motion sensor",
+                        "with a motion sensor", "with a built in",
+                    ]):
+                        continue
                     if any(kw in t for kw in keywords):
                         self._equipment_mentioned.append(equip)
                         self._sync_equipment_to_topics(equip)
@@ -479,13 +491,17 @@ class CoachingEngine:
                               "actually", "already", "currently", "still", "honestly",
                               "basically", "literally", "probably", "definitely", "maybe",
                               "trying", "thinking", "wondering", "hoping", "getting",
-                              "having", "going", "coming", "working", "living",
+                              "having", "going", "coming", "working", "living", "using",
                               "being", "feeling", "sitting", "standing", "running",
                               "glad", "happy", "sure", "sorry", "curious", "new",
                               "my", "your", "his", "her", "our", "their", "its",
                               "home", "here", "there", "now", "then", "about", "over",
                               "in", "on", "up", "out", "at", "from", "with", "for",
-                              "so", "if", "or", "an", "no", "oh", "uh", "um"}
+                              "so", "if", "or", "an", "no", "oh", "uh", "um",
+                              "locate", "located", "like", "wanting", "waiting",
+                              "zero", "one", "two", "three", "four", "five", "six",
+                              "seven", "eight", "nine", "ten", "eleven", "twelve",
+                              "windows", "doors", "gonna", "hundred", "thousand"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
                         after = text[t_lower.index(prefix) + len(prefix):].strip()
@@ -590,9 +606,12 @@ class CoachingEngine:
         t = text.lower()
         for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
             if equip not in self._equipment_mentioned:
-                # Don't count "built-in motion sensor" in camera descriptions
-                # as a separate motion sensor — the camera has one inside it
-                if equip == "motion sensor" and "built-in motion sensor" in t:
+                # Don't count "built-in motion sensor" or "with a motion sensor"
+                # in camera descriptions as a separate motion sensor
+                if equip == "motion sensor" and any(p in t for p in [
+                    "built-in motion sensor", "built in motion sensor",
+                    "with a motion sensor", "with a built in",
+                ]):
                     continue
                 if any(kw in t for kw in keywords):
                     self._equipment_mentioned.append(equip)
