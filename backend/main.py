@@ -32,7 +32,7 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
-_STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "recap", "closing"]
+_STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "closing"]
 _SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
 
 @app.get("/")
@@ -523,7 +523,7 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
                            "Definitely want to get that covered — those are common entry points.",
                            "Smart — a lot of people forget about that one."])
 
-    if current_stage in ("recap", "closing"):
+    if current_stage in ("closing",):
         if any(w in t for w in ["sounds good", "that works", "let's do it", "yes", "yeah", "i'm ready", "let's go"]):
             return _pick(["Awesome! Let me see what I can do for you on the pricing.",
                            "Love it — let me get this wrapped up for you.",
@@ -569,7 +569,7 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
         return _pick(["Alright — let me keep building this out for you.",
                        "Got it — let me add the next piece to your system.",
                        "Perfect — let's keep going here."])
-    if current_stage in ("recap", "closing"):
+    if current_stage in ("closing",):
         return _pick(["Alright — let me pull everything together for you.",
                        "Perfect — let me get you the final numbers.",
                        "Sounds good — let me wrap this up."])
@@ -609,7 +609,6 @@ def _stage_transition(stage: str) -> str:
         "discovery": "Let me learn a little more about your situation.",
         "collect_info": "I'm just going to get some information from you before we start building out the system.",
         "build_system": "We do have fantastic coverage in your area, so I can definitely help you out. Let's go ahead and build your system.",
-        "recap": "Is there anything else you'd like to add?",
         "closing": "Awesome — let me see what I can do for you on the pricing.",
     }
     return transitions.get(stage, "")
@@ -1015,26 +1014,25 @@ _CHECKLIST_PROMPTS = {
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
     "closing_pitch": ("It looks like I'm going to be able to get you a lot of extra discounts here. "
-                      "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
-                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes. "
-                      "We also have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund."),
+                      "We have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
+                      "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
+                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
     "closing_pricing": None,  # dynamic — calculated from equipment counts at runtime
-    "closing_commitment": "So are you ready to get started? I can walk you through the checkout right now.",
+    "closing_cart": "Perfect. Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
     "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
-    "closing_welcome": ("Congratulations and welcome to the Cove family! "
-                        "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
-                        "If you need a technician, we have a third-party service starting at $129. "
+    "closing_welcome": ("If you need a technician, we have a third-party service starting at $129. "
                         "And if you have home insurance, request an alarm certificate from us for a discount. "
-                        "Is there anything else I can help you with?"),
+                        "Congratulations and welcome to the Cove family! "
+                        "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
+                        "Is there anything else I can help you with before I let you go?"),
 }
 
 # Ordered checklist keys per stage — defines the sequence items should be covered
 _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
-    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign"],
-    "recap": [],  # recap is shown at end of build_system — this stage is just a transition
-    "closing": ["closing_pitch", "closing_pricing", "closing_commitment", "closing_checkout", "closing_welcome"],
+    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign", "recap_done"],
+    "closing": ["closing_pitch", "closing_pricing", "closing_cart", "closing_checkout", "closing_welcome"],
 }
 
 
@@ -1492,9 +1490,9 @@ class Session:
         "extra_equip": "build_system", "indoor_camera": "build_system",
         "outdoor_camera": "build_system", "panel_hub": "build_system",
         "yard_sign": "build_system",
-        "recap_done": "recap", "anything_else": "recap",
+        "recap_done": "build_system", "anything_else": "build_system",
         "closing_pitch": "closing", "closing_pricing": "closing",
-        "closing_commitment": "closing", "closing_checkout": "closing",
+        "closing_cart": "closing", "closing_checkout": "closing",
         "closing_welcome": "closing",
     }
 
@@ -1735,8 +1733,7 @@ class Session:
             if not next_prompt:
                 # Current stage fully done — try next stage
                 _next_stages = {"intro": "discovery", "discovery": "collect_info",
-                                "collect_info": "build_system", "build_system": "recap",
-                                "recap": "closing"}
+                                "collect_info": "build_system", "build_system": "closing"}
                 _ns = _next_stages.get(self.current_stage, "")
                 if _ns:
                     next_prompt = _fallback_next_step(_ns, self.coach, session=self)
@@ -2553,7 +2550,10 @@ class Session:
                                      "promotions", "equipment cost", "hundred"]):
                 _closing_detected.append("closing_pricing")
             if any(w in t for w in ["work for you", "sound good", "does that work", "gonna work"]):
-                _closing_detected.append("closing_commitment")
+                _closing_detected.append("closing_pricing")  # "work for you" is end of pricing
+            if any(w in t for w in ["in your cart", "equipment in", "read it back",
+                                     "all the equipment", "need me to repeat"]):
+                _closing_detected.append("closing_cart")
             if any(w in t for w in ["payment info", "card info", "card number",
                                      "checkout", "place the order", "placed the order"]):
                 _closing_detected.append("closing_checkout")
@@ -2709,10 +2709,7 @@ async def websocket_endpoint(ws: WebSocket):
                             session.current_stage = new_stage
                             if new_stage == "build_system":
                                 session._build_current_item = "door_sensors"
-                            # When entering recap, show the recap prompt — don't auto-mark
-                            # as done so the rep sees the equipment summary to read.
-                            if new_stage == "recap" and session.coach:
-                                pass  # let _fallback_next_step generate the recap prompt
+                            # recap is now part of build_system — no separate stage
                             # When entering closing, skip closing_pitch if the rep already
                             # covered most of those talking points during the call
                             if new_stage == "closing" and session.coach:

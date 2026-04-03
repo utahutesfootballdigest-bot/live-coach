@@ -626,7 +626,7 @@ function handleRoleplaySpeech(msg) {
   window.speechSynthesis.speak(utter);
 }
 
-const STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "recap", "closing"];
+const STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "closing"];
 
 // ── Stage Checklist ──────────────────────────────────────────────────────
 const STAGE_CHECKLIST = {
@@ -654,18 +654,15 @@ const STAGE_CHECKLIST = {
     { key: "outdoor_camera", label: "Outdoor / doorbell camera" },
     { key: "panel_hub",      label: "Panel, hub, & cellular backup" },
     { key: "yard_sign",      label: "Yard sign, stickers, & smartphone access" },
+    { key: "recap_done",     label: "Recap equipment + \"Anything else to add?\"" },
     { key: "_section_build_system", label: "--- BUILD COMPLETE ---", section: true },
   ],
-  recap: [
-    { key: "recap_done",     label: "Recap equipment + \"Anything else to add?\"" },
-    { key: "_section_recap", label: "--- RECAP COMPLETE ---", section: true },
-  ],
   closing: [
-    { key: "closing_pitch",      label: "No contract + wireless + 60-day trial" },
-    { key: "closing_pricing",    label: "Monthly pricing + equipment total" },
-    { key: "closing_commitment", label: "\"Does that work for you?\"" },
-    { key: "closing_checkout",   label: "Payment info + confirm order" },
-    { key: "closing_welcome",    label: "Welcome to Cove — shipping, setup, insurance tip" },
+    { key: "closing_pitch",      label: "60-day trial + no contract + DIY setup" },
+    { key: "closing_pricing",    label: "Monthly + equipment cost + \"work for you?\"" },
+    { key: "closing_cart",       label: "Confirm equipment in cart" },
+    { key: "closing_checkout",   label: "Process payment + confirm order" },
+    { key: "closing_welcome",    label: "Insurance, tech support + welcome to Cove" },
   ],
 };
 
@@ -865,7 +862,7 @@ function handleCallGuidance(msg) {
     updateStagePillViewState();
   }
 
-  if (opener) {
+  if (opener && call_stage !== "closing") {
     const openerEl = document.getElementById("opener-text");
     openerEl.textContent = opener;
     document.getElementById("opener-card").style.display = "flex";

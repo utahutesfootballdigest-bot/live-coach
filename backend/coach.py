@@ -50,14 +50,12 @@ STAGE_SCRIPT: dict[str, list[str]] = {
         "Is there anything else you were hoping I could add to your system?",
     ],
     "closing": [
-        "Alright — it looks like I'm going to be able to get you a lot of extra discounts here.",
-        "First, here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry.",
-        "We don't charge anything for the installation because everything is wireless. We'll send all the equipment straight to you and you can set it up yourself. The whole thing usually takes about 20 minutes — it's super easy. And if you need help, our tech support team will walk you through it over the phone.",
-        "We also have a 60-day risk-free trial — so you can try everything out, and if you decide it's not the right fit, you can return it for a full refund within 60 days.",
-        "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment that would usually cost $____ — with all the discounts and promotions today, I'm gonna get your total down to just $____.",
-        "Does that sound like it will work for you, [NAME]?",
-        "[Guide through checkout] Go ahead and scroll down — you'll need to fill in your email, monitored address, emergency contact, and create a verbal password. The verbal password is just for when you call in or when our monitoring team calls you — they'll use it to verify your identity. Let me know once you're ready to place the order.",
-        "[After order placed] Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — that's usually 3 to 7 business days. Once it arrives, you'll find step-by-step setup instructions inside. If you need a technician, we have a third-party service starting at $129. And one more thing — if you have home insurance, you can request an alarm certificate from us and submit it to your insurance company for a discount. Is there anything else I can help you with?",
+        "It looks like I'm going to be able to get you a lot of extra discounts here. We have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund.",
+        "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes.",
+        "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment — with all the discounts and promotions today, your one-time equipment cost comes out to just $____. Does that sound like it will work for you, [NAME]?",
+        "Perfect. Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
+        "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
+        "If you need a technician, we have a third-party service starting at $129. And if you have home insurance, request an alarm certificate from us for a discount. Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — usually 3 to 7 business days. Is there anything else I can help you with before I let you go?",
     ],
 }
 
