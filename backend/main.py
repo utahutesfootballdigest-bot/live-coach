@@ -2053,15 +2053,24 @@ class Session:
                     "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
                 await self.send_checklist()
                 return
-            # Customer said something else (greeting, question, etc.) —
-            # stay in intro. Don't consume intro_turns for non-answers
-            # so rapid greetings don't eat up the counter.
-            # Still show checklist + suggestion so the UI isn't blank.
-            self.intro_turns = max(self.intro_turns - 1, 0)
-            await self.send({"type": "call_guidance", "call_stage": "intro",
-                "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
-            await self.send_checklist()
-            return
+            # Customer said something else (greeting, question, etc.)
+            # For short utterances (greetings like "hi", "good"), don't count
+            # as real turns — keep fast-tracking. But after enough unmatched
+            # substance, fall through to Claude coaching so non-standard calls
+            # (payment issues, account questions, etc.) get real guidance.
+            stripped = text.strip()
+            is_short_greeting = len(stripped.split()) <= 3
+            if is_short_greeting:
+                self.intro_turns = max(self.intro_turns - 1, 0)
+                await self.send({"type": "call_guidance", "call_stage": "intro",
+                    "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
+                await self.send_checklist()
+                return
+            # Substantive non-matching utterance — let Claude handle it.
+            # The turn is already in coach history, so fall through to the
+            # general coaching flow below instead of returning early.
+            self.intro_turns = 2  # prevent re-entering fast-track
+            print(f"[intro] customer said something non-standard, falling through to Claude coaching: {text[:80]}")
 
         # ── Fast-track collect_info ──
         # During collect_info, responses come rapid-fire (name, phone, email, address).
@@ -2626,6 +2635,9 @@ async def websocket_endpoint(ws: WebSocket):
     await session.send({"type": "status", "state": "idle"})
 
     _audio_chunk_count = 0
+    _mic_chunk_count = 0
+    _loopback_chunk_count = 0
+    _audio_warning_sent = False
     try:
         while True:
             message = await ws.receive()
@@ -2636,10 +2648,32 @@ async def websocket_endpoint(ws: WebSocket):
             raw_bytes = message.get("bytes")
             if raw_bytes and len(raw_bytes) >= 2:
                 _audio_chunk_count += 1
-                if _audio_chunk_count == 1:
-                    print(f"[ws] first audio chunk, len={len(raw_bytes)}, mic_queue={'set' if session.mic_queue else 'None'}")
                 label = raw_bytes[0]
                 pcm = raw_bytes[1:]
+
+                if label == 0x00:
+                    _mic_chunk_count += 1
+                elif label == 0x01:
+                    _loopback_chunk_count += 1
+
+                if _audio_chunk_count == 1:
+                    print(f"[ws] first audio chunk, label=0x{label:02x}, len={len(raw_bytes)}, mic_queue={'set' if session.mic_queue else 'None'}")
+
+                # After 200 chunks (~3 seconds), warn if only one stream is active
+                if _audio_chunk_count == 200 and not _audio_warning_sent and not session.roleplay_mode:
+                    _audio_warning_sent = True
+                    if _mic_chunk_count > 0 and _loopback_chunk_count == 0:
+                        print(f"[ws] WARNING: only mic audio received ({_mic_chunk_count} chunks, 0 customer). Customer audio not shared?")
+                        await session.send({"type": "audio_warning", "message": "Customer audio not detected — make sure you checked 'Share tab audio' when sharing your screen."})
+                    elif _loopback_chunk_count > 0 and _mic_chunk_count == 0:
+                        print(f"[ws] WARNING: only customer audio received (0 mic, {_loopback_chunk_count} customer). Mic not working?")
+                        await session.send({"type": "audio_warning", "message": "Microphone audio not detected — check your mic permissions."})
+                    elif _mic_chunk_count == 0 and _loopback_chunk_count == 0:
+                        print(f"[ws] WARNING: no audio received at all")
+                        await session.send({"type": "audio_warning", "message": "No audio detected from either source. Check your mic and audio share."})
+                    else:
+                        print(f"[ws] audio streams healthy: mic={_mic_chunk_count}, customer={_loopback_chunk_count}")
+
                 if label == 0x00 and session.mic_queue is not None:
                     # In roleplay, mute mic during TTS to prevent echo/mixing
                     # that garbles Deepgram transcription. Rep speech after TTS

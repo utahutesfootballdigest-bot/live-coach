@@ -292,6 +292,7 @@ function handleMessage(msg) {
     case "profile_update":     handleProfileUpdate(msg); break;
     case "pricing_update":     handlePricingUpdate(msg); break;
     case "coupon_error":       handleCouponError(msg); break;
+    case "audio_warning":      handleAudioWarning(msg); break;
   }
 }
 
@@ -328,6 +329,21 @@ async function handleStatus(state) {
       showSetupScreen();
     }
   }
+}
+
+function handleAudioWarning(msg) {
+  const warning = msg.message || "Audio issue detected";
+  console.warn("[audio_warning]", warning);
+  // Show a persistent warning banner at the top of the main screen
+  let banner = document.getElementById("audio-warning-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "audio-warning-banner";
+    banner.style.cssText = "background:#3b1111;color:#ff6b6b;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;border-bottom:2px solid #ff6b6b;position:relative;z-index:100;";
+    const main = document.getElementById("main-screen");
+    if (main) main.insertBefore(banner, main.firstChild);
+  }
+  banner.innerHTML = `⚠️ ${warning} <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#ff6b6b;font-size:16px;cursor:pointer;margin-left:12px;">&times;</button>`;
 }
 
 function showMainScreen() {
