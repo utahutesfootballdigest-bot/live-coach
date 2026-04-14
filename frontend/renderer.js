@@ -447,6 +447,12 @@ function handleTranscript(msg) {
   const { speaker, text, is_final } = msg;
   const body = document.getElementById("transcript-body");
 
+  // Clear stale opener when new customer speech starts
+  if (speaker === "customer" && !is_final) {
+    document.getElementById("opener-text").textContent = "";
+    document.getElementById("opener-card").style.display = "none";
+  }
+
   if (!is_final) {
     if (lastFinalSpeaker && lastFinalSpeaker !== speaker) {
       lastFinalEl = null;
@@ -893,23 +899,29 @@ function handleCallGuidance(msg) {
   }
 
   if (opener) {
+    // New opener — show it and hide next_step until it arrives
     const openerEl = document.getElementById("opener-text");
     openerEl.textContent = opener;
     document.getElementById("opener-card").style.display = "flex";
-    document.getElementById("next-step-card").style.display = "none";
+    if (!next_step) {
+      document.getElementById("next-step-card").style.display = "none";
+    }
   }
 
   if (next_step) {
     const nextStepEl = document.getElementById("next-step-text");
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
-    // Ensure opener card is visible when next_step arrives — never show
-    // a "Then" bubble without a "Say First" bubble above it
+    // Show the opener card alongside the next_step if one exists
     const openerCard = document.getElementById("opener-card");
-    if (openerCard.style.display === "none" && document.getElementById("opener-text").textContent) {
+    const openerText = document.getElementById("opener-text").textContent;
+    if (openerText) {
       openerCard.style.display = "flex";
     }
   }
+
+  // If neither opener nor next_step, this is a stage-change-only message — don't hide them
+  if (!opener && !next_step) return;
 }
 
 function showCoachingIdle() {

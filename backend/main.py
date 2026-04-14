@@ -1556,8 +1556,11 @@ class Session:
             return
 
         # Determine which stages are allowed (current + all before it)
+        # Include discovery always since the checklist shows from the start
         cur_idx = _STAGE_ORDER.index(self.current_stage) if self.current_stage in _STAGE_ORDER else 0
         allowed_stages = set(_STAGE_ORDER[:cur_idx + 1])
+        # Always allow discovery items since the checklist is visible from intro
+        allowed_stages.add("discovery")
 
         topics = {}
         # Collect_info items — ONLY from _collect_info_done (not _topics_done)
@@ -1590,6 +1593,8 @@ class Session:
         if _customer_mentioned_kids(self.coach) or "kids_age" in self.coach._topics_done:
             topics["_show_kids_age"] = True
 
+        if topics:
+            print(f"[checklist] sending topics={topics} (stage={self.current_stage}, topics_done={sorted(self.coach._topics_done)})")
         await self.send({"type": "checklist_update", "topics": topics})
 
     async def send_profile(self):
