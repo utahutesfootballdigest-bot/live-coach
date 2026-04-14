@@ -1286,6 +1286,17 @@ def _build_recap_prompt(session) -> str:
         parts.append("a free indoor camera")
     if counts.get("outdoor_camera", 0) > 0:
         parts.append("an outdoor camera")
+    if counts.get("doorbell_camera", 0) > 0:
+        parts.append("a doorbell camera")
+    if counts.get("smoke_detector", 0) > 0:
+        parts.append("a smoke detector")
+    if counts.get("key_fob", 0) > 0:
+        n = counts["key_fob"]
+        parts.append(f"{n} key fob{'s' if n != 1 else ''}")
+    if counts.get("medical_pendant", 0) > 0:
+        parts.append("a medical pendant")
+    if counts.get("flood_sensor", 0) > 0:
+        parts.append("a flood sensor")
     # Always include these
     parts.append("the hub and touchscreen panel")
     parts.append("a yard sign and window stickers")
@@ -1693,6 +1704,8 @@ class Session:
                 "smoke detector": {"key": "smoke_detector",  "label": "Smoke detector"},
                 "glass break":    {"key": "glass_break",     "label": "Glass break detector"},
                 "co detector":    {"key": "co_detector",     "label": "CO detector"},
+                "key fob":        {"key": "key_fob",         "label": "Key fob"},
+                "medical pendant":{"key": "medical_pendant", "label": "Medical pendant"},
             }
             info = _MAP.get(e)
             if info:

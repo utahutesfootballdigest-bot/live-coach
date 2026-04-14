@@ -505,10 +505,19 @@ class CoachingEngine:
                         "with a motion sensor", "with a built in",
                     ]):
                         continue
-                    # Don't track extras or optional items from questions —
-                    # only from confirmations like "I'll add a motion detector"
-                    if _is_question and equip in ("motion sensor", "glass break", "co detector", "outdoor camera"):
-                        continue
+                    # Don't track optional items from rep questions/pitches —
+                    # only from confirmations like "I'll add a motion detector".
+                    # These items are presented as options, so the rep mentioning
+                    # them doesn't mean the customer accepted.
+                    if equip in ("motion sensor", "glass break", "co detector", "outdoor camera", "key fob", "medical pendant", "smoke detector"):
+                        # Only track if the rep is clearly CONFIRMING (not asking/pitching)
+                        _is_confirming = any(c in t for c in [
+                            "i'll add", "i'll get you", "i'll throw in", "i'm adding",
+                            "let me add", "adding a", "adding the", "i got you",
+                            "i'll include", "included",
+                        ])
+                        if not _is_confirming:
+                            continue
                     if any(kw in t for kw in keywords):
                         self._equipment_mentioned.append(equip)
                         self._sync_equipment_to_topics(equip)
