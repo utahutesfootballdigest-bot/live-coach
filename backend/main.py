@@ -397,8 +397,7 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
     t = text.lower().strip()
     _last_rep = last_rep_text.lower() if last_rep_text else ""
 
-    # ── SHORT FILLER: no Say First needed ──
-    # The THEN bubble has the substance. "Got it." before a script line adds nothing.
+    # ── SHORT FILLER handling ──
     _short = t.rstrip(".,!?").strip()
     _SHORT_FILLERS = {
         "yes", "yeah", "yep", "sure", "absolutely", "of course", "correct",
@@ -409,8 +408,30 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
         "not right now", "perfect", "awesome", "cool", "great", "nice",
         "for sure", "mm hmm", "yep yep", "yes please", "no problem",
     }
-    if _short in _SHORT_FILLERS:
-        return ""  # no Say First — just show the THEN bubble
+    _is_short_filler = _short in _SHORT_FILLERS
+
+    # Discovery & intro ALWAYS get a Say First — the rep needs to acknowledge
+    # the customer before pivoting to the next question.
+    if _is_short_filler and current_stage in ("intro", "discovery"):
+        _is_yes = _short in ("yes", "yeah", "yep", "sure", "absolutely", "of course",
+                              "correct", "right", "that's right", "yes sir", "yes ma'am",
+                              "mhmm", "uh huh", "sounds good", "that works", "okay", "ok",
+                              "alright", "go ahead", "yea", "for sure", "mm hmm", "perfect",
+                              "awesome", "great", "yes please")
+        if _is_yes:
+            result = _pick(["I appreciate that.", "Thank you for sharing that.",
+                             "That's great to hear.", "I hear you.",
+                             "Absolutely.", "That's helpful.", "I understand."])
+        else:
+            result = _pick(["No worries at all.", "That's totally fine.",
+                             "I understand.", "No problem.", "I hear you."])
+        if result: return result
+        # If all used, still return something for discovery
+        return "I appreciate that."
+
+    # For build_system/collect_info/closing — skip Say First on short fillers
+    if _is_short_filler:
+        return ""
 
     # ── Context-aware: if rep just asked about website ──
     if _last_rep and any(w in _last_rep for w in ["website", "covesmart", "cove smart", "the site"]):
@@ -562,8 +583,14 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
         if result: return result
 
     # ── DYNAMIC FALLBACK: Build a unique opener from customer's words ──
-    # No more canned pools. Reference what they actually said.
-    return _build_contextual_opener(text, current_stage)
+    result = _build_contextual_opener(text, current_stage)
+    if result:
+        return result
+
+    # Discovery/intro MUST always have a Say First
+    if current_stage in ("intro", "discovery"):
+        return "I appreciate you sharing that."
+    return ""
 
 
 def _build_contextual_opener(text: str, stage: str) -> str:
