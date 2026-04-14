@@ -2019,7 +2019,9 @@ class Session:
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
 
         # ── Fast-track intro ──
-        if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro" and self.intro_turns < 2:
+        if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro":
+            # Always check for "wants system" regardless of intro_turns.
+            # Deepgram duplicate transcripts can exhaust intro_turns before the real answer arrives.
             self.intro_turns += 1
             self.coach.add_turn(speaker, text)
             self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
@@ -2061,8 +2063,7 @@ class Session:
             # (payment issues, account questions, etc.) get real guidance.
             stripped = text.strip()
             is_short_greeting = len(stripped.split()) <= 3
-            if is_short_greeting:
-                self.intro_turns = max(self.intro_turns - 1, 0)
+            if is_short_greeting and self.intro_turns < 6:
                 opener = _quick_opener(text, "intro")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "intro",
@@ -2532,7 +2533,7 @@ class Session:
             _t_trans = text.lower()
             _advanced = False
 
-            # Discovery → collect_info
+            # Discovery (or intro stuck) → collect_info
             _DISC_TO_INFO = [
                 "grab some info", "get some info", "grab some information",
                 "get some information", "grab your info", "get your info",
@@ -2542,7 +2543,7 @@ class Session:
                 "get some details", "grab some details",
                 "before we get started", "before we start building",
             ]
-            if self.current_stage == "discovery" and (
+            if self.current_stage in ("discovery", "intro") and (
                 any(p in _t_trans for p in _DISC_TO_INFO) or
                 any(p in _t_combined for p in _DISC_TO_INFO)
             ):
