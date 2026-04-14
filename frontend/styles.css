@@ -734,21 +734,21 @@ html, body {
 .transition-prompt {
   margin-top: 8px;
   padding: 10px 12px;
-  background: rgba(62, 190, 176, 0.08);
-  border: 1px solid rgba(62, 190, 176, 0.25);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 6px;
 }
 .transition-prompt-label {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--accent);
+  color: #f59e0b;
   margin-bottom: 4px;
 }
 .transition-prompt-text {
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #fbbf24;
   line-height: 1.45;
   font-style: italic;
 }
