@@ -2564,11 +2564,10 @@ class Session:
             await self.send_checklist()
 
         # ── Auto-detect stage from rep speech (mid-call join) ──
-        # Only fires after 10+ turns to avoid false triggers early in the call.
-        # Closing requires STRONG indicators — ambiguous words like "discount"
-        # or "price" are common in discovery/build and must NOT trigger closing.
+        # Closing requires STRONG indicators and 10+ turns.
+        # Build/collect can trigger earlier since equipment keywords are unambiguous.
         _turn_count = len(self.coach._history) if self.coach else 0
-        if is_final and self.current_stage in ("intro", "discovery") and _turn_count >= 10:
+        if is_final and self.current_stage in ("intro", "discovery"):
             _t_detect = text.lower()
             _CLOSING_STRONG = [
                 "monthly monitoring", "per month", "dollars and", "cents per month",
@@ -2587,26 +2586,34 @@ class Session:
                 "spell your", "your name", "phone number", "email",
                 "your address", "zip code", "what's your",
             ]
-            # Determine target stage from rep speech — require MULTIPLE phrase matches
-            # for stronger confidence. A single word is not enough to change stages.
             _closing_matches = sum(1 for p in _CLOSING_STRONG if p in _t_detect)
             _build_matches = sum(1 for p in _BUILD_PHRASES if p in _t_detect)
             _collect_matches = sum(1 for p in _COLLECT_PHRASES if p in _t_detect)
 
             _target = None
-            if _closing_matches >= 2:  # need 2+ strong closing phrases
+            # Closing: 2+ strong phrases AND 10+ turns (most conservative)
+            if _closing_matches >= 2 and _turn_count >= 10:
                 _target = "closing"
-            elif _build_matches >= 2:  # need 2+ build phrases
+            # Build: 1 match is enough — "indoor camera" or "door sensor" is unambiguous
+            elif _build_matches >= 1:
                 _target = "build_system"
-            elif _collect_matches >= 2:  # need 2+ collect phrases
+            # Collect: 1 match is enough — "phone number" or "your address" is unambiguous
+            elif _collect_matches >= 1:
                 _target = "collect_info"
 
             if _target and _target != self.current_stage:
-                # Enforce single-step advancement
-                allowed = _allowed_stage_advance(self.current_stage, _target)
+                # For mid-call join (stage stuck at intro), allow direct jump
+                # since the rep is clearly past those stages already.
+                if self.current_stage == "intro":
+                    allowed = _target  # skip directly to detected stage
+                else:
+                    # Normal flow: enforce single-step advancement
+                    allowed = _allowed_stage_advance(self.current_stage, _target)
                 if allowed:
                     print(f"[stage] auto-detected {allowed.upper()} from rep speech ({_closing_matches}c/{_build_matches}b/{_collect_matches}i matches): {text[:60]}")
                     self.current_stage = allowed
+                    if allowed == "build_system":
+                        self._build_current_item = "door_sensors"
                     await self.send({"type": "call_guidance", "call_stage": allowed})
                     await self.send_checklist()
 
