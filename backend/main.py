@@ -421,13 +421,17 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
         if _is_yes:
             result = _pick(["I appreciate that.", "Thank you for sharing that.",
                              "That's great to hear.", "I hear you.",
-                             "Absolutely.", "That's helpful.", "I understand."])
+                             "Absolutely.", "That's helpful.", "I understand.",
+                             "Perfect.", "That's great.", "Wonderful.",
+                             "I love that.", "That's awesome."])
         else:
             result = _pick(["No worries at all.", "That's totally fine.",
-                             "I understand.", "No problem.", "I hear you."])
+                             "I understand.", "No problem.", "I hear you.",
+                             "That's okay.", "Totally fine.", "Not a problem.",
+                             "All good.", "No worries."])
         if result: return result
-        # If all used, still return something for discovery
-        return "I appreciate that."
+        # All pools exhausted — incorporate the customer's word to stay unique
+        return f"{'Absolutely' if _is_yes else 'No worries'} — I've got you."
 
     # For build_system/collect_info/closing — skip Say First on short fillers
     if _is_short_filler:
@@ -587,9 +591,20 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
     if result:
         return result
 
-    # Discovery/intro MUST always have a Say First
+    # Discovery/intro MUST always have a Say First — use a pool that tracks usage
     if current_stage in ("intro", "discovery"):
-        return "I appreciate you sharing that."
+        result = _pick(["I appreciate you sharing that.", "Thank you for that.",
+                         "That's good to know.", "I hear you on that.",
+                         "That's really helpful.", "I understand completely.",
+                         "That makes a lot of sense.", "I appreciate that.",
+                         "Thank you for letting me know.", "Good to know.",
+                         "That's great context.", "I really appreciate that."])
+        if result: return result
+        # Absolute last resort — build from customer's first meaningful word
+        keywords = _extract_key_phrases(text)
+        if keywords:
+            return f"I hear you — thank you for sharing about the {keywords[0]}."
+        return "I hear you."
     return ""
 
 
@@ -2592,27 +2607,51 @@ class Session:
         # ── Transition phrase detection ──
         # The ONLY way to auto-advance stages is the rep saying the specific
         # transition phrase. No keyword guessing, no auto-detect.
+        # Check both the current chunk AND recent rep speech combined (Deepgram
+        # often splits a sentence across 2-3 is_final chunks).
         if is_final and speaker == "rep":
+            # Combine last few rep turns for phrase matching
+            _recent_rep = []
+            for _h in reversed(self.coach._history[-6:]):
+                if _h["speaker"] == "rep":
+                    _recent_rep.insert(0, _h["text"])
+                else:
+                    break
+            _t_combined = " ".join(_recent_rep).lower()
             _t_trans = text.lower()
             _advanced = False
 
-            # Discovery → collect_info: "grab some info" / "get some info" / "grab some information"
-            if self.current_stage == "discovery" and any(p in _t_trans for p in [
+            # Discovery → collect_info
+            _DISC_TO_INFO = [
                 "grab some info", "get some info", "grab some information",
                 "get some information", "grab your info", "get your info",
                 "going to grab", "gonna grab some", "gonna get some info",
-            ]):
-                print(f"[stage] transition phrase detected: discovery → collect_info: {text[:60]}")
+                "just going to grab", "just gonna grab",
+                "grab info from you", "get info from you",
+                "get some details", "grab some details",
+                "before we get started", "before we start building",
+            ]
+            if self.current_stage == "discovery" and (
+                any(p in _t_trans for p in _DISC_TO_INFO) or
+                any(p in _t_combined for p in _DISC_TO_INFO)
+            ):
+                print(f"[stage] transition phrase detected: discovery → collect_info: {_t_combined[:80]}")
                 self.current_stage = "collect_info"
                 _advanced = True
 
-            # collect_info → build_system: "fantastic coverage" / "great coverage" / "definitely help you"
-            elif self.current_stage == "collect_info" and any(p in _t_trans for p in [
+            # collect_info → build_system
+            _INFO_TO_BUILD = [
                 "fantastic coverage", "great coverage", "definitely help you",
                 "can definitely help", "definitely take care",
                 "coverage out there", "coverage in your area",
-            ]):
-                print(f"[stage] transition phrase detected: collect_info → build_system: {text[:60]}")
+                "have coverage", "we can help you", "help you out",
+                "dive right in", "let's build", "build your system",
+            ]
+            if not _advanced and self.current_stage == "collect_info" and (
+                any(p in _t_trans for p in _INFO_TO_BUILD) or
+                any(p in _t_combined for p in _INFO_TO_BUILD)
+            ):
+                print(f"[stage] transition phrase detected: collect_info → build_system: {_t_combined[:80]}")
                 self.current_stage = "build_system"
                 self._build_current_item = "door_sensors"
                 for ci_key in ("full_name", "phone_number", "email", "address"):
@@ -2620,12 +2659,17 @@ class Session:
                     self._collect_info_done.add(ci_key)
                 _advanced = True
 
-            # build_system → closing: "extra discounts" / "lot of discounts" / "see what I can do"
-            elif self.current_stage == "build_system" and any(p in _t_trans for p in [
+            # build_system → closing
+            _BUILD_TO_CLOSE = [
                 "extra discount", "lot of discount", "see what i can do",
                 "see what we can do", "get you a lot of", "able to get you",
-            ]):
-                print(f"[stage] transition phrase detected: build_system → closing: {text[:60]}")
+                "lot of extra", "a lot of discounts", "get you some discounts",
+            ]
+            if not _advanced and self.current_stage == "build_system" and (
+                any(p in _t_trans for p in _BUILD_TO_CLOSE) or
+                any(p in _t_combined for p in _BUILD_TO_CLOSE)
+            ):
+                print(f"[stage] transition phrase detected: build_system → closing: {_t_combined[:80]}")
                 self.current_stage = "closing"
                 _advanced = True
 
