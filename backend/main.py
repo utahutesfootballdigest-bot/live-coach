@@ -2608,15 +2608,18 @@ class Session:
             await self.send_checklist()
 
         # ── Auto-detect stage from rep speech (mid-call join) ──
-        # If rep joined a call already in progress, the stage may be stuck at
-        # intro/discovery. Detect what stage the rep is actually in from their words.
-        if is_final and self.current_stage in ("intro", "discovery"):
+        # Only fires after 10+ turns to avoid false triggers early in the call.
+        # Closing requires STRONG indicators — ambiguous words like "discount"
+        # or "price" are common in discovery/build and must NOT trigger closing.
+        _turn_count = len(self.coach._history) if self.coach else 0
+        if is_final and self.current_stage in ("intro", "discovery") and _turn_count >= 10:
             _t_detect = text.lower()
-            _CLOSING_PHRASES = [
+            _CLOSING_STRONG = [
                 "monthly monitoring", "per month", "dollars and", "cents per month",
-                "promo code", "checkout", "payment", "price", "pricing",
-                "discount", "lower it down", "apply", "total", "cost",
+                "promo code", "checkout", "payment",
                 "set it up today", "sound like it will work",
+                "does that work for you", "welcome to the cove family",
+                "place your order", "go ahead and order",
             ]
             _BUILD_PHRASES = [
                 "door sensor", "window sensor", "motion sensor", "glass break",
@@ -2628,7 +2631,7 @@ class Session:
                 "spell your", "your name", "phone number", "email",
                 "your address", "zip code", "what's your",
             ]
-            if any(p in _t_detect for p in _CLOSING_PHRASES):
+            if any(p in _t_detect for p in _CLOSING_STRONG):
                 if self.current_stage != "closing":
                     print(f"[stage] auto-detected CLOSING from rep speech: {text[:60]}")
                     self.current_stage = "closing"
