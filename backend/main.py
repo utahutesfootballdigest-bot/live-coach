@@ -364,23 +364,59 @@ def _use(opener: str) -> str:
     return opener
 
 
+# ── Content words to ignore when extracting customer keywords ──
+_FILLER_WORDS = {
+    "i", "me", "my", "we", "our", "you", "your", "a", "an", "the", "and", "or",
+    "but", "so", "is", "am", "are", "was", "were", "be", "been", "do", "does",
+    "did", "have", "has", "had", "will", "would", "could", "should", "can",
+    "just", "really", "very", "also", "too", "like", "yeah", "yes", "no", "not",
+    "well", "um", "uh", "oh", "okay", "ok", "right", "sure", "actually",
+    "basically", "honestly", "definitely", "probably", "maybe", "think", "know",
+    "mean", "got", "get", "go", "going", "gonna", "want", "need", "let",
+    "that", "this", "it", "what", "how", "when", "where", "who", "which",
+    "if", "then", "there", "here", "been", "some", "any", "all", "one",
+    "thing", "things", "kind", "looking", "something", "about", "into",
+    "for", "from", "with", "at", "in", "on", "to", "of", "up", "out",
+    "sir", "ma'am", "thank", "thanks", "please", "hello", "hi", "hey",
+}
+
+def _extract_key_phrases(text: str) -> list[str]:
+    """Pull meaningful words from customer speech for dynamic openers."""
+    words = text.lower().split()
+    return [w for w in words if w not in _FILLER_WORDS and len(w) > 2]
+
+
 def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str:
     """Generate a contextual Say First opener based on what the customer said.
     RULES:
     1. NEVER repeat an opener within the same session
-    2. Reference what the customer actually said — not generic filler
-    3. Keep it short — one punchy sentence that shows the rep listened
+    2. Short filler responses (yes/no/ok) → NO Say First (return empty string)
+    3. Substantive responses → reference what the customer actually said
+    4. Keep it short — one punchy sentence that shows the rep listened
     """
     t = text.lower().strip()
     _last_rep = last_rep_text.lower() if last_rep_text else ""
-    result = None
+
+    # ── SHORT FILLER: no Say First needed ──
+    # The THEN bubble has the substance. "Got it." before a script line adds nothing.
+    _short = t.rstrip(".,!?").strip()
+    _SHORT_FILLERS = {
+        "yes", "yeah", "yep", "sure", "absolutely", "of course", "correct",
+        "right", "that's right", "yes sir", "yes ma'am", "mhmm", "uh huh",
+        "sounds good", "that works", "that makes sense", "okay", "ok", "alright",
+        "go ahead", "yea", "no", "nope", "no sir", "no ma'am", "not really",
+        "no thank you", "no thanks", "nah", "i'm good", "no i don't",
+        "not right now", "perfect", "awesome", "cool", "great", "nice",
+        "for sure", "mm hmm", "yep yep", "yes please", "no problem",
+    }
+    if _short in _SHORT_FILLERS:
+        return ""  # no Say First — just show the THEN bubble
 
     # ── Context-aware: if rep just asked about website ──
     if _last_rep and any(w in _last_rep for w in ["website", "covesmart", "cove smart", "the site"]):
-        if t in ("no", "no sir", "no ma'am", "nope", "not yet", "no not yet", "no i'm not",
-                 "no not right now", "not right now", "should i be", "no should i"):
-            return _use("No problem! Go ahead and pull up covesmart.com so I can walk you through the process.")
-        if any(w in t for w in ["yes", "yeah", "yep", "i'm on", "i am on", "pulled it up", "i have it"]):
+        if any(w in t for w in ["no", "not yet", "nope", "not on"]):
+            return _use("No problem! Go ahead and pull up covesmart.com so I can walk you through it.")
+        if any(w in t for w in ["yes", "yeah", "yep", "i'm on", "pulled it up", "i have it"]):
             result = _pick(["Awesome, you've got the website up — I'll walk you through everything.",
                              "Perfect, since you have it up we can look at this together."])
             if result: return result
@@ -389,109 +425,74 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
     _prior_system_context = current_stage in ("intro", "discovery") and any(
         w in t for w in ["i had", "i was with", "we had", "i used to", "i've had",
                          "previous", "old system", "last system", "before",
-                         "liked about", "i liked", "didn't like", "the thing about",
-                         "it was okay", "it was fine", "nothing special",
-                         "was pretty good", "was decent", "pretty good but",
-                         "were pretty good", "cameras were", "was too long",
-                         "was too high"])
+                         "liked about", "i liked", "didn't like"])
 
     # ── Emotional / situational triggers (highest priority) ──
+    # These are moments that MATTER — the customer shared something real.
 
     if any(w in t for w in ["break in", "broken into", "robbery", "robbed", "burglar", "stolen", "theft", "broke in"]):
         result = _pick(["I'm really sorry to hear that — let's make sure that never happens again.",
                          "That's terrible. We're gonna get you fully protected so you can feel safe.",
-                         "I'm sorry you went through that. Let's get you covered right away."])
+                         "I'm sorry you went through that — let's get you covered right away."])
         if result: return result
 
-    if any(w in t for w in ["scared", "nervous", "worried", "anxious", "afraid", "terrified", "freaked"]):
+    if any(w in t for w in ["scared", "nervous", "worried", "anxious", "afraid", "terrified"]):
         result = _pick(["I completely understand that feeling — that's exactly why we're here.",
-                         "Your safety is our top priority and I'll make sure you're taken care of.",
+                         "Your safety is our top priority — I'll make sure you're taken care of.",
                          "That's exactly the right reason to get set up — let's give you that peace of mind."])
         if result: return result
 
     if any(w in t for w in ["baby", "newborn", "toddler", "infant", "pregnant", "expecting"]):
         result = _pick(["Congratulations! A security system is perfect timing with a little one.",
-                         "That's so exciting — keeping the baby safe is exactly what this is for.",
-                         "That's wonderful news! We'll make sure everything is locked down for the little one."])
+                         "That's so exciting — keeping the baby safe is exactly what this is for."])
         if result: return result
 
     if any(w in t for w in [" kids", "children", "my son", "my daughter", "teenager"]):
         result = _pick(["Protecting the kids is the number one reason people call us.",
-                         "Family safety is huge — I'll set you up with some features perfect for that.",
-                         "That's great — we've got some awesome features specifically for families with kids.",
+                         "Family safety is huge — I'll make sure we set you up with some great features for that.",
                          "Keeping the family safe is what it's all about — I've got you."])
         if result: return result
 
-    if any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "just purchased", "moving", "looking to move"]):
+    if any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "just purchased", "moving"]):
         result = _pick(["Congrats on the new place! This is the perfect time to get set up.",
                          "That's exciting — let's get your new home protected from day one.",
-                         "A lot of our customers set up right when they move in — smart move.",
-                         "Perfect timing! Getting security in before you're settled is the way to go."])
+                         "A lot of our customers set up right when they move in — smart move."])
         if result: return result
 
-    if any(w in t for w in ["neighbor", "down the street", "next door", "in the area", "in my neighborhood"]):
+    if any(w in t for w in ["neighbor", "down the street", "next door", "in my neighborhood"]):
         result = _pick(["That hits different when it's right in your neighborhood — let's get you covered.",
-                         "I don't blame you at all — that would make anyone want to take action.",
-                         "When it's that close to home, you can't wait — I'll take care of you."])
+                         "I don't blame you — that would make anyone want to take action."])
         if result: return result
 
-    if any(w in t for w in ["live alone", "by myself", "on my own", "here alone", "here by myself"]):
+    if any(w in t for w in ["live alone", "by myself", "on my own"]):
         result = _pick(["That extra layer of protection makes a huge difference when you're on your own.",
-                         "Peace of mind living alone is so important — I hear that a lot.",
-                         "That's exactly the right reason to get set up — I'll make sure you feel safe."])
+                         "Peace of mind living alone is so important — I'll make sure you feel safe."])
         if result: return result
 
-    if any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "long hours", "deployed",
-                             "while i'm working", "while i work", "when i'm at work", "protect my family",
-                             "out of town", "not home a lot"]):
+    if any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "deployed",
+                             "while i'm working", "out of town", "not home a lot"]):
         result = _pick(["Being able to check on things from anywhere — that's exactly what this is built for.",
-                         "We'll make sure you have eyes on your home no matter where you are.",
-                         "That's the number one thing people love — full access from your phone."])
+                         "We'll make sure you have eyes on your home no matter where you are."])
         if result: return result
 
-    # ── Competitor / switching triggers ──
+    # ── Competitor triggers ──
+    _competitors = {"vivint": "Vivint", "adt": "ADT", "simplisafe": "SimpliSafe", "ring": "Ring",
+                    "alder": "Alder", "brinks": "Brinks", "frontpoint": "Frontpoint"}
+    for _ck, _cv in _competitors.items():
+        if _ck in t:
+            result = _pick([f"We get a lot of people coming from {_cv} — I'll show you why they switch.",
+                             f"Good to know you had {_cv} — let me show you what makes us different."])
+            if result: return result
+            break
 
-    if any(w in t for w in ["vivint", "adt", "simplisafe", "ring", "alder", "brinks", "frontpoint"]):
-        # Extract competitor name for context
-        _competitors = {"vivint": "Vivint", "adt": "ADT", "simplisafe": "SimpliSafe", "ring": "Ring",
-                        "alder": "Alder", "brinks": "Brinks", "frontpoint": "Frontpoint"}
-        _comp_name = ""
-        for _ck, _cv in _competitors.items():
-            if _ck in t:
-                _comp_name = _cv
-                break
-        result = _pick([f"We get a lot of people coming from {_comp_name or 'them'} — I'll show you why they switch.",
-                         "A lot of folks are making the switch and loving it.",
-                         f"Good to know you had {_comp_name or 'a system'} — let me show you what makes us different.",
-                         "That's helpful context — I think you'll really like what we have to offer."])
-        if result: return result
-
-    if not _prior_system_context and any(w in t for w in ["too expensive", "paying too much", "overcharging", "cheaper", "better deal", "better price"]):
+    if not _prior_system_context and any(w in t for w in ["too expensive", "paying too much", "cheaper", "better deal"]):
         result = _pick(["I hear you — let me see what I can do to make this work for your budget.",
-                         "Nobody wants to overpay — let me break down what we can do.",
                          "That's one of the biggest reasons people switch to Cove — the pricing."])
         if result: return result
 
-    if not _prior_system_context and any(w in t for w in ["contract", "locked in", "stuck with", "cancel", "cancellation"]):
+    if not _prior_system_context and any(w in t for w in ["contract", "locked in", "stuck with", "cancel"]):
         result = _pick(["Great news — no contracts with Cove, it's completely month to month.",
-                         "You'll love this — you can cancel anytime, no commitment.",
-                         "That's one of the best things about us — no contract whatsoever."])
-        if result: return result
-
-    # ── Existing system / takeover triggers ──
-
-    if any(w in t for w in ["already have", "already installed", "existing system", "previous owner", "came with the house"]):
-        result = _pick(["We can work with what you already have — that's pretty common.",
-                         "Good news — we can usually keep existing equipment and get you a new account.",
-                         "That's actually really common — we'll work with what's already there."])
-        if result: return result
-
-    # ── Objection / hesitation triggers ──
-
-    if not _prior_system_context and any(w in t for w in ["expensive", "too much", "cost", "afford", "pricey", "price", "budget", "how much"]):
-        result = _pick(["I hear you on that — let me break down exactly what you're getting.",
-                         "That's a fair question — let me walk you through the numbers.",
-                         "Let me see what I can do to make this work for you."])
+                         "You'll love this — you can cancel anytime, no commitment."])
         if result: return result
 
     if any(w in t for w in ["talk to my", "ask my wife", "ask my husband", "spouse", "partner"]):
@@ -499,166 +500,103 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
                          "Of course — let me give you all the info so that conversation is easy."])
         if result: return result
 
-    if any(w in t for w in ["think about it", "call back", "not sure", "not ready", "shopping around", "comparing"]):
+    if any(w in t for w in ["think about it", "call back", "not sure", "not ready", "shopping around"]):
         result = _pick(["No pressure at all — I want you to feel good about it.",
-                         "I understand — take your time. Let me just make sure you have everything you need.",
                          "That's fair. A lot of people compare and come back to Cove."])
         if result: return result
 
-    if any(w in t for w in ["install", "set it up", "how do i", "hard to install", "complicated", "technician", "professional"]):
+    if any(w in t for w in ["install", "hard to install", "complicated", "technician"]):
         result = _pick(["Everything is wireless — most people have it up in about 20 minutes.",
-                         "It's all DIY and really straightforward — no drilling or wiring.",
-                         "Great question — it's designed to be super easy to set up yourself."])
+                         "It's all DIY and really straightforward — no drilling or wiring."])
         if result: return result
 
-    # ── Info questions ──
-
-    if any(w in t for w in ["monthly", "per month", "month to month", "every month", "autopay", "billing"]) and not _prior_system_context:
-        result = _pick(["Great question — let me explain how the billing works.",
-                         "I'll break that down for you — it's really straightforward."])
-        if result: return result
-
-    if any(w in t for w in ["wifi", "wi-fi", "internet", "cellular", "power goes out", "no power"]):
-        result = _pick(["Great question — the system runs on cellular so you're covered even without wifi.",
-                         "That's one of the best features — works even if power or internet goes out."])
-        if result: return result
-
-    if any(w in t for w in ["shipping", "how long", "when will", "arrive", "delivery", "get here"]):
-        result = _pick(["Shipping is usually 3 to 7 business days — you'll get tracking right away.",
-                         "You'll have it within about a week — tracking info goes out immediately."])
-        if result: return result
-
-    if any(w in t for w in ["what is", "what's", "how does", "how do", "can i", "can you", "do you", "is there", "does it", "will it"]):
-        result = _pick(["Great question — let me explain.",
-                         "Good question — here's how it works.",
-                         "Of course — let me break that down.",
-                         "Absolutely — here's the deal."])
-        if result: return result
-
-    # ── Stage-specific openers ──
-
+    # ── Discovery stage: customer sharing their situation ──
     if current_stage in ("intro", "discovery"):
-        if any(w in t for w in ["never had", "no i haven", "first time", "don't have one", "no system",
-                                 "no never", "no this is", "nope", "this would be my first",
-                                 "no not yet", "never before"]):
+        if any(w in t for w in ["never had", "first time", "don't have one", "no never", "never before"]):
             result = _pick(["No worries — I'll walk you through everything step by step.",
-                             "That's totally fine — you're in good hands, I do this all day.",
-                             "Perfect — I'll make it super easy for you."])
+                             "That's totally fine — you're in good hands."])
             if result: return result
 
-        if any(w in t for w in ["i had", "i was with", "i used to have", "we had", "i've had", "used to"]):
+        if any(w in t for w in ["i had", "i was with", "i used to have", "we had", "i've had"]):
             result = _pick(["That experience will definitely help — this should be a breeze.",
-                             "Good to know — we'll make sure we set you up even better this time.",
-                             "Since you've been through this before, you'll love how easy this is."])
+                             "Good to know — we'll make sure we set you up even better this time."])
             if result: return result
 
+    # ── Collect info: customer giving data ──
     if current_stage == "collect_info":
-        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", "aol", "outlook", ".com", "dot com"]):
+        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", ".com", "dot com"]):
             result = _pick(["Got it, I have your email.",
-                             "Perfect, email is saved.",
-                             "Alright, I've got that down."])
+                             "Perfect, email is saved."])
             if result: return result
-        if any(c.isdigit() for c in t) and len([c for c in t if c.isdigit()]) >= 7:
+        if any(c.isdigit() for c in t) and sum(c.isdigit() for c in t) >= 7:
             result = _pick(["Got it, I have your number.",
-                             "Perfect, phone number is saved.",
-                             "Alright, I've got that."])
+                             "Perfect, phone number is saved."])
             if result: return result
-        if any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard", "way", "circle", "court"]):
+        if any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard"]):
             result = _pick(["Got it — let me verify coverage in your area.",
-                             "Perfect — let me check that we can service that area.",
-                             "Alright — let me make sure we have coverage there."])
+                             "Perfect — let me check that we can service that area."])
             if result: return result
-        result = _pick(["Got it, thank you.",
-                         "Perfect, I've got that down.",
-                         "Alright, got it.",
-                         "Thank you for that."])
-        if result: return result
 
+    # ── Build system: customer responding to equipment ──
     if current_stage == "build_system":
-        if any(w in t for w in ["don't need", "no thanks", "i'm good on", "skip", "don't want", "no i don't"]):
+        if any(w in t for w in ["don't need", "no thanks", "don't want", "skip"]):
             result = _pick(["No problem — I only want you to have what you actually need.",
-                             "Totally fine — we'll skip that one.",
-                             "Got it — moving right along."])
+                             "Totally fine — we'll skip that one."])
             if result: return result
-
         if any(w in t for w in ["sliding door", "glass door", "patio door", "garage"]):
             result = _pick(["Good call — that's an important entry point to cover.",
-                             "Definitely want to get that one — those are common entry points.",
                              "Smart — a lot of people forget about that one."])
             if result: return result
 
-        if any(w in t for w in ["what about", "do you have", "can i get", "i also need", "i want", "add"]):
-            result = _pick(["Absolutely — I can add that for you.",
-                             "Great thinking — let me get that in there.",
-                             "For sure — I'll add that to your system."])
-            if result: return result
-
-    if current_stage == "closing":
-        if any(w in t for w in ["order complete", "placed the order", "went through", "it worked"]):
-            result = _pick(["Congratulations and welcome to the Cove family!",
-                             "That's awesome — welcome to Cove!",
-                             "Perfect — I see it on my end. Welcome to the Cove family!"])
-            if result: return result
-
-    # ── Dynamic fallback: build a contextual opener from the customer's words ──
-    # Instead of repeating canned phrases, create a natural acknowledgement
-    # that shows the rep was listening.
-
-    return _build_dynamic_opener(t, current_stage)
-
-
-def _build_dynamic_opener(text: str, stage: str) -> str:
-    """Build a short, natural opener from the customer's actual words.
-    Never repeats — each one is unique to this moment."""
-
-    # Extract the meaningful content from what the customer said
-    t = text.strip()
-
-    # For very short responses (yes/no/ok), use a brief transition
-    _short = t.lower().rstrip(".,!?")
-    if _short in ("yes", "yeah", "yep", "sure", "absolutely", "of course", "correct",
-                   "right", "that's right", "yes sir", "yes ma'am", "mhmm", "uh huh",
-                   "sounds good", "that works", "that makes sense", "okay", "ok", "alright",
-                   "go ahead", "yea"):
-        # Short affirmative — use a brief, stage-aware transition
-        _transitions = {
-            "intro": ["Perfect.", "Absolutely.", "Great."],
-            "discovery": ["I appreciate that.", "Good to know.", "Thank you for that."],
-            "collect_info": ["Got it.", "Perfect.", "Thank you."],
-            "build_system": ["Perfect.", "Got it.", "Awesome."],
-            "closing": ["Sounds good.", "Perfect.", "Alright."],
-        }
-        options = _transitions.get(stage, ["Got it.", "Perfect.", "Alright."])
-        result = _pick(options)
+    # ── Closing: order/welcome ──
+    if current_stage == "closing" and any(w in t for w in ["placed the order", "went through", "it worked"]):
+        result = _pick(["Congratulations and welcome to the Cove family!",
+                         "That's awesome — welcome to Cove!"])
         if result: return result
-        # All short transitions used — use a bare minimum
-        return "Alright."
 
-    if _short in ("no", "nope", "no sir", "no ma'am", "not really", "no thank you",
-                   "no thanks", "nah", "not right now", "i'm good", "no i don't"):
-        _negatives = {
-            "build_system": ["No problem.", "That's fine.", "Got it."],
-            "closing": ["No worries.", "Understood.", "That's fine."],
-        }
-        options = _negatives.get(stage, ["No problem.", "Got it.", "That's fine."])
-        result = _pick(options)
+    # ── Customer asked a question ──
+    if "?" in text or any(w in t for w in ["what is", "how does", "how do", "can i", "can you", "does it"]):
+        result = _pick(["Great question — let me explain.",
+                         "Good question — here's how it works.",
+                         "Of course — let me break that down."])
         if result: return result
-        return "No problem."
 
-    # For longer responses — just acknowledge briefly
-    # The key insight: the THEN bubble has the substance.
-    # The SAY FIRST just shows the rep heard the customer.
-    _stage_acks = {
-        "intro": ["Thank you for that.", "Alright, I hear you.", "Got it."],
-        "discovery": ["I really appreciate you sharing that.", "That's helpful to know.", "Thank you for telling me that."],
-        "collect_info": ["Got it, thank you.", "Perfect.", "Alright, I have that."],
-        "build_system": ["Got it.", "Alright.", "Perfect."],
-        "closing": ["I hear you.", "Got it.", "Understood."],
-    }
-    options = _stage_acks.get(stage, ["Got it.", "Alright.", "Thank you."])
-    result = _pick(options)
-    if result: return result
-    return "Got it."
+    # ── DYNAMIC FALLBACK: Build a unique opener from customer's words ──
+    # No more canned pools. Reference what they actually said.
+    return _build_contextual_opener(text, current_stage)
+
+
+def _build_contextual_opener(text: str, stage: str) -> str:
+    """Build a unique opener that references the customer's actual words.
+    This is the fallback when all canned options are exhausted.
+    Returns empty string for content that doesn't warrant a Say First."""
+    t = text.lower().strip()
+    keywords = _extract_key_phrases(text)
+
+    # If the customer didn't say much meaningful, skip the Say First
+    if len(keywords) < 2:
+        return ""
+
+    # Build a unique opener by echoing back a key detail
+    # These templates can't repeat because they incorporate the customer's unique words
+    _templates = [
+        lambda kw: f"I hear you on the {kw[0]} — let me take care of that.",
+        lambda kw: f"That makes sense — I'll keep that in mind as we go.",
+        lambda kw: f"I appreciate you sharing that — it helps me set you up right.",
+        lambda kw: f"That's really helpful to know — thank you.",
+        lambda kw: f"I understand — let me make sure we address that.",
+    ]
+
+    # Pick a template that produces an unused opener
+    random.shuffle(_templates)
+    for template in _templates:
+        opener = template(keywords)
+        if opener not in _session_used_openers:
+            _session_used_openers.add(opener)
+            return opener
+
+    # Absolute last resort — return empty (no Say First, just show THEN)
+    return ""
 
 
 # ── Fallback next steps when Claude returns empty ─────────────────────────
@@ -2958,10 +2896,11 @@ async def websocket_endpoint(ws: WebSocket):
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:
-                            # Enforce single-step advancement even for explicit advances
+                            # Enforce forward-only, single-step advancement
                             allowed = _allowed_stage_advance(session.current_stage, new_stage)
                             if not allowed:
-                                allowed = new_stage  # allow going backward for rep clicks
+                                print(f"[stage] BLOCKED backward/skip advance {session.current_stage} → {new_stage}")
+                                continue  # don't change stage
                             session.current_stage = allowed
                             if new_stage == "build_system":
                                 session._build_current_item = "door_sensors"
