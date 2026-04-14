@@ -684,6 +684,13 @@ function handleRoleplaySpeech(msg) {
 
 const STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "closing"];
 
+// ── Transition phrases — rep says these to advance to the next section ──
+const TRANSITION_PROMPTS = {
+  discovery: "\"Alright, I'm just going to grab some info from you before we get started.\"",
+  collect_info: "\"Great. It looks like we have fantastic coverage out there so we can definitely help you out.\"",
+  build_system: "\"Ok great news. I think I'm going to be able to get you a lot of extra discounts. Let me see what I can do for you.\"",
+};
+
 // ── Stage Checklist ──────────────────────────────────────────────────────
 const STAGE_CHECKLIST = {
   discovery: [
@@ -793,6 +800,15 @@ function renderChecklist(stage) {
     row.appendChild(lbl);
     container.appendChild(row);
   });
+
+  // Add transition prompt at the bottom (if this stage has one)
+  const transitionText = TRANSITION_PROMPTS[stage];
+  if (transitionText) {
+    const prompt = document.createElement("div");
+    prompt.className = "transition-prompt";
+    prompt.innerHTML = `<div class="transition-prompt-label">SAY THIS TO MOVE ON ▸</div><div class="transition-prompt-text">${transitionText}</div>`;
+    container.appendChild(prompt);
+  }
 }
 
 function _advanceToNextStage(stage) {
@@ -861,11 +877,8 @@ function handleChecklistUpdate(msg) {
           row.classList.toggle("checked", _currentChecklist[key]);
         }
       });
-      // Auto-advance: when AI checks complete all items in a stage,
-      // auto-check section-complete and advance to next stage.
-      if (_viewingStage) {
-        _checkAutoAdvance(_viewingStage);
-      }
+      // NOTE: No auto-advance from AI checklist updates.
+      // Rep must say the transition phrase or click section-complete.
     }
   }
 }

@@ -730,6 +730,29 @@ html, body {
   color: rgba(62, 190, 176, 0.4);
 }
 
+/* ── Transition Prompt ──────────────────────────────────────────────────── */
+.transition-prompt {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(62, 190, 176, 0.08);
+  border: 1px solid rgba(62, 190, 176, 0.25);
+  border-radius: 6px;
+}
+.transition-prompt-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.transition-prompt-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.45;
+  font-style: italic;
+}
+
 /* ── Customer Profile ───────────────────────────────────────────────────── */
 .customer-profile {
   margin: 6px 16px;

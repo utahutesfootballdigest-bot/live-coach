@@ -651,9 +651,9 @@ def _stage_transition(stage: str) -> str:
     """Return a natural transition opener when moving to a new stage."""
     transitions = {
         "discovery": "Let me learn a little more about your situation.",
-        "collect_info": "I'm just going to quickly grab some information from you before we start building out the system.",
-        "build_system": "We do have fantastic coverage out there so we can definitely help you out. Let's go ahead and dive right in.",
-        "closing": "Awesome — let me see what I can do for you on the pricing.",
+        "collect_info": "Alright, I'm just going to grab some info from you before we get started.",
+        "build_system": "Great. It looks like we have fantastic coverage out there so we can definitely help you out.",
+        "closing": "Ok great news. I think I'm going to be able to get you a lot of extra discounts. Let me see what I can do for you.",
     }
     return transitions.get(stage, "")
 
@@ -1057,8 +1057,7 @@ _CHECKLIST_PROMPTS = {
     # Recap
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
-    "closing_pitch": ("It looks like I'm going to be able to get you a lot of extra discounts here. "
-                      "We have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
+    "closing_pitch": ("We have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
                       "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
                       "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
     "closing_pricing": None,  # dynamic — calculated from equipment counts at runtime
@@ -2590,78 +2589,57 @@ class Session:
         if self.coach._topics_done != _topics_before:
             await self.send_checklist()
 
-        # ── Auto-detect stage from rep speech (mid-call join) ──
-        # Closing requires STRONG indicators and 10+ turns.
-        # Build/collect can trigger earlier since equipment keywords are unambiguous.
-        _turn_count = len(self.coach._history) if self.coach else 0
-        if is_final and self.current_stage in ("intro", "discovery"):
-            _t_detect = text.lower()
-            _CLOSING_STRONG = [
-                "monthly monitoring", "per month", "dollars and", "cents per month",
-                "promo code", "checkout", "payment",
-                "set it up today", "sound like it will work",
-                "does that work for you", "welcome to the cove family",
-                "place your order", "go ahead and order",
-            ]
-            _BUILD_PHRASES = [
-                "door sensor", "window sensor", "motion sensor", "glass break",
-                "smoke detector", "co detector", "camera", "outdoor camera",
-                "indoor camera", "panel", "yard sign", "key fob",
-                "how many doors", "how many windows",
-            ]
-            _COLLECT_PHRASES = [
-                "spell your", "your name", "phone number", "email",
-                "your address", "zip code", "what's your",
-            ]
-            _closing_matches = sum(1 for p in _CLOSING_STRONG if p in _t_detect)
-            _build_matches = sum(1 for p in _BUILD_PHRASES if p in _t_detect)
-            _collect_matches = sum(1 for p in _COLLECT_PHRASES if p in _t_detect)
+        # ── Transition phrase detection ──
+        # The ONLY way to auto-advance stages is the rep saying the specific
+        # transition phrase. No keyword guessing, no auto-detect.
+        if is_final and speaker == "rep":
+            _t_trans = text.lower()
+            _advanced = False
 
-            _target = None
-            # Closing: 2+ strong phrases AND 10+ turns (most conservative)
-            if _closing_matches >= 2 and _turn_count >= 10:
-                _target = "closing"
-            # Build: 1 match is enough — "indoor camera" or "door sensor" is unambiguous
-            elif _build_matches >= 1:
-                _target = "build_system"
-            # Collect: 1 match is enough — "phone number" or "your address" is unambiguous
-            elif _collect_matches >= 1:
-                _target = "collect_info"
+            # Discovery → collect_info: "grab some info" / "get some info" / "grab some information"
+            if self.current_stage == "discovery" and any(p in _t_trans for p in [
+                "grab some info", "get some info", "grab some information",
+                "get some information", "grab your info", "get your info",
+                "going to grab", "gonna grab some", "gonna get some info",
+            ]):
+                print(f"[stage] transition phrase detected: discovery → collect_info: {text[:60]}")
+                self.current_stage = "collect_info"
+                _advanced = True
 
-            if _target and _target != self.current_stage:
-                # For mid-call join (stage stuck at intro), allow direct jump
-                # since the rep is clearly past those stages already.
-                if self.current_stage == "intro":
-                    allowed = _target  # skip directly to detected stage
-                else:
-                    # Normal flow: enforce single-step advancement
-                    allowed = _allowed_stage_advance(self.current_stage, _target)
-                if allowed:
-                    print(f"[stage] auto-detected {allowed.upper()} from rep speech ({_closing_matches}c/{_build_matches}b/{_collect_matches}i matches): {text[:60]}")
-                    self.current_stage = allowed
-                    if allowed == "build_system":
-                        self._build_current_item = "door_sensors"
-                    await self.send({"type": "call_guidance", "call_stage": allowed})
-                    await self.send_checklist()
-
-        # ── Auto-detect stage transition: collect_info → build_system ──
-        # If the rep starts asking build_system questions while we think we're
-        # still in collect_info, auto-transition so customer answers about
-        # doors/windows don't get misinterpreted as names/addresses.
-        if is_final and self.current_stage == "collect_info":
-            _t_stage = text.lower()
-            _BUILD_ENTRY_PHRASES = ["how many doors", "doors go in and out",
-                                     "how many windows", "ground floor windows",
-                                     "door sensor", "window sensor",
-                                     "let's build", "build your system"]
-            if any(p in _t_stage for p in _BUILD_ENTRY_PHRASES):
-                print(f"[stage] auto-transitioning collect_info → build_system (rep said: {text[:40]})")
+            # collect_info → build_system: "fantastic coverage" / "great coverage" / "definitely help you"
+            elif self.current_stage == "collect_info" and any(p in _t_trans for p in [
+                "fantastic coverage", "great coverage", "definitely help you",
+                "can definitely help", "definitely take care",
+                "coverage out there", "coverage in your area",
+            ]):
+                print(f"[stage] transition phrase detected: collect_info → build_system: {text[:60]}")
                 self.current_stage = "build_system"
                 self._build_current_item = "door_sensors"
-                # Mark all collect_info as done so we don't go back
                 for ci_key in ("full_name", "phone_number", "email", "address"):
                     self.coach._topics_done.add(ci_key)
                     self._collect_info_done.add(ci_key)
+                _advanced = True
+
+            # build_system → closing: "extra discounts" / "lot of discounts" / "see what I can do"
+            elif self.current_stage == "build_system" and any(p in _t_trans for p in [
+                "extra discount", "lot of discount", "see what i can do",
+                "see what we can do", "get you a lot of", "able to get you",
+            ]):
+                print(f"[stage] transition phrase detected: build_system → closing: {text[:60]}")
+                self.current_stage = "closing"
+                _advanced = True
+
+            if _advanced:
+                transition = _stage_transition(self.current_stage)
+                fallback = _fallback_next_step(self.current_stage, self.coach, session=self)
+                if fallback and self.coach and self.coach.customer_name:
+                    fallback = fallback.replace("[NAME]", self.coach.customer_name)
+                guidance = {"type": "call_guidance", "call_stage": self.current_stage,
+                            "next_step": fallback or ""}
+                if transition:
+                    guidance["opener"] = transition
+                    self.coach.set_opener(transition)
+                await self.send(guidance)
                 await self.send_checklist()
 
         # ── Extract equipment quantities from rep speech ──
