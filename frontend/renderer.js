@@ -372,6 +372,18 @@ function showCallEndedScreen() {
   stopTimer();
   stopAudioCapture();
   showCoachingIdle();
+  // Reset claim form and pre-fill rep name
+  const claimBtn = document.getElementById("claim-sale-btn");
+  if (claimBtn) { claimBtn.disabled = false; claimBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M20 6L9 17l-5-5"/></svg> Claim Sale'; claimBtn.style.opacity = "1"; }
+  const claimStatus = document.getElementById("claim-sale-status");
+  if (claimStatus) { claimStatus.style.display = "none"; claimStatus.textContent = ""; }
+  const acctInput = document.getElementById("claim-account-id");
+  if (acctInput) acctInput.value = "";
+  const phoneInput = document.getElementById("claim-phone");
+  if (phoneInput) phoneInput.value = "";
+  const channelSel = document.getElementById("claim-channel");
+  if (channelSel) channelSel.selectedIndex = 0;
+  prefillRepName();
 }
 
 function showSetupScreen() {
@@ -1144,6 +1156,58 @@ function downloadTranscript() {
   a.download = `transcript-${stamp}.txt`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Claim Sale ────────────────────────────────────────────────────────────
+async function claimSale() {
+  const rep = document.getElementById("claim-rep-name")?.value || "";
+  const accountId = document.getElementById("claim-account-id")?.value?.trim() || "";
+  const phone = document.getElementById("claim-phone")?.value?.trim() || "";
+  const channel = document.getElementById("claim-channel")?.value || "";
+  const statusEl = document.getElementById("claim-sale-status");
+  const btn = document.getElementById("claim-sale-btn");
+
+  if (!rep) { statusEl.style.display = "block"; statusEl.style.color = "#ff6b6b"; statusEl.textContent = "Please select your name."; return; }
+  if (!accountId) { statusEl.style.display = "block"; statusEl.style.color = "#ff6b6b"; statusEl.textContent = "Please enter the Account ID."; return; }
+  if (!channel) { statusEl.style.display = "block"; statusEl.style.color = "#ff6b6b"; statusEl.textContent = "Please select a sales channel."; return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+  try {
+    const resp = await fetch("/api/claim-sale", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rep, account_id: accountId, phone, channel }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      statusEl.style.display = "block";
+      statusEl.style.color = "#5ecfc2";
+      statusEl.textContent = "Sale claimed!";
+      if (btn) { btn.textContent = "Claimed ✓"; btn.style.opacity = "0.6"; }
+      // Remember rep name for next time
+      localStorage.setItem("coveSalesRep", rep);
+    } else {
+      statusEl.style.display = "block";
+      statusEl.style.color = "#ff6b6b";
+      statusEl.textContent = data.error || "Failed to claim sale.";
+      if (btn) { btn.disabled = false; btn.textContent = "Claim Sale"; }
+    }
+  } catch (err) {
+    console.error("[claim] error:", err);
+    statusEl.style.display = "block";
+    statusEl.style.color = "#ff6b6b";
+    statusEl.textContent = "Network error — try again.";
+    if (btn) { btn.disabled = false; btn.textContent = "Claim Sale"; }
+  }
+}
+
+// Pre-fill rep name from localStorage on call end
+function prefillRepName() {
+  const saved = localStorage.getItem("coveSalesRep");
+  if (saved) {
+    const sel = document.getElementById("claim-rep-name");
+    if (sel) sel.value = saved;
+  }
 }
 
 document.getElementById("submit-feedback-btn")?.addEventListener("click", async () => {

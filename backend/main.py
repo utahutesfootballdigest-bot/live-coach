@@ -72,6 +72,58 @@ async def post_feedback(request: Request):
 
 
 
+@app.post("/api/claim-sale")
+async def claim_sale(request: Request):
+    """Record a claimed sale. Stores locally and will push to SharePoint when configured."""
+    body = await request.json()
+    rep = body.get("rep", "").strip()
+    account_id = body.get("account_id", "").strip()
+    phone = body.get("phone", "").strip()
+    channel = body.get("channel", "").strip()
+
+    if not rep or not account_id or not channel:
+        return {"error": "rep, account_id, and channel are required."}, 400
+
+    from datetime import datetime, timezone
+    sale = {
+        "rep": rep,
+        "date": datetime.now(timezone.utc).strftime("%m/%d/%Y"),
+        "account_id": account_id,
+        "phone": phone,
+        "channel": channel,
+        "claimed_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Store locally in a JSON file
+    sales_file = os.path.join(os.path.dirname(__file__), "claimed_sales.json")
+    existing = []
+    if os.path.exists(sales_file):
+        try:
+            with open(sales_file, "r") as f:
+                existing = json.loads(f.read())
+        except Exception:
+            existing = []
+    existing.append(sale)
+    with open(sales_file, "w") as f:
+        f.write(json.dumps(existing, indent=2))
+
+    print(f"[sale] claimed: {rep} | {account_id} | {phone} | {channel}")
+    return {"ok": True, "sale": sale}
+
+
+@app.get("/api/claimed-sales")
+async def get_claimed_sales():
+    """Get all claimed sales (for admin/export)."""
+    sales_file = os.path.join(os.path.dirname(__file__), "claimed_sales.json")
+    if not os.path.exists(sales_file):
+        return {"sales": []}
+    try:
+        with open(sales_file, "r") as f:
+            return {"sales": json.loads(f.read())}
+    except Exception:
+        return {"sales": []}
+
+
 @app.get("/api/transcripts/download")
 async def download_transcripts():
     """Download all transcripts as a single JSON array, then delete them."""
