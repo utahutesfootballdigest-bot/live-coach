@@ -470,6 +470,7 @@ function handleTranscript(msg) {
   if (speaker === "customer" && !is_final) {
     document.getElementById("opener-text").textContent = "";
     document.getElementById("opener-card").style.display = "none";
+    resetOpenerFeedback();
   }
 
   if (!is_final) {
@@ -939,6 +940,8 @@ function handleCallGuidance(msg) {
     if (openerText) {
       openerCard.style.display = "flex";
     }
+    // Reset feedback buttons — new suggestion context
+    if (!opener) resetOpenerFeedback();
   }
 
   // If neither opener nor next_step, this is a stage-change-only message — don't hide them
