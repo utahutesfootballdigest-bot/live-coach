@@ -867,6 +867,7 @@ STAGE_ORDER.forEach((stage) => {
 
 function handleCallGuidance(msg) {
   const { call_stage, opener, next_step } = msg;
+  console.log("[guidance]", JSON.stringify({call_stage, opener: opener?.substring(0,40), next_step: next_step?.substring(0,40)}));
 
   if (call_stage) {
     // Always show profile panel during active calls

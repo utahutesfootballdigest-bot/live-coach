@@ -2113,8 +2113,13 @@ class Session:
                 self.current_stage = "discovery"
                 self.intro_turns = 2
                 self.coach._topics_done.add("existing_customer")
-                await self.send({"type": "call_guidance", "call_stage": "discovery",
-                    "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?"})
+                opener = _quick_opener(text, "discovery")
+                self.coach.set_opener(opener)
+                guidance = {"type": "call_guidance", "call_stage": "discovery",
+                    "next_step": "I'll be the one to help you with that, and I'm going to make sure you get a really good deal. Have you ever had a security system before?"}
+                if opener:
+                    guidance["opener"] = opener
+                await self.send(guidance)
                 await self.send_checklist()
                 return
             # Customer said something else (greeting, question, etc.)
@@ -2126,8 +2131,13 @@ class Session:
             is_short_greeting = len(stripped.split()) <= 3
             if is_short_greeting:
                 self.intro_turns = max(self.intro_turns - 1, 0)
-                await self.send({"type": "call_guidance", "call_stage": "intro",
-                    "next_step": "Are you already a Cove customer, or are you looking to get a security system?"})
+                opener = _quick_opener(text, "intro")
+                self.coach.set_opener(opener)
+                guidance = {"type": "call_guidance", "call_stage": "intro",
+                    "next_step": "Are you already a Cove customer, or are you looking to get a security system?"}
+                if opener:
+                    guidance["opener"] = opener
+                await self.send(guidance)
                 await self.send_checklist()
                 return
             # Substantive non-matching utterance — let Claude handle it.
@@ -2488,8 +2498,7 @@ class Session:
         # ── Opener ──
         # Only show opener on speech_final (complete utterance) to prevent
         # the Say First from changing mid-speech as interim results come in.
-        _skip_opener = self.current_stage in ("intro",)
-        if speaker == "customer" and not self.opener_shown and self.coach is not None and not _skip_opener:
+        if speaker == "customer" and not self.opener_shown and self.coach is not None:
             if is_final and speech_final:
                 # Get last rep text for context-aware openers (e.g., website question)
                 _last_rep = ""
