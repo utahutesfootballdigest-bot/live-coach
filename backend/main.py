@@ -2917,6 +2917,19 @@ async def websocket_endpoint(ws: WebSocket):
         await session.stop()
 
 
+# Prevent browser caching of JS/HTML so deploys take effect immediately
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.endswith((".js", ".html", ".css")):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
+app.add_middleware(NoCacheMiddleware)
+
 # Serve frontend static files (must be after all route definitions)
 app.mount("/", StaticFiles(directory=_FRONTEND_DIR), name="static")
 
