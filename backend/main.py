@@ -2443,6 +2443,30 @@ class Session:
         if not is_final or self.coach is None:
             return
 
+        # ── Detect new call starting mid-session ──
+        # If the rep says a fresh greeting while we're deep in a call,
+        # or we hear a voicemail greeting, warn the rep.
+        if is_final and self.coach and len(self.coach._history) > 10:
+            _t_newcall = text.lower().strip()
+            _NEW_CALL_PHRASES = [
+                "hi this is", "hello this is", "hey this is",
+                "with cove", "with the security", "on a recorded line",
+                "how are you doing today", "how are you today",
+            ]
+            _VOICEMAIL_PHRASES = [
+                "forwarded to voice mail", "voicemail", "leave a message",
+                "record your message", "at the tone", "not available",
+                "mailbox is full",
+            ]
+            if speaker == "customer" and any(p in _t_newcall for p in _VOICEMAIL_PHRASES):
+                print(f"[session] voicemail detected mid-session: {text[:60]}")
+                await self.send({"type": "audio_warning",
+                    "message": "Voicemail detected — this call may have ended. Click 'End Call' to save this session before starting a new one."})
+            elif speaker == "rep" and any(p in _t_newcall for p in _NEW_CALL_PHRASES) and self.current_stage not in ("intro",):
+                print(f"[session] new call detected mid-session: {text[:60]}")
+                await self.send({"type": "audio_warning",
+                    "message": "It sounds like a new call started. Click 'End Call' to save the previous session first."})
+
         # Filler filter (customer only)
         if speaker == "customer":
             stripped = text.strip()
@@ -2466,6 +2490,46 @@ class Session:
         # speech_final only fires after 1.2s silence, so in fast conversation
         # many rep segments were being silently dropped.
         self.coach.add_turn(speaker, text)
+
+        # ── Auto-detect stage from rep speech (mid-call join) ──
+        # If rep joined a call already in progress, the stage may be stuck at
+        # intro/discovery. Detect what stage the rep is actually in from their words.
+        if is_final and self.current_stage in ("intro", "discovery"):
+            _t_detect = text.lower()
+            _CLOSING_PHRASES = [
+                "monthly monitoring", "per month", "dollars and", "cents per month",
+                "promo code", "checkout", "payment", "price", "pricing",
+                "discount", "lower it down", "apply", "total", "cost",
+                "set it up today", "sound like it will work",
+            ]
+            _BUILD_PHRASES = [
+                "door sensor", "window sensor", "motion sensor", "glass break",
+                "smoke detector", "co detector", "camera", "outdoor camera",
+                "indoor camera", "panel", "yard sign", "key fob",
+                "how many doors", "how many windows",
+            ]
+            _COLLECT_PHRASES = [
+                "spell your", "your name", "phone number", "email",
+                "your address", "zip code", "what's your",
+            ]
+            if any(p in _t_detect for p in _CLOSING_PHRASES):
+                if self.current_stage != "closing":
+                    print(f"[stage] auto-detected CLOSING from rep speech: {text[:60]}")
+                    self.current_stage = "closing"
+                    await self.send({"type": "call_guidance", "call_stage": "closing"})
+                    await self.send_checklist()
+            elif any(p in _t_detect for p in _BUILD_PHRASES):
+                if self.current_stage not in ("build_system", "closing"):
+                    print(f"[stage] auto-detected BUILD_SYSTEM from rep speech: {text[:60]}")
+                    self.current_stage = "build_system"
+                    await self.send({"type": "call_guidance", "call_stage": "build_system"})
+                    await self.send_checklist()
+            elif any(p in _t_detect for p in _COLLECT_PHRASES):
+                if self.current_stage not in ("collect_info", "build_system", "closing"):
+                    print(f"[stage] auto-detected COLLECT_INFO from rep speech: {text[:60]}")
+                    self.current_stage = "collect_info"
+                    await self.send({"type": "call_guidance", "call_stage": "collect_info"})
+                    await self.send_checklist()
 
         # ── Auto-detect stage transition: collect_info → build_system ──
         # If the rep starts asking build_system questions while we think we're
