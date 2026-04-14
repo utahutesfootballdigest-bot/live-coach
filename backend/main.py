@@ -342,15 +342,15 @@ def _strip_fluff_for_opener(opener: str, next_step: str) -> str:
     return cleaned if cleaned else next_step
 
 
-# Per-session opener tracking — stored per-session, not global.
-# The active session's set is passed into opener functions via _active_opener_set.
-# This prevents WebSocket reconnections from clearing history.
+# Opener tracking — global set, only cleared on explicit new call (not reconnection).
+# WebSocket reconnections create new Session objects, so per-session tracking
+# gets wiped on every reconnect. Global set survives reconnections.
 _active_opener_set: set[str] = set()
 
-def _set_active_opener_tracking(s: set[str]):
-    """Point the opener functions at a specific session's tracking set."""
-    global _active_opener_set
-    _active_opener_set = s
+def _reset_opener_tracking():
+    """Clear opener history. Only call when user starts a NEW call from setup screen."""
+    _active_opener_set.clear()
+    print(f"[opener] tracking reset — new call")
 
 def _pick(options: list[str]) -> str | None:
     """Pick an unused opener. Returns None if all options already used."""
@@ -1287,7 +1287,7 @@ class Session:
         self._plan: str = "plus"  # "plus" or "basic"
         self._user_feedback: str = ""  # post-call feedback from rep
         self._opener_feedback: list[dict] = []  # [{opener, rating}] from rep thumbs up/down
-        self._used_openers: set[str] = set()  # per-session opener tracking — survives reconnections
+        # opener tracking is now global (_active_opener_set) to survive WS reconnections
 
     async def send(self, msg: dict):
         try:
@@ -1300,7 +1300,8 @@ class Session:
     async def start_live(self):
         if self.running:
             return
-        _set_active_opener_tracking(self._used_openers)
+        # DON'T clear openers here — WS reconnections call start_live()
+        # and would wipe all opener history. Cleared in stop() instead.
         self.roleplay_mode = False
         self.mic_queue = asyncio.Queue()
         self.loopback_queue = asyncio.Queue()
@@ -1313,7 +1314,7 @@ class Session:
     async def start_roleplay(self):
         if self.running:
             return
-        _set_active_opener_tracking(self._used_openers)
+        # DON'T clear openers here — cleared in stop() instead.
         self.roleplay_mode = True
         self.mic_queue = asyncio.Queue()
         self.coach = CoachingEngine(ANTHROPIC_API_KEY)
@@ -1349,6 +1350,7 @@ class Session:
         self.tts_active = False
         was_running = self.running
         was_roleplay = self.roleplay_mode
+        _reset_opener_tracking()  # clear for next call
 
         if not self.running:
             self.current_stage = "intro"
