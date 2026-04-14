@@ -502,40 +502,39 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
                             "Good question — here's how it works.",
                             "Of course — let me break that down."]) or ""
 
-    # ── MASTER FALLBACK — large pool of natural acknowledgements ──
-    # NO keyword insertion. Every one stands on its own.
-    # 30 unique options — enough for any discovery conversation.
+    # ── MASTER FALLBACK — protection-focused, empathetic acknowledgements ──
+    # Every one reinforces: "I heard you, and I'm going to protect you."
     return _try_first([
-        "I appreciate that — thank you for sharing.",
-        "That's really helpful to know.",
-        "I hear you — that makes total sense.",
-        "Thank you for telling me that.",
-        "I understand — I'll take great care of you.",
-        "That's great context — it helps me help you.",
-        "I appreciate you letting me know.",
-        "That's good to know — thank you.",
-        "I totally understand where you're coming from.",
-        "Thank you — that's exactly what I needed to hear.",
-        "I hear you on that — let's keep going.",
-        "That makes sense — I appreciate the context.",
-        "I understand completely — let me take care of you.",
-        "Thank you for that — it really helps.",
-        "That's great — I'm glad you shared that.",
-        "I appreciate that — it helps me understand your situation.",
-        "Perfect — thank you for letting me know.",
-        "I hear you — I'll make sure we address that.",
-        "That's really helpful — thank you.",
-        "I totally get it — let me help you out.",
-        "Thank you for sharing that with me.",
-        "I appreciate the honesty — let's get you taken care of.",
-        "That's great to hear — let me keep going.",
-        "I understand — that's exactly why I'm here to help.",
-        "Thank you — I'll keep that in mind as we go.",
-        "I really appreciate that — let's continue.",
-        "That helps a lot — thank you.",
-        "I hear you — we'll make sure this works for you.",
-        "Perfect — I appreciate you telling me.",
-        "That's great — let me make sure we get this right.",
+        "I hear you — we're gonna make sure you and your family are fully protected.",
+        "That's exactly why I'm here — let's get you completely covered.",
+        "I totally understand — your safety is my top priority, I'll take great care of you.",
+        "I appreciate that — it helps me make sure we build the right system for you.",
+        "That's great to know — I'm going to make sure we get you fully set up.",
+        "I hear you on that — let me make sure every part of your home is covered.",
+        "Thank you for sharing that — it's going to help me get you the best protection.",
+        "I understand completely — let's make sure you feel safe and secure.",
+        "That's really helpful — I'll use that to make sure your system is perfect for you.",
+        "I appreciate you telling me that — we'll get you taken care of.",
+        "That makes total sense — I'm going to get you fully protected.",
+        "I hear you — and that's exactly why getting this set up now is so smart.",
+        "Thank you — knowing that helps me build the right system for your situation.",
+        "I totally get it — let's make sure your home is completely secure.",
+        "That's important — I'll make sure we address that when we build your system.",
+        "I appreciate that — I'm going to take really good care of you.",
+        "I understand — we'll make sure you have complete peace of mind.",
+        "That helps a lot — I want to make sure this system is exactly right for you.",
+        "I hear you — your safety matters and I'm going to make sure we get this right.",
+        "Thank you for that — it really helps me understand how to best protect you.",
+        "I appreciate you sharing that — let's get you set up with everything you need.",
+        "That's exactly what I needed to know — I'll make sure you're fully covered.",
+        "I understand where you're coming from — your protection is what this is all about.",
+        "That's great context — it's going to make a big difference in your system.",
+        "I hear you — I'm going to make sure you don't have to worry about a thing.",
+        "Thank you — I'll keep that in mind as we put your system together.",
+        "I appreciate that — let's make sure your home is safe from every angle.",
+        "That makes sense — I'm here to make sure you get the best protection possible.",
+        "I totally understand — and I'm going to make sure we take care of everything.",
+        "That's helpful — let me make sure we get you the right coverage.",
     ]) or ""
 
 
@@ -2056,14 +2055,28 @@ class Session:
                 await self.send(guidance)
                 await self.send_checklist()
                 return
-            # Customer said something else (greeting, question, etc.)
-            # For short utterances (greetings like "hi", "good"), don't count
-            # as real turns — keep fast-tracking. But after enough unmatched
-            # substance, fall through to Claude coaching so non-standard calls
-            # (payment issues, account questions, etc.) get real guidance.
+            # ── Mid-call join detection ──
+            # If customer says something that looks like a name, number, or address
+            # (not a greeting), we likely reconnected mid-call. Jump to collect_info.
+            _GREETING_WORDS = {"hi", "hey", "hello", "good", "fine", "great", "well",
+                               "doing", "pretty", "morning", "afternoon", "evening",
+                               "how", "are", "you", "thanks", "thank"}
             stripped = text.strip()
-            is_short_greeting = len(stripped.split()) <= 3
-            if is_short_greeting and self.intro_turns < 6:
+            _words = stripped.lower().split()
+            _is_greeting = all(w in _GREETING_WORDS for w in _words) or len(_words) == 0
+            _has_digits = any(c.isdigit() for c in stripped)
+            _is_name_like = (len(_words) <= 3 and stripped.replace(" ", "").isalpha()
+                             and not _is_greeting and len(stripped) >= 3)
+
+            if (_has_digits or _is_name_like) and not _is_greeting:
+                # Looks like a mid-call reconnection — customer is giving info
+                print(f"[intro] mid-call join detected (customer giving info): {text[:40]}")
+                self.current_stage = "collect_info"
+                # Re-process this text through the collect_info fast-track
+                # by NOT returning — let it fall through to the collect_info handler below
+                pass
+            elif len(_words) <= 3 and self.intro_turns < 6:
+                # Short greeting — show intro prompt
                 opener = _quick_opener(text, "intro")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "intro",
