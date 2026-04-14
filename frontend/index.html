@@ -214,10 +214,13 @@
 
     <div class="main-layout">
 
-      <!-- LEFT: Transcript -->
-      <div class="panel transcript-panel">
+      <!-- LEFT: Transcript (collapsible sidebar) -->
+      <div class="panel transcript-panel" id="transcript-panel">
         <div class="panel-header">
           <div class="panel-header-left" style="display:flex;align-items:center;gap:10px">
+            <button class="transcript-toggle" id="transcript-toggle" title="Toggle transcript">
+              <span id="transcript-toggle-icon">−</span>
+            </button>
             <span class="panel-title">LIVE TRANSCRIPT</span>
             <div class="practice-badge" id="practice-badge" style="display:none">PRACTICE</div>
           </div>

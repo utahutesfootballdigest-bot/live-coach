@@ -194,6 +194,10 @@ html, body {
   flex: 1;
   min-height: 0;
   gap: 0;
+  transition: grid-template-columns 0.2s ease;
+}
+.main-layout.transcript-collapsed {
+  grid-template-columns: 44px 1fr;
 }
 
 /* ── Audio Swap Bar ──────────────────────────────────────────────────────── */
@@ -234,6 +238,53 @@ html, body {
 .transcript-panel {
   border-right: 1px solid var(--panel-border);
   background: var(--panel-bg);
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+.transcript-panel.collapsed {
+  min-width: 44px;
+  width: 44px;
+  max-width: 44px;
+}
+.transcript-panel.collapsed .panel-header {
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  gap: 8px;
+}
+.transcript-panel.collapsed .panel-header-left {
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+.transcript-panel.collapsed .panel-title,
+.transcript-panel.collapsed .practice-badge,
+.transcript-panel.collapsed .status-pill {
+  display: none;
+}
+.transcript-panel.collapsed .transcript-body {
+  display: none;
+}
+.transcript-toggle {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.transcript-toggle:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 .coaching-panel {
   background: var(--bg);

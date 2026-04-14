@@ -255,6 +255,25 @@ function checkStartReady() {
 document.getElementById("grant-mic-btn").addEventListener("click", requestMic);
 document.getElementById("grant-display-btn").addEventListener("click", requestDisplayAudio);
 
+// ── Transcript Toggle ────────────────────────────────────────────────────
+document.getElementById("transcript-toggle")?.addEventListener("click", () => {
+  const panel = document.getElementById("transcript-panel");
+  const layout = document.querySelector(".main-layout");
+  const icon = document.getElementById("transcript-toggle-icon");
+  const collapsed = panel.classList.toggle("collapsed");
+  layout.classList.toggle("transcript-collapsed", collapsed);
+  icon.textContent = collapsed ? "+" : "−";
+  localStorage.setItem("transcriptCollapsed", collapsed ? "1" : "0");
+});
+
+// Restore transcript state from localStorage
+if (localStorage.getItem("transcriptCollapsed") === "1") {
+  document.getElementById("transcript-panel")?.classList.add("collapsed");
+  document.querySelector(".main-layout")?.classList.add("transcript-collapsed");
+  const icon = document.getElementById("transcript-toggle-icon");
+  if (icon) icon.textContent = "+";
+}
+
 let _pendingAudioMode = null; // "live" or "practice" — start capture after server confirms
 
 document.getElementById("start-btn").addEventListener("click", () => {
