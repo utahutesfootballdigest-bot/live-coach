@@ -35,6 +35,24 @@ _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _STAGE_ORDER = ["intro", "discovery", "collect_info", "build_system", "closing"]
 _SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
 
+
+def _allowed_stage_advance(current: str, target: str) -> str | None:
+    """Enforce single-step stage advancement. Returns the allowed next stage,
+    or None if the jump is not allowed. Never skips more than one stage.
+    E.g. discovery can only go to collect_info, never directly to build_system or closing."""
+    if current not in _STAGE_ORDER or target not in _STAGE_ORDER:
+        return None
+    cur_idx = _STAGE_ORDER.index(current)
+    tgt_idx = _STAGE_ORDER.index(target)
+    if tgt_idx <= cur_idx:
+        return None  # can't go backward or stay same
+    if tgt_idx == cur_idx + 1:
+        return target  # one step forward — allowed
+    # Multi-step jump — clamp to next stage only
+    next_stage = _STAGE_ORDER[cur_idx + 1]
+    print(f"[stage] BLOCKED skip {current} → {target}, clamped to {next_stage}")
+    return next_stage
+
 @app.get("/")
 async def serve_index():
     return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
@@ -2631,23 +2649,27 @@ class Session:
                 "spell your", "your name", "phone number", "email",
                 "your address", "zip code", "what's your",
             ]
-            if any(p in _t_detect for p in _CLOSING_STRONG):
-                if self.current_stage != "closing":
-                    print(f"[stage] auto-detected CLOSING from rep speech: {text[:60]}")
-                    self.current_stage = "closing"
-                    await self.send({"type": "call_guidance", "call_stage": "closing"})
-                    await self.send_checklist()
-            elif any(p in _t_detect for p in _BUILD_PHRASES):
-                if self.current_stage not in ("build_system", "closing"):
-                    print(f"[stage] auto-detected BUILD_SYSTEM from rep speech: {text[:60]}")
-                    self.current_stage = "build_system"
-                    await self.send({"type": "call_guidance", "call_stage": "build_system"})
-                    await self.send_checklist()
-            elif any(p in _t_detect for p in _COLLECT_PHRASES):
-                if self.current_stage not in ("collect_info", "build_system", "closing"):
-                    print(f"[stage] auto-detected COLLECT_INFO from rep speech: {text[:60]}")
-                    self.current_stage = "collect_info"
-                    await self.send({"type": "call_guidance", "call_stage": "collect_info"})
+            # Determine target stage from rep speech — require MULTIPLE phrase matches
+            # for stronger confidence. A single word is not enough to change stages.
+            _closing_matches = sum(1 for p in _CLOSING_STRONG if p in _t_detect)
+            _build_matches = sum(1 for p in _BUILD_PHRASES if p in _t_detect)
+            _collect_matches = sum(1 for p in _COLLECT_PHRASES if p in _t_detect)
+
+            _target = None
+            if _closing_matches >= 2:  # need 2+ strong closing phrases
+                _target = "closing"
+            elif _build_matches >= 2:  # need 2+ build phrases
+                _target = "build_system"
+            elif _collect_matches >= 2:  # need 2+ collect phrases
+                _target = "collect_info"
+
+            if _target and _target != self.current_stage:
+                # Enforce single-step advancement
+                allowed = _allowed_stage_advance(self.current_stage, _target)
+                if allowed:
+                    print(f"[stage] auto-detected {allowed.upper()} from rep speech ({_closing_matches}c/{_build_matches}b/{_collect_matches}i matches): {text[:60]}")
+                    self.current_stage = allowed
+                    await self.send({"type": "call_guidance", "call_stage": allowed})
                     await self.send_checklist()
 
         # ── Auto-detect stage transition: collect_info → build_system ──
@@ -2936,7 +2958,11 @@ async def websocket_endpoint(ws: WebSocket):
                     elif action == "advance_stage":
                         new_stage = msg.get("stage", "")
                         if new_stage in _STAGE_ORDER:
-                            session.current_stage = new_stage
+                            # Enforce single-step advancement even for explicit advances
+                            allowed = _allowed_stage_advance(session.current_stage, new_stage)
+                            if not allowed:
+                                allowed = new_stage  # allow going backward for rep clicks
+                            session.current_stage = allowed
                             if new_stage == "build_system":
                                 session._build_current_item = "door_sensors"
                             # recap is now part of build_system — no separate stage
