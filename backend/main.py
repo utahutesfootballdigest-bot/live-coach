@@ -2279,15 +2279,13 @@ class Session:
             self.customer_buffer = []
             if self._coach_task and not self._coach_task.done():
                 self._coach_task.cancel()
-            if not speech_final:
-                # Customer is still talking — don't process yet, just track the speech
-                await self.send_checklist()
-                return
 
             t = text.lower()
             words = t.split()
 
             # ── Parse number from customer speech ──
+            # Numbers are processed IMMEDIATELY (no speech_final wait) because
+            # "just one" or "three" are complete answers.
             _SPOKEN_NUMS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
                             "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
                             "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15}
@@ -2309,6 +2307,13 @@ class Session:
                     if word in words:
                         _cust_number = val
                         break
+
+            # ── speech_final gate for non-number responses ──
+            # Numbers are processed immediately. Yes/no and longer responses
+            # wait for speech_final to prevent mid-sentence jumps.
+            if _cust_number is None and not speech_final:
+                await self.send_checklist()
+                return
 
             # ── Detect yes/no/ok responses ──
             _is_yes = any(w in t for w in ["yes", "yeah", "yep", "sure", "absolutely", "okay", "ok",
