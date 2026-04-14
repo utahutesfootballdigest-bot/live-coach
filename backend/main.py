@@ -670,7 +670,7 @@ def _stage_transition(stage: str) -> str:
     """Return a natural transition opener when moving to a new stage."""
     transitions = {
         "discovery": "Let me learn a little more about your situation.",
-        "collect_info": "I'm just going to get some information from you before we start building out the system.",
+        "collect_info": "I'm just going to quickly grab some information from you before we start building out the system.",
         "build_system": "We do have fantastic coverage in your area, so I can definitely help you out. Let's go ahead and build your system.",
         "closing": "Awesome — let me see what I can do for you on the pricing.",
     }
@@ -2936,8 +2936,13 @@ async def websocket_endpoint(ws: WebSocket):
                             if fallback and session.coach and session.coach.customer_name:
                                 fallback = fallback.replace("[NAME]", session.coach.customer_name)
                             transition = _stage_transition(new_stage)
-                            await session.send({"type": "call_guidance", "call_stage": new_stage,
-                                                "next_step": fallback or ""})  # opener hidden
+                            guidance = {"type": "call_guidance", "call_stage": new_stage,
+                                        "next_step": fallback or ""}
+                            if transition:
+                                guidance["opener"] = transition
+                                if session.coach:
+                                    session.coach.set_opener(transition)
+                            await session.send(guidance)
                             await session.send_checklist()
                     elif action == "go_back":
                         await session.go_back()
