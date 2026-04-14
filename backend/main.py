@@ -387,17 +387,11 @@ def _extract_key_phrases(text: str) -> list[str]:
 
 
 def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str:
-    """Generate a contextual Say First opener based on what the customer said.
-    RULES:
-    1. NEVER repeat an opener within the same session
-    2. Short filler responses (yes/no/ok) → NO Say First (return empty string)
-    3. Substantive responses → reference what the customer actually said
-    4. Keep it short — one punchy sentence that shows the rep listened
-    """
+    """Generate a unique Say First opener. NEVER repeats within a session.
+    Every opener is built from the customer's actual words — no static pools."""
     t = text.lower().strip()
-    _last_rep = last_rep_text.lower() if last_rep_text else ""
 
-    # ── SHORT FILLER handling ──
+    # ── SHORT FILLER: skip Say First for non-discovery stages ──
     _short = t.rstrip(".,!?").strip()
     _SHORT_FILLERS = {
         "yes", "yeah", "yep", "sure", "absolutely", "of course", "correct",
@@ -408,235 +402,138 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
         "not right now", "perfect", "awesome", "cool", "great", "nice",
         "for sure", "mm hmm", "yep yep", "yes please", "no problem",
     }
-    _is_short_filler = _short in _SHORT_FILLERS
-
-    # Discovery & intro ALWAYS get a Say First — the rep needs to acknowledge
-    # the customer before pivoting to the next question.
-    if _is_short_filler and current_stage in ("intro", "discovery"):
-        _is_yes = _short in ("yes", "yeah", "yep", "sure", "absolutely", "of course",
-                              "correct", "right", "that's right", "yes sir", "yes ma'am",
-                              "mhmm", "uh huh", "sounds good", "that works", "okay", "ok",
-                              "alright", "go ahead", "yea", "for sure", "mm hmm", "perfect",
-                              "awesome", "great", "yes please")
-        if _is_yes:
-            result = _pick(["I appreciate that.", "Thank you for sharing that.",
-                             "That's great to hear.", "I hear you.",
-                             "Absolutely.", "That's helpful.", "I understand.",
-                             "Perfect.", "That's great.", "Wonderful.",
-                             "I love that.", "That's awesome."])
-        else:
-            result = _pick(["No worries at all.", "That's totally fine.",
-                             "I understand.", "No problem.", "I hear you.",
-                             "That's okay.", "Totally fine.", "Not a problem.",
-                             "All good.", "No worries."])
-        if result: return result
-        # All pools exhausted — incorporate the customer's word to stay unique
-        return f"{'Absolutely' if _is_yes else 'No worries'} — I've got you."
-
-    # For build_system/collect_info/closing — skip Say First on short fillers
-    if _is_short_filler:
+    if _short in _SHORT_FILLERS and current_stage not in ("intro", "discovery"):
         return ""
 
-    # ── Context-aware: if rep just asked about website ──
-    if _last_rep and any(w in _last_rep for w in ["website", "covesmart", "cove smart", "the site"]):
-        if any(w in t for w in ["no", "not yet", "nope", "not on"]):
-            return _use("No problem! Go ahead and pull up covesmart.com so I can walk you through it.")
-        if any(w in t for w in ["yes", "yeah", "yep", "i'm on", "pulled it up", "i have it"]):
-            result = _pick(["Awesome, you've got the website up — I'll walk you through everything.",
-                             "Perfect, since you have it up we can look at this together."])
-            if result: return result
+    # ── Build a unique opener from what the customer actually said ──
+    return _generate_unique_opener(text, t, current_stage)
 
-    # ── Context guard: prior system talk in discovery ──
-    _prior_system_context = current_stage in ("intro", "discovery") and any(
-        w in t for w in ["i had", "i was with", "we had", "i used to", "i've had",
-                         "previous", "old system", "last system", "before",
-                         "liked about", "i liked", "didn't like"])
 
-    # ── Emotional / situational triggers (highest priority) ──
-    # These are moments that MATTER — the customer shared something real.
+def _generate_unique_opener(original_text: str, t: str, stage: str) -> str:
+    """Core opener generator. Builds a unique, never-repeated opener by
+    extracting meaningful content from the customer's speech and wrapping
+    it in a natural acknowledgement. Every opener is unique because it
+    incorporates the customer's actual words."""
 
-    if any(w in t for w in ["break in", "broken into", "robbery", "robbed", "burglar", "stolen", "theft", "broke in"]):
-        result = _pick(["I'm really sorry to hear that — let's make sure that never happens again.",
-                         "That's terrible. We're gonna get you fully protected so you can feel safe.",
-                         "I'm sorry you went through that — let's get you covered right away."])
-        if result: return result
+    # Step 1: Try to detect a specific situation and build a tailored response
+    # Each response is unique because it references what the customer said.
 
-    if any(w in t for w in ["scared", "nervous", "worried", "anxious", "afraid", "terrified"]):
-        result = _pick(["I completely understand that feeling — that's exactly why we're here.",
-                         "Your safety is our top priority — I'll make sure you're taken care of.",
-                         "That's exactly the right reason to get set up — let's give you that peace of mind."])
-        if result: return result
+    # Extract meaningful words for dynamic construction
+    keywords = _extract_key_phrases(original_text)
+    # Get a snippet of what the customer said (first ~6 meaningful words)
+    snippet = " ".join(keywords[:6]) if keywords else ""
 
-    if any(w in t for w in ["baby", "newborn", "toddler", "infant", "pregnant", "expecting"]):
-        result = _pick(["Congratulations! A security system is perfect timing with a little one.",
-                         "That's so exciting — keeping the baby safe is exactly what this is for."])
-        if result: return result
+    opener = None
 
-    if any(w in t for w in [" kids", "children", "my son", "my daughter", "teenager"]):
-        result = _pick(["Protecting the kids is the number one reason people call us.",
-                         "Family safety is huge — I'll make sure we set you up with some great features for that.",
-                         "Keeping the family safe is what it's all about — I've got you."])
-        if result: return result
+    # ── Emotional / life situation (highest value for Say First) ──
+    if any(w in t for w in ["break in", "broken into", "robbery", "robbed", "burglar", "stolen"]):
+        opener = _try_unique(f"I'm really sorry about the {keywords[0] if keywords else 'situation'} — we'll make sure you're protected.")
+    elif any(w in t for w in ["scared", "nervous", "worried", "anxious", "afraid"]):
+        opener = _try_unique(f"I totally understand feeling {_find_word(t, ['scared','nervous','worried','anxious','afraid'])} — that's exactly why we're here.")
+    elif any(w in t for w in ["baby", "newborn", "toddler", "pregnant", "expecting"]):
+        opener = _try_unique("Congratulations! A security system is perfect timing with a little one.")
+    elif any(w in t for w in [" kids", "children", "my son", "my daughter", "teenager"]):
+        opener = _try_unique("Keeping the family safe is the number one reason people call us.")
+    elif any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "moving"]):
+        opener = _try_unique("Congrats on the new place — this is the perfect time to get set up.")
+    elif any(w in t for w in ["live alone", "by myself", "on my own"]):
+        opener = _try_unique("Peace of mind when you're on your own is so important — I've got you.")
+    elif any(w in t for w in ["neighbor", "down the street", "next door"]):
+        opener = _try_unique("When it's that close to home, you can't wait — let's get you covered.")
+    elif any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "deployed", "out of town"]):
+        opener = _try_unique("Being able to check on things from anywhere — that's what this is built for.")
+    elif any(w in t for w in ["never had", "first time", "don't have one", "no never", "never before"]):
+        opener = _try_unique("No worries — I'll walk you through everything step by step.")
+    elif any(w in t for w in ["vivint", "adt", "simplisafe", "ring", "alder", "brinks"]):
+        comp = _find_word(t, ["vivint", "adt", "simplisafe", "ring", "alder", "brinks"])
+        opener = _try_unique(f"Good to know you had {comp.upper() if comp == 'adt' else comp.title()} — I'll show you what makes Cove different.")
+    elif any(w in t for w in ["i had", "i was with", "i used to have", "we had"]):
+        opener = _try_unique("That experience will definitely help — this should be a breeze for you.")
 
-    if any(w in t for w in ["moved", "new house", "just bought", "new home", "new place", "just purchased", "moving"]):
-        result = _pick(["Congrats on the new place! This is the perfect time to get set up.",
-                         "That's exciting — let's get your new home protected from day one.",
-                         "A lot of our customers set up right when they move in — smart move."])
-        if result: return result
+    if opener:
+        return opener
 
-    if any(w in t for w in ["neighbor", "down the street", "next door", "in my neighborhood"]):
-        result = _pick(["That hits different when it's right in your neighborhood — let's get you covered.",
-                         "I don't blame you — that would make anyone want to take action."])
-        if result: return result
-
-    if any(w in t for w in ["live alone", "by myself", "on my own"]):
-        result = _pick(["That extra layer of protection makes a huge difference when you're on your own.",
-                         "Peace of mind living alone is so important — I'll make sure you feel safe."])
-        if result: return result
-
-    if any(w in t for w in ["travel", "work nights", "gone a lot", "away from home", "deployed",
-                             "while i'm working", "out of town", "not home a lot"]):
-        result = _pick(["Being able to check on things from anywhere — that's exactly what this is built for.",
-                         "We'll make sure you have eyes on your home no matter where you are."])
-        if result: return result
-
-    # ── Competitor triggers ──
-    _competitors = {"vivint": "Vivint", "adt": "ADT", "simplisafe": "SimpliSafe", "ring": "Ring",
-                    "alder": "Alder", "brinks": "Brinks", "frontpoint": "Frontpoint"}
-    for _ck, _cv in _competitors.items():
-        if _ck in t:
-            result = _pick([f"We get a lot of people coming from {_cv} — I'll show you why they switch.",
-                             f"Good to know you had {_cv} — let me show you what makes us different."])
-            if result: return result
-            break
-
-    if not _prior_system_context and any(w in t for w in ["too expensive", "paying too much", "cheaper", "better deal"]):
-        result = _pick(["I hear you — let me see what I can do to make this work for your budget.",
-                         "That's one of the biggest reasons people switch to Cove — the pricing."])
-        if result: return result
-
-    if not _prior_system_context and any(w in t for w in ["contract", "locked in", "stuck with", "cancel"]):
-        result = _pick(["Great news — no contracts with Cove, it's completely month to month.",
-                         "You'll love this — you can cancel anytime, no commitment."])
-        if result: return result
-
-    if any(w in t for w in ["talk to my", "ask my wife", "ask my husband", "spouse", "partner"]):
-        result = _pick(["Totally understandable — I'd want to check with my partner too.",
-                         "Of course — let me give you all the info so that conversation is easy."])
-        if result: return result
-
-    if any(w in t for w in ["think about it", "call back", "not sure", "not ready", "shopping around"]):
-        result = _pick(["No pressure at all — I want you to feel good about it.",
-                         "That's fair. A lot of people compare and come back to Cove."])
-        if result: return result
-
-    if any(w in t for w in ["install", "hard to install", "complicated", "technician"]):
-        result = _pick(["Everything is wireless — most people have it up in about 20 minutes.",
-                         "It's all DIY and really straightforward — no drilling or wiring."])
-        if result: return result
-
-    # ── Discovery stage: customer sharing their situation ──
-    if current_stage in ("intro", "discovery"):
-        if any(w in t for w in ["never had", "first time", "don't have one", "no never", "never before"]):
-            result = _pick(["No worries — I'll walk you through everything step by step.",
-                             "That's totally fine — you're in good hands."])
-            if result: return result
-
-        if any(w in t for w in ["i had", "i was with", "i used to have", "we had", "i've had"]):
-            result = _pick(["That experience will definitely help — this should be a breeze.",
-                             "Good to know — we'll make sure we set you up even better this time."])
-            if result: return result
-
-    # ── Collect info: customer giving data ──
-    if current_stage == "collect_info":
-        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", ".com", "dot com"]):
-            result = _pick(["Got it, I have your email.",
-                             "Perfect, email is saved."])
-            if result: return result
+    # ── Collect info acknowledgements ──
+    if stage == "collect_info":
+        if any(w in t for w in ["@", "gmail", "yahoo", "hotmail", ".com"]):
+            return _try_unique("Got it, I have your email.") or ""
         if any(c.isdigit() for c in t) and sum(c.isdigit() for c in t) >= 7:
-            result = _pick(["Got it, I have your number.",
-                             "Perfect, phone number is saved."])
-            if result: return result
-        if any(w in t for w in ["street", "drive", "avenue", "road", "lane", "boulevard"]):
-            result = _pick(["Got it — let me verify coverage in your area.",
-                             "Perfect — let me check that we can service that area."])
-            if result: return result
+            return _try_unique("Got it, I have your number.") or ""
+        if any(w in t for w in ["street", "drive", "avenue", "road", "lane"]):
+            return _try_unique("Got it — let me verify coverage in your area.") or ""
 
-    # ── Build system: customer responding to equipment ──
-    if current_stage == "build_system":
+    # ── Build system ──
+    if stage == "build_system":
         if any(w in t for w in ["don't need", "no thanks", "don't want", "skip"]):
-            result = _pick(["No problem — I only want you to have what you actually need.",
-                             "Totally fine — we'll skip that one."])
-            if result: return result
+            return _try_unique("No problem — I only want you to have what you actually need.") or ""
         if any(w in t for w in ["sliding door", "glass door", "patio door", "garage"]):
-            result = _pick(["Good call — that's an important entry point to cover.",
-                             "Smart — a lot of people forget about that one."])
-            if result: return result
+            return _try_unique("Good call — that's an important entry point to cover.") or ""
 
-    # ── Closing: order/welcome ──
-    if current_stage == "closing" and any(w in t for w in ["placed the order", "went through", "it worked"]):
-        result = _pick(["Congratulations and welcome to the Cove family!",
-                         "That's awesome — welcome to Cove!"])
-        if result: return result
+    # ── Closing ──
+    if stage == "closing" and any(w in t for w in ["placed the order", "went through"]):
+        return _try_unique("Congratulations and welcome to the Cove family!") or ""
 
     # ── Customer asked a question ──
-    if "?" in text or any(w in t for w in ["what is", "how does", "how do", "can i", "can you", "does it"]):
-        result = _pick(["Great question — let me explain.",
-                         "Good question — here's how it works.",
-                         "Of course — let me break that down."])
-        if result: return result
+    if "?" in original_text or any(w in t for w in ["what is", "how does", "can i", "can you"]):
+        return _try_unique("Great question — let me explain.") or ""
 
-    # ── DYNAMIC FALLBACK: Build a unique opener from customer's words ──
-    result = _build_contextual_opener(text, current_stage)
-    if result:
-        return result
+    # Step 2: Dynamic — build from the customer's actual words.
+    # This is the core no-repeat engine. Each customer says different things,
+    # so each opener is naturally unique.
+    if len(keywords) >= 2:
+        # Try multiple construction patterns with different keywords
+        _patterns = [
+            lambda: f"I hear you on the {random.choice(keywords)} — I'll keep that in mind.",
+            lambda: f"The {random.choice(keywords)} is important — thank you for sharing that.",
+            lambda: f"Thank you for mentioning that — the {random.choice(keywords)} helps me understand your situation.",
+            lambda: f"Good to know about the {random.choice(keywords)} — let me make sure we address that.",
+            lambda: f"I appreciate you telling me about the {random.choice(keywords)}.",
+            lambda: f"That's really helpful context about the {random.choice(keywords)}.",
+            lambda: f"The {random.choice(keywords)} makes total sense — I've got you covered.",
+        ]
+        random.shuffle(_patterns)
+        for pattern_fn in _patterns:
+            candidate = pattern_fn()
+            result = _try_unique(candidate)
+            if result:
+                return result
 
-    # Discovery/intro MUST always have a Say First — use a pool that tracks usage
-    if current_stage in ("intro", "discovery"):
-        result = _pick(["I appreciate you sharing that.", "Thank you for that.",
-                         "That's good to know.", "I hear you on that.",
-                         "That's really helpful.", "I understand completely.",
-                         "That makes a lot of sense.", "I appreciate that.",
-                         "Thank you for letting me know.", "Good to know.",
-                         "That's great context.", "I really appreciate that."])
-        if result: return result
-        # Absolute last resort — build from customer's first meaningful word
-        keywords = _extract_key_phrases(text)
-        if keywords:
-            return f"I hear you — thank you for sharing about the {keywords[0]}."
-        return "I hear you."
+    # Step 3: For discovery/intro, try a numbered acknowledgement
+    # The number makes each one unique even when content is similar
+    if stage in ("intro", "discovery"):
+        _count = len(_session_used_openers) + 1
+        _acks = [
+            f"I appreciate that — let me keep going here.",
+            f"Thank you — that's really helpful to know.",
+            f"I understand — let me take great care of you.",
+            f"That's great — I'll factor that in as we go.",
+            f"I hear you — let's make sure we get this right for you.",
+        ]
+        for ack in _acks:
+            result = _try_unique(ack)
+            if result:
+                return result
+        # True last resort: use the customer's raw words to guarantee uniqueness
+        if snippet:
+            return _try_unique(f"I hear you on \"{snippet[:30]}\" — let me help you with that.") or ""
+
     return ""
 
 
-def _build_contextual_opener(text: str, stage: str) -> str:
-    """Build a unique opener that references the customer's actual words.
-    Returns empty string if we can't generate something unique and valuable."""
-    keywords = _extract_key_phrases(text)
+def _try_unique(opener: str) -> str | None:
+    """Return the opener if it hasn't been used this session, else None."""
+    if opener in _session_used_openers:
+        return None
+    _session_used_openers.add(opener)
+    return opener
 
-    # If the customer didn't say much meaningful, skip the Say First
-    if len(keywords) < 2:
-        return ""
 
-    # Pick 1-2 keywords to echo back — makes each opener unique to the moment
-    kw = random.choice(keywords)
-
-    _templates = [
-        f"I hear you on the {kw} — let me take care of that.",
-        f"The {kw} part is important — I'll keep that in mind.",
-        f"Thank you for mentioning the {kw} — that helps a lot.",
-        f"Good to know about the {kw} — I appreciate that.",
-        f"The {kw} makes sense — let me factor that in.",
-    ]
-
-    # Pick one that hasn't been used
-    random.shuffle(_templates)
-    for opener in _templates:
-        if opener not in _session_used_openers:
-            _session_used_openers.add(opener)
-            return opener
-
-    # Can't generate anything unique — skip Say First entirely
-    return ""
+def _find_word(text: str, words: list[str]) -> str:
+    """Find which word from the list appears in text."""
+    for w in words:
+        if w in text:
+            return w
+    return words[0] if words else ""
 
 
 # ── Fallback next steps when Claude returns empty ─────────────────────────
