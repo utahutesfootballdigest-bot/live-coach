@@ -2322,11 +2322,17 @@ class Session:
         # ── Fast-track build_system ──
         # Fully handles ALL customer speech during build_system — Claude is
         # never called. Uses _build_current_item to track what's being pitched.
+        # IMPORTANT: Only act on speech_final (customer finished their full thought)
+        # to prevent suggestions from jumping ahead mid-sentence.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "build_system":
             self.coach.add_turn(speaker, text)
             self.customer_buffer = []
             if self._coach_task and not self._coach_task.done():
                 self._coach_task.cancel()
+            if not speech_final:
+                # Customer is still talking — don't process yet, just track the speech
+                await self.send_checklist()
+                return
 
             t = text.lower()
             words = t.split()
