@@ -981,10 +981,8 @@ _CHECKLIST_PROMPTS = {
     # Recap
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
-    "closing_pitch": ("So how it will work, we have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
-                      "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
-                      "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
-    "closing_pricing": None,  # dynamic — calculated from equipment counts at runtime
+    "closing_pitch": None,  # dynamic — combined pitch + pricing, calculated at runtime
+    "closing_pricing": None,  # UNUSED — merged into closing_pitch
     "closing_cart": "Perfect. Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
     "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
     "closing_welcome": ("If you need a technician, we have a third-party service starting at $129. "
@@ -999,7 +997,7 @@ _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
     "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign", "recap_done"],
-    "closing": ["closing_pitch", "closing_pricing", "closing_cart", "closing_checkout", "closing_welcome"],
+    "closing": ["closing_pitch", "closing_cart", "closing_checkout", "closing_welcome"],
 }
 
 
@@ -1137,6 +1135,48 @@ def _calculate_pricing(session) -> dict:
     }
 
 
+def _build_closing_pitch(session) -> str:
+    """Build the combined closing pitch: 60-day trial + no contract + DIY + pricing, ending with a question."""
+    pricing = _calculate_pricing(session)
+    name = session.coach.customer_name if session.coach else ""
+    suffix = f", {name}" if name else ""
+
+    parts = []
+    # Pitch
+    parts.append(
+        "So how it will work, we have a 60-day risk-free trial, so you can try everything out "
+        "and if it's not the right fit, you can return it for a full refund. "
+        "Here at Cove we have no contracts — it's completely month to month, and we have some of "
+        "the best customer service in the industry. "
+        "We don't charge anything for installation because everything is wireless — we'll send all "
+        "the equipment straight to you and you can set it up yourself in about 20 minutes. "
+    )
+    # Pricing
+    if pricing['monthly_promo'] < pricing['monthly_standard']:
+        parts.append(
+            f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
+            f"${pricing['monthly_promo']:.2f} per month. "
+            f"After that, it goes to the standard rate of ${pricing['monthly_standard']:.2f}. "
+        )
+    else:
+        parts.append(
+            f"On the monthly monitoring, it's just ${pricing['monthly_standard']:.2f} per month. "
+        )
+    if pricing["discount_total"] > 0:
+        parts.append(
+            f"And the equipment — with all the discounts and promotions today, "
+            f"your one-time equipment cost comes out to just ${pricing['equipment_total']:.2f} "
+            f"— that's ${pricing['discount_total']:.0f} off{suffix}. "
+        )
+    else:
+        parts.append(
+            f"And the equipment — with all the discounts and promotions today, "
+            f"your one-time equipment cost is going to come out to ${pricing['equipment_total']:.2f}{suffix}. "
+        )
+    parts.append("So does that sound like something that will work for you?")
+    return "".join(parts)
+
+
 def _build_pricing_prompt(session) -> str:
     """Build a dynamic closing pricing prompt with real equipment totals."""
     pricing = _calculate_pricing(session)
@@ -1235,9 +1275,13 @@ def _fallback_next_step(stage: str, coach, session=None) -> str:
             # Dynamic recap from equipment list
             if key == "recap_done" and session:
                 prompt = _build_recap_prompt(session)
-            # Dynamic pricing from equipment counts
+            # Dynamic combined pitch + pricing
+            elif key == "closing_pitch" and session:
+                prompt = _build_closing_pitch(session)
             elif key == "closing_pricing" and session:
-                prompt = _build_pricing_prompt(session)
+                # Merged into closing_pitch — skip
+                done.add("closing_pricing")
+                continue
             # Dynamic personalization for certain build_system items
             elif key == "indoor_camera":
                 prompt = _personalize_camera(ctx, name)

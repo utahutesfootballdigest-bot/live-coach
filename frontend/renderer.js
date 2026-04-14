@@ -721,8 +721,7 @@ const STAGE_CHECKLIST = {
     { key: "_section_build_system", label: "--- BUILD COMPLETE ---", section: true },
   ],
   closing: [
-    { key: "closing_pitch",      label: "60-day trial + no contract + DIY setup" },
-    { key: "closing_pricing",    label: "Monthly + equipment cost + \"work for you?\"" },
+    { key: "closing_pitch",      label: "60-day trial + no contract + DIY + pricing + \"work for you?\"" },
     { key: "closing_cart",       label: "Confirm equipment in cart" },
     { key: "closing_checkout",   label: "Process payment + confirm order" },
     { key: "closing_welcome",    label: "Insurance, tech support + welcome to Cove" },
