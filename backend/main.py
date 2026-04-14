@@ -1361,7 +1361,7 @@ class Session:
         audio_b64 = await _tts(opening, self.roleplay_customer.voice)
         if audio_b64:
             self.tts_active = True
-            asyncio.create_task(self._tts_safety_reset(5))
+            asyncio.create_task(self._tts_safety_reset(3))
         await self.send({"type": "roleplay_speech", "text": opening, "audio_b64": audio_b64})
         await self._on_transcript("customer", opening, True, True)
 
@@ -1985,7 +1985,7 @@ class Session:
             audio_b64 = await _tts(ai_text, self.roleplay_customer.voice)
             if audio_b64:
                 self.tts_active = True
-                asyncio.create_task(self._tts_safety_reset(5))
+                asyncio.create_task(self._tts_safety_reset(3))
             await self.send({"type": "roleplay_speech", "text": ai_text, "audio_b64": audio_b64})
             await self._on_transcript("customer", ai_text, True, True)
         except asyncio.CancelledError:
@@ -1995,9 +1995,9 @@ class Session:
             print(f"[roleplay] send/tts error:\n{traceback.format_exc()}")
             self.tts_active = False
 
-    async def _delayed_roleplay_response(self):
+    async def _delayed_roleplay_response(self, delay: float = 0.6):
         try:
-            await asyncio.sleep(0.6)
+            await asyncio.sleep(delay)
             await self._fire_roleplay_response()
         except asyncio.CancelledError:
             pass
@@ -2016,9 +2016,19 @@ class Session:
         # In roleplay, mic is muted during TTS (echo prevention), so rep
         # transcripts here are just pipeline stragglers. Show them but skip
         # roleplay processing — real speech arrives after TTS ends.
+        # However, if we get a substantial rep is_final while tts_active,
+        # TTS likely already ended but the flag wasn't cleared (browser
+        # SpeechSynthesis fallback doesn't send tts_playing:false, or
+        # the WebSocket message was lost). Auto-clear and process.
         if self.roleplay_mode and self.tts_active and speaker == "rep":
-            await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
-            return
+            if is_final and len(text.strip().split()) >= 3:
+                # Substantial speech detected — TTS must be done
+                print(f"[roleplay] auto-clearing tts_active (rep speaking: {text[:50]})")
+                self.tts_active = False
+                # Fall through to process normally
+            else:
+                await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
+                return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
 
@@ -2658,10 +2668,15 @@ class Session:
 
         if not speech_final:
             # In roleplay, buffer is_final text but DON'T trigger yet —
-            # wait for speech_final (600ms pause) so the AI doesn't cut
+            # wait for speech_final (pause) so the AI doesn't cut
             # in while the rep is mid-sentence.
             if self.roleplay_mode and self.roleplay_customer and is_final:
                 self.rep_buffer.append(text)
+                # Safety: if speech_final never fires (Deepgram quirk),
+                # schedule a fallback trigger after 2 seconds of no new is_final
+                if self._roleplay_task and not self._roleplay_task.done():
+                    self._roleplay_task.cancel()
+                self._roleplay_task = asyncio.create_task(self._delayed_roleplay_response(delay=2.0))
             return
 
         if self.pending_evaluation:

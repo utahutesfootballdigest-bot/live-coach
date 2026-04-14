@@ -639,6 +639,8 @@ function handleRoleplaySpeech(msg) {
     || voices.find(v => v.lang.startsWith("en"))
     || voices[0];
   if (preferred) utter.voice = preferred;
+  send({ action: "tts_playing", active: true });
+  utter.onend = () => { send({ action: "tts_playing", active: false }); };
   window.speechSynthesis.speak(utter);
 }
 
