@@ -70,6 +70,7 @@ def save_transcript(
     profile_edits: list[str] | None = None,  # profile fields rep manually corrected
     equipment_edits: list[str] | None = None,  # equipment keys rep manually corrected
     user_feedback: str = "",  # post-call feedback from rep
+    opener_feedback: list[dict] | None = None,  # [{opener, rating}] thumbs up/down
 ) -> str | None:
     """Save a transcript JSON file. Returns the file path, or None on error."""
     if not history:
@@ -93,6 +94,7 @@ def save_transcript(
         "profile_edits": profile_edits or [],
         "equipment_edits": equipment_edits or [],
         "user_feedback": user_feedback,
+        "opener_feedback": opener_feedback or [],
         "turns": history,
         "turn_count": len(history),
     }

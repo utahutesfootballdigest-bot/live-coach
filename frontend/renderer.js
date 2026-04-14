@@ -904,6 +904,7 @@ function handleCallGuidance(msg) {
     const openerEl = document.getElementById("opener-text");
     openerEl.textContent = opener;
     document.getElementById("opener-card").style.display = "flex";
+    resetOpenerFeedback();
     if (!next_step) {
       document.getElementById("next-step-card").style.display = "none";
     }
@@ -1147,6 +1148,36 @@ document.getElementById("plan-basic-btn").addEventListener("click", () => {
   document.getElementById("plan-plus-btn").classList.remove("plan-active");
   send({ action: "set_plan", plan: "basic" });
 });
+
+// ── Opener Feedback (thumbs up/down) ──────────────────────────────────────
+
+document.getElementById("opener-thumbs-up")?.addEventListener("click", () => {
+  const openerText = document.getElementById("opener-text")?.textContent || "";
+  if (!openerText) return;
+  const btn = document.getElementById("opener-thumbs-up");
+  const downBtn = document.getElementById("opener-thumbs-down");
+  btn.classList.add("fb-selected-up");
+  downBtn.classList.remove("fb-selected-down");
+  transcriptLog.push({ speaker: "system", text: `[REP 👍: "${openerText}"]` });
+  send({ action: "opener_feedback", opener: openerText, rating: "up" });
+});
+
+document.getElementById("opener-thumbs-down")?.addEventListener("click", () => {
+  const openerText = document.getElementById("opener-text")?.textContent || "";
+  if (!openerText) return;
+  const btn = document.getElementById("opener-thumbs-down");
+  const upBtn = document.getElementById("opener-thumbs-up");
+  btn.classList.add("fb-selected-down");
+  upBtn.classList.remove("fb-selected-up");
+  transcriptLog.push({ speaker: "system", text: `[REP 👎: "${openerText}"]` });
+  send({ action: "opener_feedback", opener: openerText, rating: "down" });
+});
+
+// Reset feedback buttons when opener changes
+function resetOpenerFeedback() {
+  document.getElementById("opener-thumbs-up")?.classList.remove("fb-selected-up");
+  document.getElementById("opener-thumbs-down")?.classList.remove("fb-selected-down");
+}
 
 // ── Transcript Download ───────────────────────────────────────────────────
 

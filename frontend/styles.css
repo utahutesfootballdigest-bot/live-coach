@@ -992,11 +992,45 @@ html, body {
   border: 1px solid rgba(62, 190, 176, 0.35);
   animation: fadeSlideIn 0.15s ease both;
 }
+.opener-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 .opener-label {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--accent);
+}
+.opener-feedback {
+  display: flex;
+  gap: 4px;
+}
+.opener-fb-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+.opener-fb-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.opener-fb-btn.fb-selected-up {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+.opener-fb-btn.fb-selected-down {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: #f87171;
+  color: #f87171;
 }
 .opener-text {
   font-size: 14px;

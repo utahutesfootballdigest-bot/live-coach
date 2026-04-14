@@ -568,34 +568,32 @@ def _quick_opener(text: str, current_stage: str, last_rep_text: str = "") -> str
 
 def _build_contextual_opener(text: str, stage: str) -> str:
     """Build a unique opener that references the customer's actual words.
-    This is the fallback when all canned options are exhausted.
-    Returns empty string for content that doesn't warrant a Say First."""
-    t = text.lower().strip()
+    Returns empty string if we can't generate something unique and valuable."""
     keywords = _extract_key_phrases(text)
 
     # If the customer didn't say much meaningful, skip the Say First
     if len(keywords) < 2:
         return ""
 
-    # Build a unique opener by echoing back a key detail
-    # These templates can't repeat because they incorporate the customer's unique words
+    # Pick 1-2 keywords to echo back — makes each opener unique to the moment
+    kw = random.choice(keywords)
+
     _templates = [
-        lambda kw: f"I hear you on the {kw[0]} — let me take care of that.",
-        lambda kw: f"That makes sense — I'll keep that in mind as we go.",
-        lambda kw: f"I appreciate you sharing that — it helps me set you up right.",
-        lambda kw: f"That's really helpful to know — thank you.",
-        lambda kw: f"I understand — let me make sure we address that.",
+        f"I hear you on the {kw} — let me take care of that.",
+        f"The {kw} part is important — I'll keep that in mind.",
+        f"Thank you for mentioning the {kw} — that helps a lot.",
+        f"Good to know about the {kw} — I appreciate that.",
+        f"The {kw} makes sense — let me factor that in.",
     ]
 
-    # Pick a template that produces an unused opener
+    # Pick one that hasn't been used
     random.shuffle(_templates)
-    for template in _templates:
-        opener = template(keywords)
+    for opener in _templates:
         if opener not in _session_used_openers:
             _session_used_openers.add(opener)
             return opener
 
-    # Absolute last resort — return empty (no Say First, just show THEN)
+    # Can't generate anything unique — skip Say First entirely
     return ""
 
 
@@ -1338,6 +1336,7 @@ class Session:
         self._closing_pitch_groups_said: set[str] = set()  # tracks 3 closing_pitch sub-groups
         self._plan: str = "plus"  # "plus" or "basic"
         self._user_feedback: str = ""  # post-call feedback from rep
+        self._opener_feedback: list[dict] = []  # [{opener, rating}] from rep thumbs up/down
 
     async def send(self, msg: dict):
         try:
@@ -1431,6 +1430,7 @@ class Session:
                     profile_edits=list(self._profile_edits),
                     equipment_edits=list(self._equipment_edits),
                     user_feedback="",
+                    opener_feedback=list(self._opener_feedback),
                 )
             except Exception as e:
                 print(f"[transcript] save failed: {e}")
@@ -2843,6 +2843,12 @@ async def websocket_endpoint(ws: WebSocket):
                         await session.start_live()
                     elif action == "start_roleplay":
                         await session.start_roleplay()
+                    elif action == "opener_feedback":
+                        opener_text = msg.get("opener", "")
+                        rating = msg.get("rating", "")
+                        if opener_text and rating in ("up", "down"):
+                            session._opener_feedback.append({"opener": opener_text, "rating": rating})
+                            print(f"[opener] {'👍' if rating == 'up' else '👎'} {opener_text[:50]}")
                     elif action == "tts_playing":
                         session.tts_active = msg.get("active", False)
                         if not session.tts_active:
