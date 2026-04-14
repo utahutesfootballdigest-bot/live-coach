@@ -932,29 +932,15 @@ function handleCallGuidance(msg) {
     updateStagePillViewState();
   }
 
-  if (opener) {
-    // New opener — show it and hide next_step until it arrives
-    const openerEl = document.getElementById("opener-text");
-    openerEl.textContent = opener;
-    document.getElementById("opener-card").style.display = "flex";
-    resetOpenerFeedback();
-    if (!next_step) {
-      document.getElementById("next-step-card").style.display = "none";
-    }
-  }
+  // HIDDEN: Say First openers disabled for now
+  // if (opener) { ... }
 
   if (next_step) {
     const nextStepEl = document.getElementById("next-step-text");
     nextStepEl.textContent = next_step;
     document.getElementById("next-step-card").style.display = "flex";
-    // Show the opener card alongside the next_step if one exists
-    const openerCard = document.getElementById("opener-card");
-    const openerText = document.getElementById("opener-text").textContent;
-    if (openerText) {
-      openerCard.style.display = "flex";
-    }
-    // Reset feedback buttons — new suggestion context
-    if (!opener) resetOpenerFeedback();
+    // Keep opener card hidden
+    document.getElementById("opener-card").style.display = "none";
   }
 
   // If neither opener nor next_step, this is a stage-change-only message — don't hide them
