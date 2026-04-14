@@ -2537,11 +2537,10 @@ class Session:
             _DISC_TO_INFO = [
                 "grab some info", "get some info", "grab some information",
                 "get some information", "grab your info", "get your info",
-                "going to grab", "gonna grab some", "gonna get some info",
+                "gonna grab some", "gonna get some info",
                 "just going to grab", "just gonna grab",
                 "grab info from you", "get info from you",
-                "get some details", "grab some details",
-                "before we get started", "before we start building",
+                "get some details from you", "grab some details from you",
             ]
             if self.current_stage in ("discovery", "intro") and (
                 any(p in _t_trans for p in _DISC_TO_INFO) or
@@ -2551,13 +2550,14 @@ class Session:
                 self.current_stage = "collect_info"
                 _advanced = True
 
-            # collect_info → build_system
+            # collect_info → build_system — require SPECIFIC scripted phrases only.
+            # Generic phrases like "help you out" or "have coverage" are too loose.
             _INFO_TO_BUILD = [
-                "fantastic coverage", "great coverage", "definitely help you",
-                "can definitely help", "definitely take care",
-                "coverage out there", "coverage in your area",
-                "have coverage", "we can help you", "help you out",
-                "dive right in", "let's build", "build your system",
+                "fantastic coverage", "great coverage",
+                "coverage out there",
+                "definitely help you out", "can definitely help you out",
+                "definitely take care of you",
+                "dive right in", "let's build your system",
             ]
             if not _advanced and self.current_stage == "collect_info" and (
                 any(p in _t_trans for p in _INFO_TO_BUILD) or
@@ -2573,9 +2573,10 @@ class Session:
 
             # build_system → closing
             _BUILD_TO_CLOSE = [
-                "extra discount", "lot of discount", "see what i can do",
-                "see what we can do", "get you a lot of", "able to get you",
-                "lot of extra", "a lot of discounts", "get you some discounts",
+                "extra discount", "lot of discount",
+                "lot of extra discount", "a lot of discounts",
+                "get you some discounts", "get you a lot of discount",
+                "able to get you a lot",
             ]
             if not _advanced and self.current_stage == "build_system" and (
                 any(p in _t_trans for p in _BUILD_TO_CLOSE) or
