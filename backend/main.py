@@ -342,25 +342,31 @@ def _strip_fluff_for_opener(opener: str, next_step: str) -> str:
     return cleaned if cleaned else next_step
 
 
-# Per-session opener tracking — HARD RULE: never repeat within a session.
-_session_used_openers: set[str] = set()
+# Per-session opener tracking — stored per-session, not global.
+# The active session's set is passed into opener functions via _active_opener_set.
+# This prevents WebSocket reconnections from clearing history.
+_active_opener_set: set[str] = set()
 
-def _reset_opener_tracking():
-    """Call when a new session starts."""
-    _session_used_openers.clear()
+def _set_active_opener_tracking(s: set[str]):
+    """Point the opener functions at a specific session's tracking set."""
+    global _active_opener_set
+    _active_opener_set = s
 
 def _pick(options: list[str]) -> str | None:
     """Pick an unused opener. Returns None if all options already used."""
-    available = [o for o in options if o not in _session_used_openers]
+    available = [o for o in options if o not in _active_opener_set]
     if not available:
         return None
     choice = random.choice(available)
-    _session_used_openers.add(choice)
+    _active_opener_set.add(choice)
     return choice
 
-def _use(opener: str) -> str:
-    """Register a specific opener as used and return it."""
-    _session_used_openers.add(opener)
+def _try_unique(opener: str) -> str | None:
+    """Return the opener if it hasn't been used this session, else None."""
+    if opener in _active_opener_set:
+        return None
+    _active_opener_set.add(opener)
+    print(f"[opener] NEW: {opener[:60]}")
     return opener
 
 
@@ -501,7 +507,7 @@ def _generate_unique_opener(original_text: str, t: str, stage: str) -> str:
     # Step 3: For discovery/intro, try a numbered acknowledgement
     # The number makes each one unique even when content is similar
     if stage in ("intro", "discovery"):
-        _count = len(_session_used_openers) + 1
+        _count = len(_active_opener_set) + 1
         _acks = [
             f"I appreciate that — let me keep going here.",
             f"Thank you — that's really helpful to know.",
@@ -518,14 +524,6 @@ def _generate_unique_opener(original_text: str, t: str, stage: str) -> str:
             return _try_unique(f"I hear you on \"{snippet[:30]}\" — let me help you with that.") or ""
 
     return ""
-
-
-def _try_unique(opener: str) -> str | None:
-    """Return the opener if it hasn't been used this session, else None."""
-    if opener in _session_used_openers:
-        return None
-    _session_used_openers.add(opener)
-    return opener
 
 
 def _find_word(text: str, words: list[str]) -> str:
@@ -1275,6 +1273,7 @@ class Session:
         self._plan: str = "plus"  # "plus" or "basic"
         self._user_feedback: str = ""  # post-call feedback from rep
         self._opener_feedback: list[dict] = []  # [{opener, rating}] from rep thumbs up/down
+        self._used_openers: set[str] = set()  # per-session opener tracking — survives reconnections
 
     async def send(self, msg: dict):
         try:
@@ -1287,7 +1286,7 @@ class Session:
     async def start_live(self):
         if self.running:
             return
-        _reset_opener_tracking()
+        _set_active_opener_tracking(self._used_openers)
         self.roleplay_mode = False
         self.mic_queue = asyncio.Queue()
         self.loopback_queue = asyncio.Queue()
@@ -1300,7 +1299,7 @@ class Session:
     async def start_roleplay(self):
         if self.running:
             return
-        _reset_opener_tracking()
+        _set_active_opener_tracking(self._used_openers)
         self.roleplay_mode = True
         self.mic_queue = asyncio.Queue()
         self.coach = CoachingEngine(ANTHROPIC_API_KEY)
