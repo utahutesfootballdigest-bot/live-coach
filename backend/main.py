@@ -981,7 +981,7 @@ _CHECKLIST_PROMPTS = {
     # Recap
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
-    "closing_pitch": ("We have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
+    "closing_pitch": ("So how it will work, we have a 60-day risk-free trial, so you can try everything out and if it's not the right fit, you can return it for a full refund. "
                       "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. "
                       "We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes."),
     "closing_pricing": None,  # dynamic — calculated from equipment counts at runtime
