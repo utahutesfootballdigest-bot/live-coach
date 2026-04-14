@@ -977,8 +977,8 @@ _CHECKLIST_PROMPTS = {
     "indoor_camera": None,  # uses personalization — filled dynamically
     "outdoor_camera": "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
     "panel_hub": None,  # uses personalization — filled dynamically
-    "yard_sign": "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, and control everything from your phone no matter where you are.",
-    # Recap
+    "yard_sign": None,  # UNUSED — merged into recap_done
+    # Recap (includes yard sign + stickers + smartphone + equipment list + question)
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
     "closing_pitch": None,  # dynamic — combined pitch + pricing, calculated at runtime
@@ -996,7 +996,7 @@ _CHECKLIST_PROMPTS = {
 _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
-    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "yard_sign", "recap_done"],
+    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "recap_done"],
     "closing": ["closing_pitch", "closing_cart", "closing_checkout", "closing_welcome"],
 }
 
@@ -1212,47 +1212,48 @@ def _build_pricing_prompt(session) -> str:
 
 
 def _build_recap_prompt(session) -> str:
-    """Build a dynamic recap prompt from the equipment list."""
+    """Build yard sign + stickers + smartphone + recap as one flowing paragraph."""
     counts = session._equipment_counts
     name = session.coach.customer_name if session.coach else ""
-    parts = []
+    equip_parts = []
     if counts.get("door_sensors", 0) > 0:
-        parts.append(f"{counts['door_sensors']} door sensor{'s' if counts['door_sensors'] != 1 else ''}")
+        equip_parts.append(f"{counts['door_sensors']} door sensor{'s' if counts['door_sensors'] != 1 else ''}")
     if counts.get("window_sensors", 0) > 0:
-        parts.append(f"{counts['window_sensors']} window sensor{'s' if counts['window_sensors'] != 1 else ''}")
+        equip_parts.append(f"{counts['window_sensors']} window sensor{'s' if counts['window_sensors'] != 1 else ''}")
     if counts.get("motion_sensor", 0) > 0:
-        parts.append("a motion detector")
+        equip_parts.append("a motion detector")
     if counts.get("glass_break", 0) > 0:
-        parts.append("a glass break detector")
+        equip_parts.append("a glass break detector")
     if counts.get("co_detector", 0) > 0:
-        parts.append("a carbon monoxide detector")
+        equip_parts.append("a carbon monoxide detector")
     if counts.get("indoor_camera", 0) > 0:
-        parts.append("a free indoor camera")
+        equip_parts.append("a free indoor camera")
     if counts.get("outdoor_camera", 0) > 0:
-        parts.append("an outdoor camera")
+        equip_parts.append("an outdoor camera")
     if counts.get("doorbell_camera", 0) > 0:
-        parts.append("a doorbell camera")
+        equip_parts.append("a doorbell camera")
     if counts.get("smoke_detector", 0) > 0:
-        parts.append("a smoke detector")
+        equip_parts.append("a smoke detector")
     if counts.get("key_fob", 0) > 0:
         n = counts["key_fob"]
-        parts.append(f"{n} key fob{'s' if n != 1 else ''}")
+        equip_parts.append(f"{n} key fob{'s' if n != 1 else ''}")
     if counts.get("medical_pendant", 0) > 0:
-        parts.append("a medical pendant")
+        equip_parts.append("a medical pendant")
     if counts.get("flood_sensor", 0) > 0:
-        parts.append("a flood sensor")
-    # Always include these
-    parts.append("the hub and touchscreen panel")
-    parts.append("a yard sign and window stickers")
-    parts.append("full smartphone access")
+        equip_parts.append("a flood sensor")
+    equip_parts.append("the hub and touchscreen panel")
 
-    if parts:
-        equip_list = ", ".join(parts)
-        suffix = f", {name}" if name else ""
-        return (f"Let me quickly recap what I have for you: {equip_list}. "
-                f"Personally I believe we've got you fully protected — "
-                f"but is there anything else you were hoping I could add{suffix}?")
-    return "Let me quickly recap everything we've got for you. Is there anything else you'd like to add?"
+    equip_list = ", ".join(equip_parts)
+    suffix = f", {name}" if name else ""
+
+    return (
+        "I'm also going to throw in a free yard sign and window stickers — that way everyone knows "
+        "you have security in place. Plus you'll have full smartphone access so you can arm and disarm "
+        "the system, view cameras, and control everything from your phone no matter where you are. "
+        f"So let me quickly recap what I have for you: {equip_list}, a yard sign and window stickers, "
+        f"and full smartphone access. Personally I believe we've got you fully protected — "
+        f"but is there anything else you were hoping I could add{suffix}?"
+    )
 
 
 def _fallback_next_step(stage: str, coach, session=None) -> str:

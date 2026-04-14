@@ -716,8 +716,7 @@ const STAGE_CHECKLIST = {
     { key: "indoor_camera",  label: "Free indoor camera" },
     { key: "outdoor_camera", label: "Outdoor / doorbell camera" },
     { key: "panel_hub",      label: "Panel, hub, & cellular backup" },
-    { key: "yard_sign",      label: "Yard sign, stickers, & smartphone access" },
-    { key: "recap_done",     label: "Recap equipment + \"Anything else to add?\"" },
+    { key: "recap_done",     label: "Yard sign + stickers + smartphone + recap + \"Anything else?\"" },
     { key: "_section_build_system", label: "--- BUILD COMPLETE ---", section: true },
   ],
   closing: [
