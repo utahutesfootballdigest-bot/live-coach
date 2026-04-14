@@ -1916,10 +1916,8 @@ class Session:
                     raw_next = ""  # fall through to fallback
 
             if raw_next:
-                # TEMPORARILY DISABLED: fluff-stripping (openers hidden)
-                # opener_used = self.coach._last_opener if self.coach else ""
-                # cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
-                cleaned_next = raw_next
+                opener_used = self.coach._last_opener if self.coach else ""
+                cleaned_next = _strip_fluff_for_opener(opener_used, raw_next)
                 suggestion["next_step"] = cleaned_next
             else:
                 # P0 FIX: Fallback for empty Then — generate a stage-appropriate
@@ -1963,11 +1961,10 @@ class Session:
             if cleaned_next and self.coach and self.current_stage != "build_system":
                 self.coach.track_equipment_from_text(cleaned_next)
 
-            # TEMPORARILY DISABLED: opener in guidance (openers hidden)
-            # opener_used = self.coach._last_opener if self.coach else ""
+            opener_used = self.coach._last_opener if self.coach else ""
             guidance_msg = {"type": "call_guidance", "call_stage": new_stage, "next_step": cleaned_next}
-            # if opener_used:
-            #     guidance_msg["opener"] = opener_used
+            if opener_used:
+                guidance_msg["opener"] = opener_used
             await self.send(guidance_msg)
             await self.send_checklist()
             # Update profile equipment list
@@ -2216,10 +2213,8 @@ class Session:
                 "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
 
             # Only advance if the customer gave the expected info type
-            # TEMPORARILY DISABLED: openers hidden
-            # opener = _quick_opener(text, "collect_info")
-            # self.coach.set_opener(opener)
-            opener = ""
+            opener = _quick_opener(text, "collect_info")
+            self.coach.set_opener(opener)
             next_step = None
 
             if "full_name" not in self._collect_info_done:
@@ -2283,20 +2278,21 @@ class Session:
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     # Don't auto-advance to build_system — rep must click
                     # "INFO COMPLETE" to advance. Just show coverage confirmation.
-                    # TEMPORARILY DISABLED: openers hidden
-                    # opener = _pick(["Awesome, we have fantastic coverage in your area.",
-                    #                 "Great news — we have great coverage out there.",
-                    #                 "Perfect, we can definitely service that area."])
-                    # self.coach.set_opener(opener)
-                    opener = ""
-                    next_step = "We have great coverage in your area, so I can definitely help you out. Go ahead and click INFO COMPLETE when you're ready to build the system."
+                    opener = _pick(["Awesome, we have fantastic coverage in your area.",
+                                    "Great news — we have great coverage out there.",
+                                    "Perfect, we can definitely service that area."])
+                    self.coach.set_opener(opener)
+                    next_step = "I can definitely help you out. Let's go ahead and build your system."
                     self.coach._topics_done.add("full_name")
                     self.coach._topics_done.add("phone_number")
                     self.coach._topics_done.add("email")
                     self.coach._topics_done.add("address")
 
             if next_step:
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "next_step": next_step})  # opener hidden
+                guidance = {"type": "call_guidance", "call_stage": self.current_stage, "next_step": next_step}
+                if opener:
+                    guidance["opener"] = opener
+                await self.send(guidance)
                 await self.send_checklist()
                 await self.send_profile()
                 await self.send_pricing()
@@ -2453,10 +2449,8 @@ class Session:
 
             # If handled, send guidance
             if build_handled:
-                # TEMPORARILY DISABLED: openers hidden
-                # opener = _quick_opener(text, "build_system")
-                # self.coach.set_opener(opener)
-                opener = ""
+                opener = _quick_opener(text, "build_system")
+                self.coach.set_opener(opener)
                 if not next_step:
                     next_step = _fallback_next_step("build_system", self.coach, session=self)
                 if not next_step:
@@ -2466,8 +2460,11 @@ class Session:
                     next_step = next_step.replace("[NAME]", name)
                 if next_step:
                     next_step = _trim_long_suggestion(next_step)
-                await self.send({"type": "call_guidance", "call_stage": self.current_stage,
-                                 "next_step": next_step or ""})
+                guidance = {"type": "call_guidance", "call_stage": self.current_stage,
+                            "next_step": next_step or ""}
+                if opener:
+                    guidance["opener"] = opener
+                await self.send(guidance)
                 self._profile["equipment"] = self._build_equipment_list()
                 await self.send_checklist()
                 await self.send_profile()
@@ -2496,11 +2493,10 @@ class Session:
                         if h["speaker"] == "rep":
                             _last_rep = h["text"]
                             break
-                # TEMPORARILY DISABLED: openers hidden
-                # opener = _quick_opener(text, self.current_stage, _last_rep)
+                opener = _quick_opener(text, self.current_stage, _last_rep)
                 self.opener_shown = True
-                # self.coach.set_opener(opener)
-                # await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener})
+                self.coach.set_opener(opener)
+                await self.send({"type": "call_guidance", "call_stage": self.current_stage, "opener": opener})
 
         if not is_final or self.coach is None:
             return
@@ -2551,7 +2547,11 @@ class Session:
         # Always add rep finals to coach history, even without speech_final.
         # speech_final only fires after 1.2s silence, so in fast conversation
         # many rep segments were being silently dropped.
+        _topics_before = set(self.coach._topics_done)
         self.coach.add_turn(speaker, text)
+        # If add_turn detected new topics (rep asked a question), update checklist immediately
+        if self.coach._topics_done != _topics_before:
+            await self.send_checklist()
 
         # ── Auto-detect stage from rep speech (mid-call join) ──
         # If rep joined a call already in progress, the stage may be stuck at

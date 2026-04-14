@@ -275,7 +275,7 @@ INTRO RULE: During the intro stage, there is NO separate opener bubble shown.
 Your next_step IS the only thing the rep sees, so include a brief natural acknowledgement at the start
 (e.g., "Perfect,", "Got it,", "Alright,") followed immediately by the next script question — all in one line.
 
-COLLECT_INFO RULE: During collect_info, an opener bubble IS shown (e.g., "Got it, thank you." or "Perfect, I have your number.").
+COLLECT_INFO RULE: During collect_info, a "SAY FIRST" opener bubble is shown above your next_step (e.g., "Got it, thank you." or "Perfect, I have your number.").
 Your next_step should flow directly from that opener — NO acknowledgement, just the next question.
 Example: Opener: "Got it, I have your number." → next_step: "And your email so I can send all this information over to you?"
 
@@ -297,8 +297,15 @@ GOOD (direct):
 # Once a topic is "done", any next_step containing its output phrases gets stripped.
 QUESTION_TOPICS = {
     "existing_customer": {
-        "rep_asks": ["already a customer", "already a cove", "existing customer"],
-        "customer_answers": ["looking to get", "looking for", "interested in", "i want", "i need", "get a system", "get a security"],
+        "rep_asks": ["already a customer", "already a cove", "existing customer",
+                     "new customer", "looking to get a security"],
+        "customer_answers": ["looking to get", "looking for", "interested in", "i want", "i need",
+                             "get a system", "get a security", "i'm new", "i am new", "new customer",
+                             "not a customer", "no i'm not", "looking into", "want to get",
+                             "want to set up", "want a system", "shopping for", "trying to get",
+                             "need a system", "need security", "looking at getting",
+                             "yes i am", "yeah i am", "i'm already", "i already have",
+                             "current customer", "existing customer", "have an account"],
         "output_detect": ["already a customer", "already a cove", "existing customer", "looking to get a security"],
     },
     "had_system_before": {
@@ -309,7 +316,9 @@ QUESTION_TOPICS = {
                              "we had", "i've had", "had one with", "had adt", "had alder", "had ring",
                              "had simplisafe", "had vivint", "this would be",
                              "this will be", "no i have not", "no i haven't", "this is my first",
-                             "had a system", "had security", "had one before"],
+                             "had a system", "had security", "had one before",
+                             "no never", "never before", "not before", "no this is",
+                             "this is the first", "don't have one", "never owned"],
         # NOTE: Generic short answers ("not yet", "nope", "no sir") removed —
         # they were triggering from existing_customer context. These are
         # handled by the short-answer heuristic which checks recent rep speech.
@@ -323,17 +332,40 @@ QUESTION_TOPICS = {
                              "with adt", "with alder", "with ring", "with simplisafe", "with vivint",
                              "have adt", "have alder", "have ring", "have simplisafe", "have vivint",
                              "got adt", "got alder", "got ring", "got simplisafe", "got vivint",
-                             "nothing really"],
+                             "nothing really", "nothing special", "it was okay", "it was fine",
+                             "liked the cameras", "liked the app", "didn't like"],
         "output_detect": ["who did you have", "who were you with", "anything you liked", "previous system"],
     },
     "who_protecting": {
-        "rep_asks": ["who are we protecting", "who all are we", "who lives", "anyone else living", "kids or pets", "just you or", "who are we looking to protect"],
-        "customer_answers": ["my wife", "my husband", "my kids", "my children", "my son", "my daughter", "just me", "my family", "my dogs", "my cat", "live alone", "by myself"],
-        "output_detect": ["who are we protecting", "who all are we", "who lives", "kids or pets", "anyone else living", "who are we looking to protect"],
+        "rep_asks": ["who are we protecting", "who all are we", "who lives", "anyone else living",
+                     "kids or pets", "just you or", "who are we looking to protect",
+                     "who else is", "who's in the home", "who's in the house",
+                     "anybody else", "anyone else in"],
+        "customer_answers": ["my wife", "my husband", "my kids", "my children", "my son", "my daughter",
+                             "just me", "my family", "my dogs", "my cat", "live alone", "by myself",
+                             "me and my", "and the kids", "and my kids", "and my wife", "and my husband",
+                             "two kids", "three kids", "the wife", "the kids", "the family",
+                             "couple dogs", "couple cats", "a dog", "a cat", "two dogs", "my dog",
+                             "my girlfriend", "my boyfriend", "my fiance", "my fiancee",
+                             "my roommate", "my mom", "my mother", "my dad", "my father",
+                             "my parents", "my grandmother", "my grandfather", "my grandma", "my grandpa",
+                             "we have kids", "got kids", "have kids", "have a dog", "have dogs",
+                             "have a cat", "have cats", "have pets", "got dogs", "got a dog",
+                             "there's four of us", "there's three of us", "there's two of us",
+                             "four of us", "three of us", "two of us", "the whole family",
+                             "entire family", "wife and kids", "husband and kids",
+                             "i live with", "it's just me", "only me", "nobody else",
+                             "i'm alone", "no one else", "no kids", "no pets"],
+        "output_detect": ["who are we protecting", "who all are we", "who lives", "kids or pets",
+                          "anyone else living", "who are we looking to protect",
+                          "who else is", "who's in the home", "anybody else"],
     },
     "kids_age": {
         "rep_asks": ["little kids or teenager", "how old are", "ages of your kids"],
-        "customer_answers": ["teenager", "little kids", "toddler", "baby", "year old", "years old", "elementary", "middle school", "high school"],
+        "customer_answers": ["teenager", "little kids", "toddler", "baby", "year old", "years old",
+                             "elementary", "middle school", "high school",
+                             "little ones", "young kids", "small kids", "grown", "adult",
+                             "in school", "preschool", "kindergarten"],
         "output_detect": ["little kids or teenager", "how old are", "ages of your kids"],
     },
     "why_security": {
@@ -353,7 +385,19 @@ QUESTION_TOPICS = {
                              "been thinking about", "been meaning to", "finally decided", "time to get",
                              "just bought", "bought a house", "new to the area", "moved here",
                              "moved from", "new place", "just purchased", "first house", "first home",
-                             "looking to set up", "set up a security", "set up security"],
+                             "looking to set up", "set up a security", "set up security",
+                             "safety", "for safety", "for protection", "want cameras",
+                             "want to protect", "want to keep", "keep safe", "stay safe",
+                             "feel safe", "protect the house", "protect the home", "protect my home",
+                             "want to be safe", "need protection", "need to protect",
+                             "saw on tv", "saw online", "saw your ad", "saw the commercial",
+                             "scared", "nervous", "worried", "crime", "theft", "stolen",
+                             "burglar", "someone broke", "car was broken", "package stolen",
+                             "travel a lot", "work a lot", "gone a lot", "not home a lot",
+                             "away a lot", "work nights", "night shift",
+                             "moving in", "closing on", "buying a home", "new apartment",
+                             "just because i want", "always wanted", "been wanting",
+                             "never had one", "about time", "it's about time"],
         "output_detect": ["what has you looking", "what got you", "why are you looking", "something happen",
                           "what brought you", "what made you", "looking into getting", "looking to get security",
                           "reason for", "why do you want", "interested in security",
@@ -511,7 +555,15 @@ class CoachingEngine:
             # Short answer heuristic: if customer says just "no"/"yes"/"yeah" etc.,
             # check if the rep recently asked a discovery question and mark it done
             _short = t.strip().rstrip(".,!?")
-            if _short in ("no", "yes", "yeah", "yep", "nope", "sure", "okay", "ok"):
+            _SHORT_ANSWERS = {
+                "no", "yes", "yeah", "yep", "nope", "sure", "okay", "ok",
+                "no sir", "no ma'am", "yes sir", "yes ma'am", "yeah definitely",
+                "no not yet", "not yet", "yes i do", "no i don't", "correct",
+                "right", "exactly", "absolutely", "for sure", "of course",
+                "that's right", "that's correct", "mm hmm", "uh huh", "nah",
+                "no i do not", "yeah i do", "yep i do", "no i don't think so",
+            }
+            if _short in _SHORT_ANSWERS:
                 # Look at last 4 rep turns for a topic match
                 _recent_rep = [h["text"].lower() for h in self._history[-8:]
                                if h["speaker"] == "rep"]
@@ -733,12 +785,19 @@ class CoachingEngine:
                 "has NOT yet covered and suggest that instead."
             )
 
-        # TEMPORARILY DISABLED: opener integration — openers are hidden,
-        # so Claude should write self-contained next_steps.
-        opener_note = (
-            "\n\n⚠️ Your next_step is the ONLY thing the rep sees. "
-            "Start with a brief, natural transition (like 'Perfect,' or 'Got it,') then go straight "
-            "into the next script question. Keep it in one smooth line."
+        opener_note = ""
+        if self._last_opener:
+            opener_note = (
+                f"\n\n⚠️ A 'SAY FIRST' bubble is already showing the rep this opener: \"{self._last_opener}\"\n"
+                "Your next_step appears as a 'THEN' bubble BELOW the opener. "
+                "Do NOT repeat or paraphrase the opener in your next_step — go straight to the next "
+                "script question or action. The rep reads the opener first, then your next_step."
+            )
+        else:
+            opener_note = (
+                "\n\n⚠️ Your next_step is the ONLY thing the rep sees. "
+                "Start with a brief, natural transition (like 'Perfect,' or 'Got it,') then go straight "
+                "into the next script question. Keep it in one smooth line."
             )
 
         # Inject tuning notes from auto-analysis (if any)
