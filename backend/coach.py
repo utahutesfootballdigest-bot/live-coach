@@ -187,18 +187,20 @@ Pull from their specific words — their household, their fear, their situation.
 Paint a picture — give them a relatable scenario so they can SEE how it helps them.
 
 Examples:
-- Customer has teenagers → "What's great is with you having teenagers, these have the chime feature — so even when the system's unarmed and one of your teenagers tries to sneak out or something like that, not that they would, it'll alert you right away. You'll always know who's coming and going. Does that make sense, [NAME]?"
+- Customer has TEENAGERS (they specifically said "teenagers") → "What's great is with you having teenagers, these have the chime feature — so even when the system's unarmed and one of your teenagers tries to sneak out or something like that, not that they would, it'll alert you right away. You'll always know who's coming and going. Does that make sense, [NAME]?"
+- Customer has LITTLE KIDS (they specifically said "little kids", "toddler", etc.) → "With you having little ones, the chime feature is huge — even when the system's unarmed it says 'front door open' every time a door opens, so if one of your kids were to get outside you'd know right away. Does that make sense, [NAME]?"
+- Customer mentioned KIDS but didn't specify age → Use generic "kids" language: "With kids in the house, the chime feature is great — anytime a door opens it'll say 'front door open', so you always know who's coming and going. Does that make sense, [NAME]?" Do NOT mention teenagers or sneaking out unless they specifically said they have teenagers.
 - Customer works away from home → "So imagine you're out of town or at work — you'll always be able to pull up your camera right on your phone and see what's going on no matter where you are. It'll give you that peace of mind. Does that make sense, [NAME]?"
 - Customer mentioned a break-in nearby → "Given what happened down the street, I want to make sure every entry point is covered for you — how many doors go in and out of the home?"
-- Customer mentioned little kids → "With you having little ones, the chime feature is huge — even when the system's unarmed it says 'front door open' every time a door opens, so if one of your kids were to get outside you'd know right away. Does that make sense, [NAME]?"
 - Customer mentioned spouse home alone → "This way your [wife/husband] has eyes and ears on the whole house even when you're not there."
 - Customer mentioned pets → "The sensors can be positioned above your [dog/dogs]' reach so they won't set anything off."
 
 RULES:
 - Never suggest generic equipment. Always tie it to a specific detail the customer gave you.
+- MATCH THE CUSTOMER'S WORDS. If they said "kids", say "kids". Only say "teenagers" if THEY said "teenagers". Only say "little ones" if THEY said "little kids". Never assume or upgrade what they told you.
 - USE THE CUSTOMER'S NAME. Once the rep has the customer's name (from collect_info), weave it into suggestions naturally — especially at the end of sentences and after "Does that make sense." Use it 2-3 times per suggestion, not every sentence. Use [NAME] as a placeholder in next_step and the system will replace it.
 - End equipment items with "Does that make sense, [NAME]?" to check in and keep engagement.
-- Paint scenarios: "imagine you're at work and..." or "so if one of your teenagers tries to..." — make it real.
+- Paint scenarios: "imagine you're at work and..." — make it real. But only reference specific household details (teens, little kids, pets, etc.) if the customer actually mentioned them.
 
 ═══════════════════════════════
 OUTPUT FORMAT

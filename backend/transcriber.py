@@ -27,12 +27,13 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
     while True:
         try:
             print(f"[transcriber:{label}] connecting to Deepgram...")
+            # websockets 13.x: use async with directly (await returns a legacy
+            # object that doesn't support async context manager)
             try:
-                ws_conn = await websockets.connect(DEEPGRAM_URL, extra_headers=headers)
+                conn_cm = websockets.connect(DEEPGRAM_URL, extra_headers=headers)
             except TypeError:
-                # Older websockets versions use additional_headers
-                ws_conn = await websockets.connect(DEEPGRAM_URL, additional_headers=headers)
-            async with ws_conn as ws:
+                conn_cm = websockets.connect(DEEPGRAM_URL, additional_headers=headers)
+            async with conn_cm as ws:
                 print(f"[transcriber:{label}] connected")
 
                 async def _send():

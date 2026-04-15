@@ -728,6 +728,20 @@ def _extract_email(text: str) -> str:
     for domain in ["gmail", "yahoo", "hotmail", "outlook", "aol"]:
         while domain[0] + domain in result:
             result = result.replace(domain[0] + domain, domain)
+    # Strip trailing punctuation that Deepgram sometimes appends
+    result = result.rstrip(".,;:!? ")
+    # Fix common TLD mistranscriptions
+    _TLD_FIXES = {
+        ".cp": ".com", ".co,": ".com", ".con": ".com", ".cmo": ".com",
+        ".vom": ".com", ".xom": ".com", ".comm": ".com", ".cm": ".com",
+        ".cpm": ".com", ".ocm": ".com", ".c": ".com",
+        ".ner": ".net", ".ent": ".net", ".nte": ".net",
+        ".ogr": ".org", ".rog": ".org",
+    }
+    for bad, good in _TLD_FIXES.items():
+        if result.endswith(bad):
+            result = result[:-len(bad)] + good
+            break
     if "@" in result:
         # Safety net: strip any leading non-email words that got mashed in
         # Valid email chars before @ are: alphanumeric, dots, underscores, hyphens, plus
@@ -755,22 +769,26 @@ def _extract_name(text: str) -> str:
         _SPELL_FILLER = {"then", "and", "my", "last", "name", "is", "that's", "it",
                          "first", "it's", "that", "yeah", "yes", "the", "of", "course",
                          "yep", "okay", "ok", "sure", "so", "well", "um", "uh", "a"}
-        words = text.split()
+        # Split on double+ spaces first to detect pauses between first/last name
+        # "k y l e   b o n n i e" → ["k y l e", "b o n n i e"]
+        segments = _re_name.split(r'  +', text)
         spelled_parts = []
-        current_spell = []
-        for w in words:
-            clean = w.strip(".,!?").lower()
-            if len(clean) == 1 and clean.isalpha():
-                current_spell.append(clean)
-            else:
-                if len(current_spell) >= 2:
-                    spelled_parts.append("".join(current_spell).capitalize())
-                current_spell = []
-                # Skip filler/transition words
-                if clean in _SPELL_FILLER:
-                    continue
-        if len(current_spell) >= 2:
-            spelled_parts.append("".join(current_spell).capitalize())
+        for segment in segments:
+            words = segment.split()
+            current_spell = []
+            for w in words:
+                clean = w.strip(".,!?").lower()
+                if len(clean) == 1 and clean.isalpha():
+                    current_spell.append(clean)
+                else:
+                    if len(current_spell) >= 2:
+                        spelled_parts.append("".join(current_spell).capitalize())
+                    current_spell = []
+                    # Skip filler/transition words
+                    if clean in _SPELL_FILLER:
+                        continue
+            if len(current_spell) >= 2:
+                spelled_parts.append("".join(current_spell).capitalize())
         if spelled_parts:
             return " ".join(spelled_parts[:3])  # max 3 name parts
 
@@ -824,7 +842,7 @@ def _extract_name(text: str) -> str:
         words = [w.capitalize() for w in parts if w.isalpha() and len(w) >= 2
                  and w.lower() not in _FILLER]
         if words:
-            return " ".join(words)
+            return " ".join(words).strip()
 
     return text.strip()
 
@@ -931,6 +949,9 @@ def _inject_personalization(text: str, coach) -> str:
                 text += " This way if your kids get outside without you knowing about it, you'll be alerted right away. Crisis averted."
             elif ctx["kids"] == "teens":
                 text += " So if one of your teenagers tries to sneak out, not that they would, you'll know right away."
+            else:
+                # Generic kids — don't assume teens or little
+                text += " With kids in the house, you'll always know who's coming and going."
 
     # If text mentions camera but doesn't reference family context
     if ("indoor camera" in t_lower or "eyes and ears" in t_lower) and not any(w in t_lower for w in ["kids", "children", "baby", "little", "family", "travel", "work"]):
@@ -2254,6 +2275,19 @@ class Session:
                     digits = _spoken_to_digits(_combined)
                     if not digits:
                         digits = "".join(c for c in _combined if c.isdigit())
+                    # Normalize to 10-digit US number
+                    if len(digits) == 11 and digits[0] == "1":
+                        digits = digits[1:]  # strip leading country code
+                    elif len(digits) > 10:
+                        # Try to find 10 consecutive digits that look like a US number
+                        # (area codes don't start with 0 or 1)
+                        for start in range(len(digits) - 9):
+                            chunk = digits[start:start + 10]
+                            if chunk[0] not in "01":
+                                digits = chunk
+                                break
+                        else:
+                            digits = digits[:10]  # fallback: take first 10
                     if len(digits) == 10:
                         self._profile["phone"] = f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
                     elif len(digits) >= 7:
