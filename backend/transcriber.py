@@ -19,6 +19,36 @@ DEEPGRAM_URL = (
 # Callback signature: (speaker: str, text: str, is_final: bool, speech_final: bool)
 TranscriptCallback = Callable[[str, str, bool, bool], Awaitable[None]]
 
+# Which kwarg name websockets accepts for headers — varies by version + Python.
+# Detected once on first connection, then cached for the process lifetime.
+_ws_header_kwarg = None
+
+
+async def _connect_deepgram(url: str, headers: dict):
+    """Connect to Deepgram, auto-detecting the correct headers kwarg.
+    Returns an async context manager for the websocket connection."""
+    global _ws_header_kwarg
+
+    if _ws_header_kwarg:
+        return websockets.connect(url, **{_ws_header_kwarg: headers})
+
+    # First call — try both and cache whichever works
+    try:
+        ws = await websockets.connect(url, extra_headers=headers)
+        _ws_header_kwarg = "extra_headers"
+        print(f"[transcriber] using extra_headers")
+        return ws
+    except TypeError:
+        pass
+
+    try:
+        ws = await websockets.connect(url, additional_headers=headers)
+        _ws_header_kwarg = "additional_headers"
+        print(f"[transcriber] using additional_headers")
+        return ws
+    except TypeError:
+        raise RuntimeError("websockets.connect() accepts neither extra_headers nor additional_headers")
+
 
 async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: TranscriptCallback):
     headers = {"Authorization": f"Token {api_key}"}
@@ -27,13 +57,19 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
     while True:
         try:
             print(f"[transcriber:{label}] connecting to Deepgram...")
-            # websockets 13.x: use async with directly (await returns a legacy
-            # object that doesn't support async context manager)
+
+            ws_or_cm = await _connect_deepgram(DEEPGRAM_URL, headers)
+
+            # _connect_deepgram returns either a raw websocket (first call, via await)
+            # or a context manager (cached calls). Handle both.
+            if hasattr(ws_or_cm, 'recv'):
+                # Already a connected websocket
+                ws = ws_or_cm
+            else:
+                # Context manager — need to enter it
+                ws = await ws_or_cm.__aenter__()
+
             try:
-                conn_cm = websockets.connect(DEEPGRAM_URL, extra_headers=headers)
-            except TypeError:
-                conn_cm = websockets.connect(DEEPGRAM_URL, additional_headers=headers)
-            async with conn_cm as ws:
                 print(f"[transcriber:{label}] connected")
 
                 async def _send():
@@ -76,6 +112,12 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
 
                 await asyncio.gather(_send(), _recv())
                 return  # clean shutdown via None sentinel — don't reconnect
+
+            finally:
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
 
         except asyncio.CancelledError:
             return
