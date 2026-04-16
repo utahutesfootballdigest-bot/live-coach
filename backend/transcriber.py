@@ -12,8 +12,9 @@ DEEPGRAM_URL = (
     "&sample_rate=16000"
     "&channels=1"
     "&interim_results=true"
-    "&endpointing=600"
+    "&endpointing=500"
     "&utterance_end_ms=1200"
+    "&vad_events=true"
 )
 
 # Callback signature: (speaker: str, text: str, is_final: bool, speech_final: bool)
@@ -83,6 +84,11 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
                             return
                         await ws.send(chunk)
 
+                # Buffer is_final transcripts without speech_final so we can
+                # flush them on UtteranceEnd (covers cases where Deepgram detects
+                # the speaker is done but never marks speech_final=True)
+                pending_final: list[str] = []
+
                 async def _recv():
                     nonlocal last_final
                     async for raw in ws:
@@ -90,7 +96,21 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
                             msg = json.loads(raw)
                         except Exception:
                             continue
-                        if msg.get("type") != "Results":
+
+                        msg_type = msg.get("type")
+
+                        # Handle UtteranceEnd — speaker is done, flush any buffered finals
+                        if msg_type == "UtteranceEnd":
+                            if pending_final:
+                                combined = " ".join(pending_final).strip()
+                                pending_final.clear()
+                                if combined and combined != last_final:
+                                    last_final = combined
+                                    print(f"[transcriber:{label}] UtteranceEnd flush: {combined[:60]!r}")
+                                    await cb(label, combined, True, True)
+                            continue
+
+                        if msg_type != "Results":
                             continue
                         alts = msg.get("channel", {}).get("alternatives", [])
                         if not alts:
@@ -107,6 +127,10 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
                                 print(f"[transcriber:{label}] dropping duplicate: {text[:50]!r}")
                                 continue
                             last_final = text
+                            pending_final.clear()  # speech_final supersedes pending
+                        elif is_final:
+                            # Buffer for UtteranceEnd flush
+                            pending_final.append(text)
 
                         await cb(label, text, is_final, speech_final)
 

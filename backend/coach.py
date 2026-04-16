@@ -563,8 +563,9 @@ class CoachingEngine:
                         self._topics_done.add(topic)
                         self._sync_topic_aliases(topic)
                         print(f"[coach] topic DONE (customer answered): {topic}")
-            # Short answer heuristic: if customer says just "no"/"yes"/"yeah" etc.,
-            # check if the rep recently asked a discovery question and mark it done
+            # Short answer heuristic: if customer says just "no"/"yes"/"yeah" etc.
+            # OR a short answer followed by brief elaboration, mark the recent
+            # rep question's topic as done.
             _short = t.strip().rstrip(".,!?")
             _SHORT_ANSWERS = {
                 "no", "yes", "yeah", "yep", "nope", "sure", "okay", "ok",
@@ -573,8 +574,26 @@ class CoachingEngine:
                 "right", "exactly", "absolutely", "for sure", "of course",
                 "that's right", "that's correct", "mm hmm", "uh huh", "nah",
                 "no i do not", "yeah i do", "yep i do", "no i don't think so",
+                "i don't", "we don't", "i do", "we do", "i have", "we have",
+                "i haven't", "we haven't", "i haven't had", "we haven't had",
+                "never", "never had", "never have", "first time",
+                "yes we do", "no we don't", "yes we have", "no we haven't",
             }
+
+            # Tokens that commonly START a discovery answer (short affirmative/negative)
+            _ANSWER_STARTERS = (
+                "no ", "yes ", "yeah ", "yep ", "nope ", "sure ", "okay ", "ok ",
+                "we ", "i ", "nah ", "never ", "not ",
+            )
+
+            _should_match_topic = False
             if _short in _SHORT_ANSWERS:
+                _should_match_topic = True
+            elif len(_short.split()) <= 8 and _short.startswith(_ANSWER_STARTERS):
+                # Short-to-medium answer starting with a common answer word
+                _should_match_topic = True
+
+            if _should_match_topic:
                 # Look at last 4 rep turns for a topic match
                 _recent_rep = [h["text"].lower() for h in self._history[-8:]
                                if h["speaker"] == "rep"]
@@ -584,7 +603,7 @@ class CoachingEngine:
                             if any(phrase in rep_text for phrase in rules["rep_asks"]):
                                 self._topics_done.add(topic)
                                 self._sync_topic_aliases(topic)
-                                print(f"[coach] topic DONE (short answer to rep question): {topic}")
+                                print(f"[coach] topic DONE (contextual answer to rep question): {topic}")
                                 break
             # Try to extract customer's first name
             if not self.customer_name:
@@ -860,7 +879,11 @@ class CoachingEngine:
                 json={
                     "model": "claude-haiku-4-5-20251001",
                     "max_tokens": 500,
-                    "system": SYSTEM_PROMPT,
+                    "system": [{
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }],
                     "messages": [{"role": "user", "content": user_content}],
                 },
             )
