@@ -11,7 +11,7 @@ STAGE_SCRIPT: dict[str, list[str]] = {
         "Hi, this is [AGENT NAME] with Cove Security on a recorded line. How are you doing today?",
         "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?",
         "[If existing customer] Okay, great. Let me get you to the right place, just hold on for me. (Transfer/End)",
-        "[If new customer] Perfect! I'll be the one to help you with that. Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system.",
+        "[If new customer] Perfect! I'll be the one to help you with that. Are you currently on the Cove website?",
         "[If on website] Awesome! Where are you in the process right now?",
         "[If at payment stage] Proceed with payment script.",
         "[If building system] Proceed with initial discovery.",

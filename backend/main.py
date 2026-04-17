@@ -590,7 +590,7 @@ def _stage_transition(stage: str) -> str:
     transitions = {
         "discovery": "I'm glad you decided to get a security system; it's a smart move. I'm here to make sure you get the protection and peace of mind you deserve.",
         "collect_info": "Alright! I'm just going to get some information from you before we start building out your system.",
-        "build_system": "Perfect! We have great coverage out there, so let's dive right in.",
+        "build_system": "Perfect! We have great coverage out there, so let's dive right and build out your system. Please follow along and add the items into your cart on your end as we build out the system.",
         "closing": "Awesome! It looks like I'll be able to get you a lot of extra discounts.",
     }
     return transitions.get(stage, "")
@@ -1070,7 +1070,7 @@ _CHECKLIST_PROMPTS = {
     "why_security": "What has you looking into security? Did something happen, did you just move, or is there something else going on?",
     "who_protecting": "Who are we looking to protect? Is it just you, or is there anyone else living there with you?",
     "kids_age": "Are we talking about little kids or teenagers? I can relate to that because...",
-    "on_website": "Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system.",
+    "on_website": "Are you currently on the Cove website?",
     # Collect info
     "full_name": "Could you please spell your first and last name for me?",
     "phone_number": "And the best phone number for you?",
@@ -2292,7 +2292,7 @@ class Session:
                 opener = _quick_opener(text, "discovery")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "discovery",
-                    "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system."}
+                    "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website?"}
                 if opener:
                     guidance["opener"] = opener
                 await self.send(guidance)
@@ -2523,11 +2523,11 @@ class Session:
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     # Don't auto-advance to build_system — rep must click
                     # "INFO COMPLETE" to advance. Just show coverage confirmation.
-                    opener = _pick(["Perfect! We have great coverage out there, so let's dive right in.",
-                                    "Great news — we have great coverage out there, so let's dive right in.",
-                                    "Awesome — we have great coverage out there, so let's dive right in."])
+                    opener = _pick(["Perfect! We have great coverage out there, so let's dive right and build out your system. Please follow along and add the items into your cart on your end as we build out the system.",
+                                    "Great news — we have great coverage out there, so let's dive right and build out your system. Please follow along and add the items into your cart on your end as we build out the system.",
+                                    "Awesome — we have great coverage out there, so let's dive right and build out your system. Please follow along and add the items into your cart on your end as we build out the system."])
                     if not opener:
-                        opener = "Perfect! We have great coverage out there, so let's dive right in."
+                        opener = "Perfect! We have great coverage out there, so let's dive right and build out your system. Please follow along and add the items into your cart on your end as we build out the system."
                     self.coach.set_opener(opener)
                     next_step = "How many doors are there that go in and out of the house?"
                     self.coach._topics_done.add("full_name")
