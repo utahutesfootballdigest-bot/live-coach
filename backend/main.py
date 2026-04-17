@@ -683,6 +683,22 @@ def _spoken_numbers_to_numerals(text: str) -> str:
     return " ".join(final)
 
 
+def _validate_email(email: str) -> bool:
+    """Check if a string looks like a valid email address."""
+    import re as _re_val
+    if not email or "@" not in email:
+        return False
+    # Must have something before @, something after, and a valid TLD
+    m = _re_val.match(r'^[a-zA-Z0-9][a-zA-Z0-9._+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', email)
+    if not m:
+        return False
+    # Domain must not have consecutive dots
+    domain = email.split("@")[1]
+    if ".." in domain:
+        return False
+    return True
+
+
 def _extract_email(text: str) -> str:
     """Extract email from spoken text like 'joe at gmail dot com'."""
     t = text.lower().strip()
@@ -712,12 +728,36 @@ def _extract_email(text: str) -> str:
     # Fix stutters: "g gmail" -> "gmail", "y yahoo" -> "yahoo"
     t = t.replace("g gmail", "gmail").replace("y yahoo", "yahoo")
     t = t.replace("h hotmail", "hotmail").replace("o outlook", "outlook")
+    # Handle letter-by-letter spelling: "j o h n" → "john"
+    # Detect sequences of single letters (common when customer spells email)
+    import re as _re_spell
+    def _collapse_spelled(s):
+        """Collapse 'j o h n' into 'john' but keep real words intact."""
+        words = s.split()
+        result_parts = []
+        current_spell = []
+        for w in words:
+            if len(w) == 1 and w.isalpha():
+                current_spell.append(w)
+            else:
+                if current_spell:
+                    result_parts.append("".join(current_spell))
+                    current_spell = []
+                result_parts.append(w)
+        if current_spell:
+            result_parts.append("".join(current_spell))
+        return " ".join(result_parts)
+    t = _collapse_spelled(t)
     # Replace spoken email patterns
     t = t.replace(" at ", "@").replace(" dot ", ".")
+    # Handle "at" attached to words: "johnat gmail" or "john at gmail"
+    # Also handle Deepgram hearing "add" instead of "at"
+    t = t.replace(" add ", "@")
     # If no "@" but has a domain (gmail, yahoo, aol, etc.), try to insert @
     # This handles STT dropping "at" — e.g. "kyle alder dot com" → "kyle@alder.com"
     if "@" not in t:
-        for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com"]:
+        for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+                        "icloud.com", "live.com", "msn.com", "me.com", "protonmail.com"]:
             if domain in t:
                 idx = t.index(domain)
                 # Find the space before the domain to insert @
@@ -731,11 +771,24 @@ def _extract_email(text: str) -> str:
                         t = before + "@" + domain
                 break
         else:
-            # No known domain — try inserting @ before last word before .com/.org etc
-            import re as _re_email2
-            m = _re_email2.search(r'(\S+)\s+(\S+\.com|\.org|\.net|\.edu)', t)
-            if m:
-                t = t[:m.start()] + m.group(1) + "@" + m.group(2)
+            # Try domain without .com attached: "john gmail dot com"
+            for provider in ["gmail", "yahoo", "hotmail", "outlook", "aol", "icloud"]:
+                if provider in t and "@" not in t:
+                    idx = t.index(provider)
+                    before = t[:idx].rstrip()
+                    after = t[idx:]  # "gmail dot com" etc
+                    if before:
+                        last_space = before.rfind(" ")
+                        if last_space >= 0:
+                            t = before[:last_space + 1] + before[last_space + 1:] + "@" + after
+                        else:
+                            t = before + "@" + after
+                    break
+            else:
+                # No known domain ��� try inserting @ before last word before .com/.org etc
+                m = _re_spell.search(r'(\S+)\s+(\S+\.com|\.org|\.net|\.edu)', t)
+                if m:
+                    t = t[:m.start()] + m.group(1) + "@" + m.group(2)
     # Remove remaining spaces (email has no spaces)
     result = t.replace(" ", "")
     # Final dedup: "ggmail" -> "gmail", "yyahoo" -> "yahoo"
@@ -758,13 +811,23 @@ def _extract_email(text: str) -> str:
             break
     if "@" in result:
         # Safety net: strip any leading non-email words that got mashed in
-        # Valid email chars before @ are: alphanumeric, dots, underscores, hyphens, plus
         import re as _re_email
         match = _re_email.search(r'[a-zA-Z0-9][a-zA-Z0-9._+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', result)
         if match:
-            return match.group(0)
+            extracted = match.group(0)
+            if _validate_email(extracted):
+                return extracted
+            # Close but not valid — return it anyway (rep can fix)
+            print(f"[email] extracted but failed validation: {extracted}")
+            return extracted
+        # Has @ but doesn't match pattern — return raw cleaned text
+        print(f"[email] has @ but malformed: {result}")
         return result
-    return text.strip()
+    # No @ found — return cleaned text so rep can see what was heard
+    # This is better than returning the raw spoken text with fillers
+    cleaned = t.replace(" ", "").rstrip(".,;:!? ")
+    print(f"[email] no @ found, returning cleaned: {cleaned}")
+    return cleaned
 
 
 def _extract_name(text: str) -> str:
@@ -1247,9 +1310,51 @@ def _build_pricing_prompt(session) -> str:
 
 
 def _build_recap_prompt(session) -> str:
-    """Build yard sign + stickers + smartphone + recap as one flowing paragraph."""
-    counts = session._equipment_counts
+    """Build yard sign + stickers + smartphone + recap as one flowing paragraph.
+    Uses _equipment_counts for explicit counts, but also checks equipment_mentioned
+    to ensure items the rep discussed aren't missing from the recap."""
+    counts = dict(session._equipment_counts)  # copy so we don't mutate
     name = session.coach.customer_name if session.coach else ""
+
+    # Ensure standard included items have a count if they were discussed.
+    # These items are always part of the system but may not have been explicitly
+    # set in _equipment_counts if the fast-track didn't process a yes/no for them.
+    _mentioned = session.coach._equipment_mentioned if session.coach else []
+    _STANDARD_DEFAULTS = {
+        "indoor_camera": ("camera", 1),
+        "panel_hub": ("panel", 1),
+    }
+    for key, (equip_name, default_qty) in _STANDARD_DEFAULTS.items():
+        if key not in counts and equip_name in _mentioned:
+            counts[key] = default_qty
+        elif key not in counts:
+            # Always include panel and indoor camera even if not explicitly tracked
+            counts[key] = default_qty
+
+    # Also backfill counts for items that were mentioned by the rep but whose
+    # counts weren't explicitly captured (e.g. rep said "door sensors" but the
+    # fast-track number detection missed). Pull from profile equipment list.
+    _MENTIONED_TO_KEY = {
+        "door sensor": "door_sensors",
+        "window sensor": "window_sensors",
+        "outdoor camera": "outdoor_camera",
+        "smoke detector": "smoke_detector",
+        "motion sensor": "motion_sensor",
+        "glass break": "glass_break",
+        "co detector": "co_detector",
+        "key fob": "key_fob",
+    }
+    for equip_name, key in _MENTIONED_TO_KEY.items():
+        if equip_name in _mentioned and key not in counts:
+            # Check profile equipment for the count
+            _profile_qty = 1  # default
+            for eq in session._profile.get("equipment", []):
+                if eq.get("key") == key:
+                    _profile_qty = eq.get("qty", 1)
+                    break
+            counts[key] = _profile_qty
+            print(f"[recap] backfilled {key}={_profile_qty} from profile/default")
+
     equip_parts = []
     if counts.get("door_sensors", 0) > 0:
         equip_parts.append(f"{counts['door_sensors']} door sensor{'s' if counts['door_sensors'] != 1 else ''}")
@@ -1282,12 +1387,13 @@ def _build_recap_prompt(session) -> str:
     suffix = f", {name}" if name else ""
 
     return (
-        "I'm also going to throw in a free yard sign and window stickers — that way everyone knows "
-        "you have security in place. Plus you'll have full smartphone access so you can arm and disarm "
-        "the system, view cameras, and control everything from your phone no matter where you are. "
+        "I'm also getting you a yard sign and window stickers — this way, everyone knows "
+        "that you have security in place. With smartphone access, you can arm and disarm "
+        "your system, view the camera, speak through it, and access your system from your phone, "
+        "no matter where you are. "
         f"So let me quickly recap what I have for you: {equip_list}, a yard sign and window stickers, "
-        f"and full smartphone access. Personally I believe we've got you fully protected — "
-        f"but is there anything else you were hoping I could add{suffix}?"
+        f"and full smartphone access. Personally, I believe we've got you fully protected — "
+        f"but is there anything else you were hoping I could add for you{suffix}?"
     )
 
 
@@ -2002,8 +2108,22 @@ class Session:
             print(f"[coach] _fire_coaching error: {e}\n{traceback.format_exc()}")
             await self.send({"type": "status", "state": "recording"})
 
-    async def _delayed_coaching(self):
+    async def _delayed_coaching(self, delay: float = 1.5):
+        """Debounced coaching — waits for a pause before firing.
+        This prevents the script from advancing while the rep is still
+        reading the current card and the customer interjects 'mhmm'."""
         try:
+            await asyncio.sleep(delay)
+            # If the rep spoke very recently (within last 2s), they're likely
+            # still reading the current suggestion — delay further
+            if self.coach and self.coach._history:
+                _recent_rep_count = sum(
+                    1 for h in self.coach._history[-4:]
+                    if h["speaker"] == "rep"
+                )
+                if _recent_rep_count >= 3:
+                    # Rep is on a roll — wait a bit longer
+                    await asyncio.sleep(1.5)
             await self._fire_coaching()
         except asyncio.CancelledError:
             await self.send({"type": "status", "state": "recording"})
@@ -2104,6 +2224,7 @@ class Session:
             # Always check for "wants system" regardless of intro_turns.
             # Deepgram duplicate transcripts can exhaust intro_turns before the real answer arrives.
             self.intro_turns += 1
+            self.coach.current_stage = self.current_stage  # sync for topic gating
             self.coach.add_turn(speaker, text)
             self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
             # Cancel any pending coaching task to prevent it overwriting our guidance
@@ -2179,6 +2300,7 @@ class Session:
         # Claude coaching gets cancelled before completing, so use instant hardcoded suggestions.
         # IMPORTANT: Validate what the customer actually said before advancing.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "collect_info":
+            self.coach.current_stage = self.current_stage
             self.coach.add_turn(speaker, text)
             self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
             if self._coach_task and not self._coach_task.done():
@@ -2368,6 +2490,7 @@ class Session:
         # IMPORTANT: Only act on speech_final (customer finished their full thought)
         # to prevent suggestions from jumping ahead mid-sentence.
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "build_system":
+            self.coach.current_stage = self.current_stage
             self.coach.add_turn(speaker, text)
             self.customer_buffer = []
             if self._coach_task and not self._coach_task.done():
@@ -2609,10 +2732,30 @@ class Session:
 
         # ── Customer final ──
         if speaker == "customer":
+            self.coach.current_stage = self.current_stage  # sync for topic gating
             self.coach.add_turn(speaker, text)
             # Send checklist immediately so topic detection from add_turn
             # shows up right away (don't wait for slow Claude response)
             await self.send_checklist()
+
+            # Suppress coaching re-fire on short filler ("mhmm", "yeah", "ok")
+            # when rep is actively speaking (reading a card). These interjections
+            # don't need a new suggestion — they're just acknowledgements.
+            _cust_short = text.strip().lower().rstrip(".,!?")
+            _CUSTOMER_FILLERS = {
+                "mhmm", "mm hmm", "uh huh", "yeah", "yep", "yes", "ok", "okay",
+                "sure", "right", "correct", "absolutely", "of course", "alright",
+                "sounds good", "that works", "that makes sense", "yes sir",
+                "yes ma'am", "go ahead", "yea", "got it", "i see",
+            }
+            if _cust_short in _CUSTOMER_FILLERS:
+                # Check if rep has been actively speaking (3+ turns in last 6)
+                _recent = self.coach._history[-6:] if self.coach else []
+                _rep_recent = sum(1 for h in _recent if h["speaker"] == "rep")
+                if _rep_recent >= 3:
+                    print(f"[coach] suppressing coaching for filler '{_cust_short}' (rep actively speaking)")
+                    return
+
             self.customer_buffer.append(text)
             if self._coach_task and not self._coach_task.done():
                 self._coach_task.cancel()
@@ -2624,6 +2767,7 @@ class Session:
         # speech_final only fires after 1.2s silence, so in fast conversation
         # many rep segments were being silently dropped.
         _topics_before = set(self.coach._topics_done)
+        self.coach.current_stage = self.current_stage
         self.coach.add_turn(speaker, text)
         # If add_turn detected new topics (rep asked a question), update checklist immediately
         if self.coach._topics_done != _topics_before:

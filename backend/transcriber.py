@@ -128,11 +128,16 @@ async def _stream(api_key: str, label: str, audio_queue: asyncio.Queue, cb: Tran
                                 continue
                             last_final = text
                             pending_final.clear()  # speech_final supersedes pending
+                            await cb(label, text, True, True)
                         elif is_final:
-                            # Buffer for UtteranceEnd flush
+                            # Buffer for UtteranceEnd flush — do NOT send callback
+                            # yet. The text will be emitted when UtteranceEnd fires
+                            # (combined with any adjacent finals) or superseded by
+                            # a speech_final. Sending here caused duplicate turns.
                             pending_final.append(text)
-
-                        await cb(label, text, is_final, speech_final)
+                        else:
+                            # Interim result — send for live display
+                            await cb(label, text, False, False)
 
                 await asyncio.gather(_send(), _recv())
                 return  # clean shutdown via None sentinel — don't reconnect

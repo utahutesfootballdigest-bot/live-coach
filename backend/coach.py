@@ -494,6 +494,7 @@ class CoachingEngine:
         self._rep_questions: list[str] = []  # questions the rep has already asked
         self._customer_facts: list[str] = []  # facts the customer has already shared
         self._equipment_mentioned: list[str] = []  # equipment already covered in build_system
+        self.current_stage: str = "intro"  # synced from Session
         self._last_opener: str = ""  # the instant opener shown for the current turn
         self._topics_done: set[str] = set()  # topic keys that are done (asked or answered)
 
@@ -591,9 +592,30 @@ class CoachingEngine:
                         self._equipment_mentioned.append(equip)
                         self._sync_equipment_to_topics(equip)
                         print(f"[coach] equipment tracked (customer requested): {equip}")
+            # Discovery topics require the rep to have asked the question first
+            # (or the call to be in discovery+ stage) before customer speech can
+            # mark them done. This prevents "looking to get" in intro from
+            # marking why_security as done before it's ever asked.
+            _GATED_TOPICS = {"why_security", "had_system_before", "prior_provider",
+                             "who_protecting", "kids_age"}
+            _PAST_INTRO = self.current_stage not in ("intro",)
+            # Build set of topics the rep has actually asked about
+            _rep_asked_topics = set()
+            for _topic, _rules in QUESTION_TOPICS.items():
+                for _h in self._history:
+                    if _h["speaker"] == "rep":
+                        if any(phrase in _h["text"].lower() for phrase in _rules["rep_asks"]):
+                            _rep_asked_topics.add(_topic)
+                            break
+
             for topic, rules in QUESTION_TOPICS.items():
                 if topic not in self._topics_done and rules["customer_answers"]:
                     if any(phrase in t for phrase in rules["customer_answers"]):
+                        # Gate: discovery topics need rep to have asked OR be past intro
+                        if topic in _GATED_TOPICS:
+                            if not _PAST_INTRO and topic not in _rep_asked_topics:
+                                print(f"[coach] BLOCKED premature topic '{topic}' (still in intro, rep hasn't asked)")
+                                continue
                         self._topics_done.add(topic)
                         self._sync_topic_aliases(topic)
                         print(f"[coach] topic DONE (customer answered): {topic}")
@@ -629,10 +651,15 @@ class CoachingEngine:
 
             if _should_match_topic:
                 # Look at last 4 rep turns for a topic match
+                # This heuristic requires the rep to have recently asked the question,
+                # so it's inherently gated. But still respect the intro gate for safety.
                 _recent_rep = [h["text"].lower() for h in self._history[-8:]
                                if h["speaker"] == "rep"]
                 for topic, rules in QUESTION_TOPICS.items():
                     if topic not in self._topics_done:
+                        # Gate: don't mark gated discovery topics during intro
+                        if topic in _GATED_TOPICS and not _PAST_INTRO:
+                            continue
                         for rep_text in _recent_rep:
                             if any(phrase in rep_text for phrase in rules["rep_asks"]):
                                 self._topics_done.add(topic)
@@ -994,3 +1021,4 @@ class CoachingEngine:
         self._last_opener = ""
         self.customer_name = ""
         self._topics_done = set()
+        self.current_stage = "intro"
