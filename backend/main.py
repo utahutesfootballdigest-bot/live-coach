@@ -1070,7 +1070,7 @@ _CHECKLIST_PROMPTS = {
     "why_security": "What has you looking into security? Did something happen, did you just move, or is there something else going on?",
     "who_protecting": "Who are we looking to protect? Is it just you, or is there anyone else living there with you?",
     "kids_age": "Are we talking about little kids or teenagers? I can relate to that because...",
-    "on_website": "Are you currently on the Cove website?",
+    "on_website": "Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system.",
     # Collect info
     "full_name": "Could you please spell your first and last name for me?",
     "phone_number": "And the best phone number for you?",
@@ -1079,7 +1079,11 @@ _CHECKLIST_PROMPTS = {
     # Build system
     "door_sensors": "How many doors are there that go in and out of the house?",
     "window_sensors": "How many windows are on the ground floor of the house?",
-    "extra_equip": "I'm also going to get you a smoke detector. I know you may already have a regular one in place, which only makes a noise when there's a fire, but what I'm getting you is a fully monitored smoke detector connected to your system. Unlike a standard smoke alarm, our monitored detectors immediately alert both you and the fire department, ensuring that help will arrive quickly.",
+    "extra_equip": ("I'm also going to get you a smoke detector. I know you may already have a regular one in place, "
+                    "which only makes a noise when there's a fire, but what I'm getting you is a fully monitored smoke detector "
+                    "connected to your system. Unlike a standard smoke alarm, our monitored detectors immediately alert both you "
+                    "and the fire department, ensuring that help will arrive quickly. Would you also like a key fob? "
+                    "It's like a remote where you can arm and disarm the system without going to the panel."),
     "indoor_camera": None,  # uses personalization — filled dynamically
     "outdoor_camera": "We also have a doorbell camera and outdoor cameras. Would you like to add any of those?",
     "panel_hub": None,  # uses personalization — filled dynamically
@@ -1104,7 +1108,7 @@ _CHECKLIST_PROMPTS = {
 _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
-    "build_system": ["door_sensors", "window_sensors", "extra_equip", "indoor_camera", "outdoor_camera", "panel_hub", "recap_done"],
+    "build_system": ["door_sensors", "window_sensors", "indoor_camera", "panel_hub", "extra_equip", "outdoor_camera", "recap_done"],
     "closing": ["closing_pitch", "closing_cart", "closing_checkout", "closing_welcome"],
 }
 
@@ -2288,7 +2292,7 @@ class Session:
                 opener = _quick_opener(text, "discovery")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "discovery",
-                    "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website?"}
+                    "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system."}
                 if opener:
                     guidance["opener"] = opener
                 await self.send(guidance)
@@ -2404,14 +2408,25 @@ class Session:
                 and not any(phrase in t for phrase in _NOT_NAMES)
             )
             # Use combined text for phone/email/address so split responses are captured
-            _has_phone_digits = _digit_count >= 7
+            _has_phone_digits = _digit_count >= 4  # lowered from 7 to capture partial numbers
             _has_email = "@" in _combined_lower or any(w in _combined_lower for w in [
                 "gmail", "yahoo", "hotmail", "aol", "outlook",
                 "dot com", "at gmail", "at yahoo", "at hotmail",
                 "at aol", "at outlook"])
             _has_address = any(w in _combined_lower for w in [
                 "street", "drive", "avenue", "road", "lane", "boulevard",
-                "way", "circle", "court", "north", "south", "east", "west"]) or _digit_count >= 4
+                "way", "circle", "court", "north", "south", "east", "west",
+                # State names and city/zip indicators
+                "utah", "texas", "florida", "california", "arizona", "colorado",
+                "georgia", "ohio", "virginia", "oregon", "idaho", "nevada",
+                "carolina", "tennessee", "michigan", "illinois", "indiana",
+                "missouri", "maryland", "minnesota", "wisconsin", "alabama",
+                "connecticut", "oklahoma", "kentucky", "louisiana", "arkansas",
+                "mississippi", "iowa", "kansas", "nebraska", "new mexico",
+                "new york", "new jersey", "washington", "pennsylvania", "massachusetts",
+                "orem", "provo", "zip code", "zip is",
+                "thousand", "eighty", "forty", "fifty", "sixty", "seventy",
+                "ninety"]) or _digit_count >= 4
 
             # Only advance if the customer gave the expected info type
             opener = _quick_opener(text, "collect_info")
@@ -2596,6 +2611,32 @@ class Session:
             name = self.coach.customer_name or ""
             ctx = _get_discovery_context(self.coach)
 
+            # ── Detect customer objection/question during build ──
+            # If customer says something that sounds like a concern, question, or
+            # objection (not just yes/no/number), hold position and let Claude
+            # handle it through the general coaching flow instead of advancing.
+            _word_count = len(t.split())
+            _OBJECTION_SIGNALS = [
+                "i don't think", "i'm not sure", "that's too", "too much", "too expensive",
+                "can't afford", "don't understand", "what do you mean", "what is that",
+                "how much", "how does", "what's the", "i haven't seen", "i don't see",
+                "i don't need", "i already have", "why do i", "why would i",
+                "wait", "hold on", "slow down", "what about", "can you explain",
+                "i'm confused", "that doesn't", "i'm not interested", "not right now",
+                "let me think", "i need to", "three seventy five", "price",
+            ]
+            _is_objection = any(sig in t for sig in _OBJECTION_SIGNALS)
+            if _is_objection and _cust_number is None:
+                # Customer is raising a concern — don't advance the build.
+                # Fall through to the general coaching flow (Claude) for handling.
+                print(f"[build] customer objection detected, holding position: {text[:60]}")
+                # Re-enable general coaching for this turn
+                self.customer_buffer.append(text)
+                if self._coach_task and not self._coach_task.done():
+                    self._coach_task.cancel()
+                self._coach_task = asyncio.create_task(self._delayed_coaching())
+                return
+
             # Use _build_current_item to determine context — much more reliable
             # than scanning rep speech keywords
             _cur = self._build_current_item
@@ -2629,8 +2670,8 @@ class Session:
                 chime = _personalize_chime(ctx, name)
                 next_step = (f"I'm going to give you {_cust_number} window sensors, in that way all the windows downstairs are also covered for you. "
                              f"{chime}")
-                self._build_current_item = "extra_equip"
-                self._build_item_pitched = False  # rep hasn't asked about extras yet
+                self._build_current_item = "indoor_camera"
+                self._build_item_pitched = False
                 build_handled = True
 
             elif _cur == "extra_equip" and self._build_item_pitched and (_is_yes or _is_no or
@@ -2656,7 +2697,7 @@ class Session:
                     if "co detector" not in self.coach._equipment_mentioned:
                         self.coach._equipment_mentioned.append("co detector")
                     self._equipment_counts["co_detector"] = 1
-                self._build_current_item = "indoor_camera"
+                self._build_current_item = "outdoor_camera"
                 self._build_item_pitched = False
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
@@ -2974,20 +3015,36 @@ class Session:
                     "camera", "night vision", "two-way audio", "two way audio",
                 ]):
                     continue
-                if any(p in _t_eq for p in eq_phrases):
-                    # Look for a number near the equipment mention
-                    import re as _re_eq
-                    _eq_num = None
-                    # Try digit numerals first
-                    _digit_matches = _re_eq.findall(r'\d+', _t_eq)
-                    if _digit_matches:
-                        _eq_num = int(_digit_matches[0])
-                    else:
-                        # Try spoken numbers
-                        for word in _t_eq.split():
-                            if word in _SPOKEN_NUMS_EQ:
-                                _eq_num = _SPOKEN_NUMS_EQ[word]
-                                break
+                # Find the equipment keyword position, then look for a number
+                # within 4 words BEFORE it (e.g. "seven window sensors").
+                # This prevents "seven window sensors our carbon monoxide" from
+                # assigning 7 to co_detector.
+                import re as _re_eq
+                _eq_phrase_found = None
+                _eq_phrase_idx = -1
+                for p in eq_phrases:
+                    if p in _t_eq:
+                        _eq_phrase_found = p
+                        _eq_phrase_idx = _t_eq.index(p)
+                        break
+                if _eq_phrase_found is None:
+                    continue
+                # Extract the 4 words before the equipment keyword
+                _before = _t_eq[:_eq_phrase_idx].strip()
+                _before_words = _before.split()[-4:] if _before else []
+                _eq_num = None
+                # Try digit numerals in the nearby window
+                for bw in _before_words:
+                    _digit_match = _re_eq.match(r'^\d+$', bw)
+                    if _digit_match:
+                        _eq_num = int(_digit_match.group())
+                        break
+                # Try spoken numbers in the nearby window
+                if _eq_num is None:
+                    for bw in _before_words:
+                        if bw in _SPOKEN_NUMS_EQ:
+                            _eq_num = _SPOKEN_NUMS_EQ[bw]
+                            break
                     if _eq_num is not None and _eq_num > 0:
                         if eq_key not in self._equipment_counts or self._equipment_counts[eq_key] <= 1:
                             self._equipment_counts[eq_key] = _eq_num

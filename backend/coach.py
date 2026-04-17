@@ -11,7 +11,7 @@ STAGE_SCRIPT: dict[str, list[str]] = {
         "Hi, this is [AGENT NAME] with Cove Security on a recorded line. How are you doing today?",
         "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?",
         "[If existing customer] Okay, great. Let me get you to the right place, just hold on for me. (Transfer/End)",
-        "[If new customer] Perfect! I'll be the one to help you with that. Are you currently on the Cove website?",
+        "[If new customer] Perfect! I'll be the one to help you with that. Are you currently on the Cove website? Please follow along and add the items into your cart on your end as we build out the system.",
         "[If on website] Awesome! Where are you in the process right now?",
         "[If at payment stage] Proceed with payment script.",
         "[If building system] Proceed with initial discovery.",
@@ -525,6 +525,9 @@ class CoachingEngine:
         if speaker == "rep":
             if any(kw in t for kw in self._Q_KEYWORDS):
                 self._rep_questions.append(text.strip())
+            # Don't track equipment during recap/closing — the rep is reading
+            # back items already in the system, not pitching new ones.
+            _in_recap_or_closing = self.current_stage in ("closing",) or "recap_done" in self._topics_done
             # Don't track equipment when the rep is ASKING about it
             # ("we have a motion detector... do you think you'd need any?")
             # Only track when the rep is CONFIRMING/ADDING it.
@@ -535,7 +538,7 @@ class CoachingEngine:
                 "percent off", "% off", "either of those",
             ])
             for equip, keywords in self._EQUIPMENT_KEYWORDS.items():
-                if equip not in self._equipment_mentioned:
+                if equip not in self._equipment_mentioned and not _in_recap_or_closing:
                     # Don't count "built-in motion sensor" or "with a motion sensor"
                     # in camera descriptions as a separate motion sensor
                     if equip == "motion sensor" and any(p in t for p in [
