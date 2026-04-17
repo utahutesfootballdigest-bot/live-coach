@@ -493,6 +493,7 @@ class CoachingEngine:
         self._addressed: list[str] = []
         self._rep_questions: list[str] = []  # questions the rep has already asked
         self._customer_facts: list[str] = []  # facts the customer has already shared
+        self._discovery_facts: list[str] = []  # customer facts from intro/discovery only (for personalization)
         self._equipment_mentioned: list[str] = []  # equipment already covered in build_system
         self.current_stage: str = "intro"  # synced from Session
         self._last_opener: str = ""  # the instant opener shown for the current turn
@@ -569,6 +570,11 @@ class CoachingEngine:
         # Track customer facts and mark topics done when customer answers
         if speaker == "customer":
             self._customer_facts.append(text.strip())
+            # Only capture discovery-phase speech for personalization context.
+            # This prevents address numbers ("fifteen north state street") and
+            # phone digits from being misread as teen ages or other context.
+            if self.current_stage in ("intro", "discovery"):
+                self._discovery_facts.append(text.strip())
             # Track equipment the customer explicitly requests
             _CUSTOMER_EQUIP_PHRASES = {
                 "outdoor camera": ["doorbell camera", "doorbell cam", "outdoor camera",
@@ -1017,6 +1023,7 @@ class CoachingEngine:
         self._addressed = []
         self._rep_questions = []
         self._customer_facts = []
+        self._discovery_facts = []
         self._equipment_mentioned = []
         self._last_opener = ""
         self.customer_name = ""

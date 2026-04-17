@@ -950,10 +950,16 @@ def _customer_mentioned_kids(coach) -> bool:
 
 
 def _get_discovery_context(coach) -> dict:
-    """Extract personalization context from discovery phase customer facts."""
-    if not coach or not coach._customer_facts:
+    """Extract personalization context from discovery phase customer facts.
+    Uses _discovery_facts (intro/discovery speech only) to avoid false positives
+    from address numbers, phone digits, etc."""
+    if not coach:
         return {}
-    all_text = " ".join(coach._customer_facts).lower()
+    # Use discovery-only facts to prevent address/phone contamination
+    facts = coach._discovery_facts if coach._discovery_facts else coach._customer_facts
+    if not facts:
+        return {}
+    all_text = " ".join(facts).lower()
     ctx = {}
     if any(w in all_text for w in ["little kids", "little ones", "toddler", "three and five",
                                      "young kids", "small kids", "six and seven", "four and six"]):
@@ -1079,15 +1085,17 @@ _CHECKLIST_PROMPTS = {
     # Recap (includes yard sign + stickers + smartphone + equipment list + question)
     "recap_done": None,  # dynamic — generated from equipment list at runtime
     # Closing
-    "closing_pitch": None,  # dynamic — combined pitch + pricing, calculated at runtime
+    "closing_pitch": None,  # dynamic — full closing wall of text, calculated at runtime
     "closing_pricing": None,  # UNUSED — merged into closing_pitch
-    "closing_cart": "Perfect. Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
+    "closing_cart": "Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
     "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
-    "closing_welcome": ("If you need a technician, we have a third-party service starting at $129. "
-                        "And if you have home insurance, request an alarm certificate from us for a discount. "
-                        "Congratulations and welcome to the Cove family! "
-                        "You'll get tracking info as soon as your package ships — usually 3 to 7 business days. "
-                        "Is there anything else I can help you with before I let you go?"),
+    "closing_welcome": ("Congratulations and welcome to the Cove family! "
+                        "You'll get tracking information as soon as your package ships, so you'll know exactly when it's on the way. "
+                        "Once your equipment arrives, you'll find simple, step-by-step setup instructions inside. "
+                        "If you need help, our friendly customer service team is just a call away. "
+                        "Be sure to install your system as soon as it arrives so you can get your alarm certificate quickly — "
+                        "that certificate might even help you qualify for a discount on your home insurance. "
+                        "Enjoy your system, and remember, we're always here if you need anything."),
 }
 
 # Ordered checklist keys per stage — defines the sequence items should be covered
@@ -1234,44 +1242,63 @@ def _calculate_pricing(session) -> dict:
 
 
 def _build_closing_pitch(session) -> str:
-    """Build the combined closing pitch: 60-day trial + no contract + DIY + pricing, ending with a question."""
+    """Build the full closing wall of text: discounts + no contract + wireless/DIY + pricing.
+    This is presented as one continuous read for the rep."""
     pricing = _calculate_pricing(session)
     name = session.coach.customer_name if session.coach else ""
     suffix = f", {name}" if name else ""
 
     parts = []
-    # Pitch
+    # Opening
     parts.append(
-        "So how it will work, we have a 60-day risk-free trial, so you can try everything out "
-        "and if it's not the right fit, you can return it for a full refund. "
-        "Here at Cove we have no contracts — it's completely month to month, and we have some of "
-        "the best customer service in the industry. "
-        "We don't charge anything for installation because everything is wireless — we'll send all "
-        "the equipment straight to you and you can set it up yourself in about 20 minutes. "
+        "Awesome! It looks like I'll be able to get you a lot of extra discounts. "
+        "First, all of our systems come with no contract and one of the best customer services "
+        "in the industry. "
+    )
+    # How it works
+    parts.append(
+        "Here's how it works: we don't charge anything for installation. "
+        "Everything is wireless, so we'll send the equipment straight to you, and you'll set it up yourself. "
+        "Because it's all wireless, the entire setup should only take about 20 minutes — super easy. "
     )
     # Pricing
+    parts.append("Then, I'm going to get you a bunch of extra discounts here. ")
     if pricing['monthly_promo'] < pricing['monthly_standard']:
         parts.append(
-            f"On the monthly monitoring, for the first {_PROMO_MONTHS} months it'll just be "
+            f"On the monthly monitoring cost, that'll just be "
             f"${pricing['monthly_promo']:.2f} per month. "
-            f"After that, it goes to the standard rate of ${pricing['monthly_standard']:.2f}. "
         )
     else:
         parts.append(
-            f"On the monthly monitoring, it's just ${pricing['monthly_standard']:.2f} per month. "
+            f"On the monthly monitoring cost, that'll just be "
+            f"${pricing['monthly_standard']:.2f} per month. "
         )
+    # Equipment cost
     if pricing["discount_total"] > 0:
+        _retail = pricing['equipment_total'] + pricing['discount_total']
         parts.append(
-            f"And the equipment — with all the discounts and promotions today, "
-            f"your one-time equipment cost comes out to just ${pricing['equipment_total']:.2f} "
-            f"— that's ${pricing['discount_total']:.0f} off{suffix}. "
+            f"The equipment we have for you would usually cost ${_retail:.0f}, "
+            f"but I'm going to get your total equipment cost today all the way down to just "
+            f"${pricing['equipment_total']:.2f}. "
+            f"So, to get you set up today, all you'll have to do is pay the "
+            f"${pricing['equipment_total']:.2f} for the equipment, "
         )
     else:
         parts.append(
-            f"And the equipment — with all the discounts and promotions today, "
-            f"your one-time equipment cost is going to come out to ${pricing['equipment_total']:.2f}{suffix}. "
+            f"The equipment we have for you — with all the discounts today, "
+            f"your total equipment cost comes out to just ${pricing['equipment_total']:.2f}. "
+            f"So, to get you set up today, all you'll have to do is pay the "
+            f"${pricing['equipment_total']:.2f} for the equipment, "
         )
-    parts.append("So does that sound like something that will work for you?")
+    if pricing['monthly_promo'] < pricing['monthly_standard']:
+        parts.append(
+            f"and from then on, it'll just be ${pricing['monthly_promo']:.2f} per month. "
+        )
+    else:
+        parts.append(
+            f"and from then on, it'll just be ${pricing['monthly_standard']:.2f} per month. "
+        )
+    parts.append(f"Does that sound like it will work for you{suffix}?")
     return "".join(parts)
 
 
@@ -1465,6 +1492,7 @@ class Session:
         self._profile: dict = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
         self._profile_edits: set[str] = set()  # profile fields the rep manually corrected
         self._build_current_item: str | None = None  # which build_system item is being pitched next
+        self._build_item_pitched: bool = False  # True after rep has read the current build item's pitch
         self._equipment_counts: dict = {}  # e.g. {"door_sensors": 2, "window_sensors": 5}
         self._equipment_edits: set[str] = set()  # equipment keys the rep manually corrected
         self._applied_coupons: list[str] = []  # coupon codes applied to this session
@@ -1592,6 +1620,7 @@ class Session:
         self._collect_info_done = set()
         self._rep_overrides = set()
         self._build_current_item = None
+        self._build_item_pitched = False
         self._equipment_counts = {}
         self._closing_pitch_groups_said = set()
 
@@ -1774,6 +1803,11 @@ class Session:
             self._profile[field] = value
             self._profile_edits.add(field)
             print(f"[profile] rep edited {field}: {value[:30]}")
+            # Sync name to coach so [NAME] replacement works in suggestions
+            if field == "name" and self.coach and value.strip():
+                first_name = value.strip().split()[0].capitalize()
+                self.coach.customer_name = first_name
+                print(f"[profile] synced customer_name to coach: {first_name}")
 
     def _build_equipment_list(self) -> list[dict]:
         """Build structured equipment list with quantities from coach state."""
@@ -2435,7 +2469,20 @@ class Session:
                 if _has_email:
                     self._collect_info_done.add("email")
                     # Use accumulated customer turns (already combined above)
-                    self._profile["email"] = _extract_email(_combined)
+                    extracted_email = _extract_email(_combined)
+                    # If email starts with @ (no username), try to build from customer name
+                    if extracted_email.startswith("@") and self._profile.get("name"):
+                        name_parts = self._profile["name"].lower().split()
+                        if len(name_parts) >= 2:
+                            # Try lastname + firstname (most common pattern)
+                            guess = name_parts[-1] + name_parts[0] + extracted_email
+                        elif len(name_parts) == 1:
+                            guess = name_parts[0] + extracted_email
+                        else:
+                            guess = extracted_email
+                        extracted_email = guess
+                        print(f"[email] built from name + domain: {extracted_email}")
+                    self._profile["email"] = extracted_email
                     next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:
@@ -2447,9 +2494,12 @@ class Session:
                                    "this is ", "we're at ", "i'm at ", "yeah it's ",
                                    "yeah ", "yes ", "alright ", "okay ", "let me ",
                                    "give me a second ", "that will be ", "that would be ",
+                                   "that's gonna be ", "gonna be ", "going to be ",
+                                   "it'll be ", "it's going to be ", "it would be ",
                                    "alright that will be ", "alright let me ",
                                    "of course ", "of course that is ", "of course it's ",
                                    "sure ", "sure it's ", "yep ", "yep it's ",
+                                   "so that's gonna be ", "so that's going to be ",
                                    "so that's ", "so it's ", "that's "]:
                         if addr.lower().startswith(filler):
                             addr = addr[len(filler):]
@@ -2565,6 +2615,7 @@ class Session:
                 next_step = (f"{_cust_number} doors — I'll get you {_cust_number} door sensors so all your entry points are covered. "
                              f"And how many windows are on the ground floor of your house that are accessible{suffix}?")
                 self._build_current_item = "window_sensors"
+                self._build_item_pitched = True  # doors pitch includes windows question
                 build_handled = True
 
             elif _cur == "window_sensors" and _cust_number is not None:
@@ -2577,9 +2628,10 @@ class Session:
                 next_step = (f"{_cust_number} windows — I'll get you {_cust_number} window sensors as well, "
                              f"that way every entry point is covered and monitored. {chime}")
                 self._build_current_item = "extra_equip"
+                self._build_item_pitched = False  # rep hasn't asked about extras yet
                 build_handled = True
 
-            elif _cur == "extra_equip" and (_is_yes or _is_no or
+            elif _cur == "extra_equip" and self._build_item_pitched and (_is_yes or _is_no or
                     any(w in t for w in ["motion", "glass break", "carbon monoxide", "co detector"])):
                 self.coach._topics_done.add("extra_equip")
                 # Detect which specific extras the customer wants
@@ -2603,6 +2655,7 @@ class Session:
                         self.coach._equipment_mentioned.append("co detector")
                     self._equipment_counts["co_detector"] = 1
                 self._build_current_item = "indoor_camera"
+                self._build_item_pitched = False
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
 
@@ -2618,7 +2671,7 @@ class Session:
                 next_step = _fallback_next_step("build_system", self.coach, session=self)
                 build_handled = True
 
-            elif _cur in ("indoor_camera", "outdoor_camera", "panel_hub", "yard_sign") and (_is_yes or _is_no):
+            elif _cur in ("indoor_camera", "outdoor_camera", "panel_hub", "yard_sign") and self._build_item_pitched and (_is_yes or _is_no):
                 # Only advance for SHORT, clear responses — not conversational fillers
                 # while the rep is still presenting. "yeah" mid-pitch shouldn't advance.
                 _word_count = len(t.split())
@@ -2639,6 +2692,7 @@ class Session:
                     _build_order = _STAGE_ITEM_ORDER.get("build_system", [])
                     _ci = _build_order.index(_cur) if _cur in _build_order else -1
                     self._build_current_item = _build_order[_ci + 1] if _ci + 1 < len(_build_order) else None
+                    self._build_item_pitched = False
                     next_step = _fallback_next_step("build_system", self.coach, session=self)
                     build_handled = True
 
@@ -2773,6 +2827,27 @@ class Session:
         if self.coach._topics_done != _topics_before:
             await self.send_checklist()
 
+        # ── Detect rep reading build_system pitches ──
+        # When rep reads the pitch for the current build item, mark it as pitched
+        # so the customer's response will be processed by the fast-track handler.
+        if self.current_stage == "build_system" and self._build_current_item and not self._build_item_pitched:
+            _rt = text.lower()
+            _PITCH_KEYWORDS = {
+                "extra_equip": ["motion", "glass break", "carbon monoxide", "do you think you'd need",
+                                "do you need any", "would you need any", "like any of those"],
+                "indoor_camera": ["indoor camera", "free camera", "free indoor", "hd recording",
+                                  "night vision", "two-way audio", "eyes and ears"],
+                "outdoor_camera": ["outdoor camera", "doorbell camera", "solar camera",
+                                   "either of those", "add either"],
+                "panel_hub": ["touchscreen", "panel", "hub", "cellular", "24/7",
+                              "police medical", "police fire"],
+                "yard_sign": ["yard sign", "window sticker", "security in place"],
+            }
+            _keywords = _PITCH_KEYWORDS.get(self._build_current_item, [])
+            if any(kw in _rt for kw in _keywords):
+                self._build_item_pitched = True
+                print(f"[build] rep pitched: {self._build_current_item}")
+
         # ── Transition phrase detection ──
         # The ONLY way to auto-advance stages is the rep saying the specific
         # transition phrase. No keyword guessing, no auto-detect.
@@ -2834,6 +2909,25 @@ class Session:
                 "lot of extra discount", "a lot of discounts",
                 "get you some discounts", "get you a lot of discount",
                 "able to get you a lot",
+                # Natural transitions reps actually say
+                "let me see what i can do",
+                "let's see what i can do",
+                "let me put this together",
+                "let me get you a price",
+                "let me get you set up",
+                "here's how it works",
+                "here's how it'll work",
+                "how it'll work",
+                "how it will work",
+                "so how it works",
+                "so the way it works",
+                "no contract",
+                "month to month",
+                "we don't charge anything for installation",
+                "sixty day risk free",
+                "sixty day free trial",
+                "sixty day trial",
+                "risk free trial",
             ]
             if not _advanced and self.current_stage == "build_system" and (
                 any(p in _t_trans for p in _BUILD_TO_CLOSE) or
