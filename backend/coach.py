@@ -8,54 +8,69 @@ from transcript_store import get_latest_tuning
 # always sees verbatim script language, not a paraphrase.
 STAGE_SCRIPT: dict[str, list[str]] = {
     "intro": [
-        "Are you already a Cove customer, or are you looking to get a security system?",
-        "I'll be the one to help you with that, and I'm going to make sure you get a really good deal. Are you currently on the Cove website?",
-        "[If on website] Awesome! Where are you in the process right now — still looking at equipment, or are you on the checkout page?",
-        "[If on website with cart] Oh great, you already have some stuff in your cart? Could you tell me what equipment you've added so far?",
-        "[If not on website] No problem. I can walk you through the whole thing. Go ahead and pull up covesmart.com whenever you're ready.",
+        "Hi, this is [AGENT NAME] with Cove Security on a recorded line. How are you doing today?",
+        "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?",
+        "[If existing customer] Okay, great. Let me get you to the right place, just hold on for me. (Transfer/End)",
+        "[If new customer] Perfect! I'll be the one to help you with that. Are you currently on the Cove website?",
+        "[If on website] Awesome! Where are you in the process right now?",
+        "[If at payment stage] Proceed with payment script.",
+        "[If building system] Proceed with initial discovery.",
+        "[If not on website] No problem. (Then continue with the script.)",
     ],
     "discovery": [
-        "What has you looking into security? Did something happen, did you just move, what's going on?",
-        "Have you ever had a security system before?",
-        "[If yes] Who did you have it with? Was there anything you liked about that system that you'd want me to try and include?",
-        "[If switching from competitor] I hear that a lot — a lot of folks are making the switch. What made you start looking at other options?",
-        "Who are we looking to protect — is it just you or is there anyone else living there with you?",
-        "[If kids] Are we talking about little kids or teenagers?",
-        "[If pets] What kind — cats or dogs? I only ask because we can position the motion sensors to avoid false alarms.",
-        "I understand how important it is to make sure they're safe. I'll make sure we take great care of you.",
+        "What has you looking into security? Did something happen, did you just move, or is there something else going on?",
+        "I'm glad you decided to get a security system; it's a smart move. I'm here to make sure you get the protection and peace of mind you deserve.",
+        "Let me ask you, have you ever had a security system before?",
+        "[If yes] Okay, that's perfect. That'll save us some time building everything out. Who did you have for security before?",
+        "[If yes] Is there anything you liked about the system you used to have that you'd like me to try and include in the new system for you?",
+        "[If no] No problem, I'll walk you through the process, help you get set up, and I'm going to take great care of you.",
+        "Who are we looking to protect? Is it just you, or is there anyone else living there with you?",
+        "I understand how important it is for you to make sure they're safe.",
+        "[If children] Are we talking about little kids or teenagers? I can relate to that because... (open ended)",
+        "[If pets] Are you referring to a cat or a dog? I can relate because... (open ended)",
+        "Like I said, I totally understand how important it is for you to make sure they're safe. I'll make sure we take great care of you all.",
     ],
     "collect_info": [
-        "I'm just going to get some information from you before we start building out the system. Could you please spell your first and last name for me?",
-        "Thank you. And what's your best phone number?",
-        "And your email so I can send all this information over to you by the end of the call?",
-        "And before we get ahead of ourselves, I just want to verify that we have coverage. What's the address you're looking to get the security set up at?",
-        "Perfect, we actually have fantastic coverage in your area so I can definitely help you out. Let's go ahead and build your system.",
+        "Alright! I'm just going to get some information from you before we start building out your system. Could you please spell your first and last name for me?",
+        "And the best phone number for you?",
+        "And an email so I can send all this information over to you at the end of the call?",
+        "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?",
+        "Perfect! We have great coverage out there, so let's dive right in.",
     ],
     "build_system": [
-        "How many doors go in and out of your home?",
-        "[After customer answers doors] [EXACT NUMBER] doors — I'll get you [EXACT NUMBER] door sensors to make sure all your entry points are covered. And how many windows are there on the ground floor of your house?",
-        "How many windows are on the ground floor of your house that are accessible?",
-        "[After customer answers windows] [EXACT NUMBER] windows — I'll get you [EXACT NUMBER] window sensors as well, that way every entry point is covered and monitored. Now with all those door and window sensors, when the system is armed they'll trigger the alarm. But even when the system is unarmed, they activate the chime feature — so it'll say 'front door open' or 'back door open' anytime someone comes or goes. Does that make sense?",
-        "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
-        "[If motion detector] The motion detector covers about a 45-foot range, so one usually handles a large living area or hallway. I'll add one for you.",
-        "On top of that, I'm also going to give you a free indoor camera. It's live HD with recording, night vision, two-way audio, and a built-in motion sensor — so wherever you are, you'll always have eyes and ears on your home. Does that make sense, [NAME]?",
-        "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
-        "I'm also going to get you the hub — that's the brain of the system that connects everything. It runs on cellular, so even if your power or Wi-Fi goes down, your home is still protected 24/7 with police, medical, and fire support. And you'll get a 7-inch color touchscreen panel to navigate everything. Does that all make sense?",
-        "I'm also going to throw in a free yard sign and window stickers — that way everyone knows you have security in place. Plus you'll have full smartphone access so you can arm and disarm the system, view cameras, speak through them, and control everything from your phone no matter where you are.",
-        "I'm also going to give you a key fob — it's like a remote where you can arm and disarm the system without going to the panel. Would you like one or two of those?",
-        "Would you like to add a smoke detector or anything else to the system?",
+        "How many doors are there that go in and out of the house?",
+        "[After customer answers doors] I'm going to give you [EXACT NUMBER] door sensors, in that way all the doors are covered for you.",
+        "How many windows are on the ground floor of the house?",
+        "[After customer answers windows] I'm going to give you [EXACT NUMBER] window sensors, in that way all the windows downstairs are also covered for you.",
+        "With all those door and window sensors, obviously, when the system is armed, they'll trigger the alarm. But when the system is unarmed, they'll activate the chime feature. This is the feature that says, 'Front door open' or 'Bedroom window open'. That way, if your kids ever get out without you knowing, you'll be alerted right away and can bring them back inside. Crisis averted. Does that make sense?",
+        "I'm also going to give you a free indoor camera. It's live with HD recording, night vision, two-way audio, and a motion sensor. So, wherever you are, you'll always have eyes and ears in your home.",
+        "[If kids] On top of that, this is a mobile camera. This means that if you're in the living room watching a movie with your wife and the kids want to play in another room, you can move the camera there and still keep an eye on them. Do you think one is enough, or would you like to add another?",
+        "[If pets] That way, even if you're at work, you can easily check your pet from your phone and even say hi if you'd like.",
+        "I'm also getting you a 7-inch colored touchscreen panel to connect everything and run the system. With cellular connections, even if there's no power or Wi-Fi, you're still protected. With 24/7 live monitoring, including police, medical, and fire support, you're covered no matter what. Does that make sense?",
+        "I'm also getting you a yard sign and window stickers. This way, everyone knows that you have security in place.",
+        "With smartphone access, you can arm and disarm your system, view the camera, speak through it, and access your system from your phone, no matter where you are.",
+        "I'm also going to get you a smoke detector. I know you may already have a regular one in place, which only makes a noise when there's a fire, but what I'm getting you is a fully monitored smoke detector connected to your system. Unlike a standard smoke alarm, our monitored detectors immediately alert both you and the fire department, ensuring that help will arrive quickly.",
+        "[If pets] This way, if there's ever a fire in your home while you're at work, you'll know we're sending the fire department right away. Your pet will have the highest chance of getting out safely, and you'll always have peace of mind. Fair enough?",
+        "We also have a doorbell camera and outdoor cameras. Would you like to add any of those?",
+        "Would you also like a key fob? It's like a remote where you can arm and disarm the system without going to the panel.",
     ],
     "recap": [
-        "Let me quickly recap what I have for you: [EXACT NUMBER] door sensors, [EXACT NUMBER] window sensors, a free indoor camera, the hub and touchscreen panel, yard sign and window stickers, smartphone access, and the key fob. Personally I believe we've got you fully protected — but is there anything else you were hoping I could add?",
-        "Is there anything else you were hoping I could add to your system?",
+        "[If on website] Great! Let me quickly recap everything to make sure we've got exactly what you need. Since you're already on the Cove website, please add these items to your cart.",
+        "[If not on website] Alright, let me quickly recap everything to make sure we've got exactly what you're looking for. Could you please open the Cove website and add these items to your cart?",
+        "I'll be getting you [EXACT NUMBER] door sensors to cover all doors. Could you please add [EXACT NUMBER] door sensors to your cart and let me know once you're done?",
+        "I'll be getting you [EXACT NUMBER] window sensors to cover all windows downstairs. Could you please add [EXACT NUMBER] window sensors to your cart and let me know once you're done?",
+        "[For each additional item] Could you please add [ITEM] to your cart and let me know once you're done?",
+        "Could you also add the free indoor camera? That way, wherever you are, you'll always have eyes and ears in your home.",
+        "I also include a 7-inch color touchscreen panel to connect and control everything. A yard sign and window stickers to show everyone your home is protected. With smartphone access, you can control your system from your phone, anywhere.",
+        "Personally, I believe we've got you fully protected but is there anything else you were hoping I could add for you?",
     ],
     "closing": [
-        "It looks like I'm going to be able to get you a lot of extra discounts here. We have a 60-day risk-free trial — so you can try everything out, and if it's not the right fit, you can return it for a full refund.",
-        "Here at Cove we have no contracts — it's completely month to month, and we have some of the best customer service in the industry. We don't charge anything for installation because everything is wireless — we'll send all the equipment straight to you and you can set it up yourself in about 20 minutes.",
-        "On the monthly monitoring, for the first six months it'll just be $29.99 per month. After that, it goes to the standard rate of $32.99. And the equipment — with all the discounts and promotions today, your one-time equipment cost comes out to just $____. Does that sound like it will work for you, [NAME]?",
-        "Perfect. Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
-        "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
-        "If you need a technician, we have a third-party service starting at $129. And if you have home insurance, request an alarm certificate from us for a discount. Congratulations and welcome to the Cove family! You'll get tracking info as soon as your package ships — usually 3 to 7 business days. Is there anything else I can help you with before I let you go?",
+        "Awesome! It looks like I'll be able to get you a lot of extra discounts.",
+        "First, all of our systems come with no contract and one of the best customer services in the industry.",
+        "Here's how it works: We don't charge anything for installation. Everything is wireless, so we'll send the equipment straight to you, and you'll set it up yourself. Because it's all wireless, the entire setup should only take about 20 minutes — super easy.",
+        "Then, I'm going to get you a bunch of extra discounts here. On the monthly monitoring cost, that'll just be ___ per month. The equipment we have for you would usually cost $600, but I'm going to get your total equipment cost today all the way down to just ___. So, to get you set up today, all you'll have to do is pay the ___ for the equipment, and from then on, it'll just be ___ per month.",
+        "Does that sound like it will work for you?",
+        "Congratulations and welcome to the Cove family! You'll get tracking information as soon as your package ships, so you'll know exactly when it's on the way. Once your equipment arrives, you'll find simple, step-by-step setup instructions inside. If you need help, our friendly customer service team is just a call away. Be sure to install your system as soon as it arrives so you can get your alarm certificate quickly — that certificate might even help you qualify for a discount on your home insurance. Enjoy your system, and remember, we're always here if you need anything.",
     ],
 }
 
@@ -77,47 +92,64 @@ CALL SCRIPT STAGES
 ═══════════════════════════════
 
 STAGE: intro
-- Rep greets the customer and determines: existing customer or new?
-- Key line: "Are you already a Cove customer, or are you looking to get a security system?"
-- If new: "Perfect! I'll be the one to help you with that."
+- Rep greets: "Hi, this is [Agent Name] with Cove Security on a recorded line. How are you doing today?"
+- "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?"
+- If EXISTING customer: "Okay, great. Let me get you to the right place, just hold on for me." (Transfer/End)
+- If NEW customer: "Perfect! I'll be the one to help you with that. Are you currently on the Cove website?"
+- If on website: "Awesome! Where are you in the process right now?" (Route to payment or discovery)
+- If not on website: "No problem." (Continue with script)
 
 STAGE: discovery
-- What has them looking into security? (moved, scare, just decided)
-- Have they had a security system before? If yes: who, what did they like?
-- Who are we protecting? Kids? Pets? (Build emotional connection)
-- Key empathy: "I totally understand how important it is to keep them safe."
+- "What has you looking into security? Did something happen, did you just move, or is there something else going on?"
+- Affirm: "I'm glad you decided to get a security system; it's a smart move. I'm here to make sure you get the protection and peace of mind you deserve."
+- "Let me ask you, have you ever had a security system before?"
+  - If YES: "Okay, that's perfect. That'll save us some time building everything out. Who did you have for security before?" → "Is there anything you liked about the system you used to have that you'd like me to try and include in the new system for you?"
+  - If NO: "No problem, I'll walk you through the process, help you get set up, and I'm going to take great care of you."
+- "Who are we looking to protect? Is it just you, or is there anyone else living there with you?"
+- "I understand how important it is for you to make sure they're safe."
+  - If children: "Are we talking about little kids or teenagers? I can relate to that because..." (open ended, build rapport)
+  - If pets: "Are you referring to a cat or a dog? I can relate because..." (open ended, build rapport)
+- "Like I said, I totally understand how important it is for you to make sure they're safe. I'll make sure we take great care of you all."
 
 STAGE: collect_info
-- Full name, best phone number, email
-- Address (verify coverage)
-- Key line: "Perfect! We have great coverage out there, so let's dive right in."
+- "Alright! I'm just going to get some information from you before we start building out your system."
+- "Could you please spell your first and last name for me?"
+- "And the best phone number for you?"
+- "And an email so I can send all this information over to you at the end of the call?"
+- "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?"
+- "Perfect! We have great coverage out there, so let's dive right in."
 
 STAGE: build_system
-- Ask how many doors lead to the outside → confirm EXACT number of door sensors ("I'll get you 3 door sensors")
-- Ask how many ground-floor windows → confirm EXACT number of window sensors ("That's 4 window sensors")
-- CRITICAL: When the customer says a number, USE THAT EXACT NUMBER in your response. "I have 2 doors" → "Perfect, 2 door sensors." NEVER say a different number.
-- Chime feature (great for kids — tie to discovery)
-- Free indoor camera (HD, night vision, two-way audio, motion sensor)
-- 7-inch touchscreen panel with cellular backup
-- 24/7 monitoring (police, fire, medical)
-- Yard sign & window stickers
-- Smartphone access
-- Optional: smoke detector, additional cameras
+- Doors: "How many doors are there that go in and out of the house?" → "I'm going to give you [NUMBER] door sensors, in that way all the doors are covered for you."
+- Windows: "How many windows are on the ground floor of the house?" → "I'm going to give you [NUMBER] window sensors, in that way all the windows downstairs are also covered for you."
+- CRITICAL: When the customer says a number, USE THAT EXACT NUMBER. "I have 2 doors" → "I'm going to give you 2 door sensors." NEVER say a different number.
+- Chime feature: "With all those door and window sensors, when the system is armed, they'll trigger the alarm. But when the system is unarmed, they'll activate the chime feature — 'Front door open' or 'Bedroom window open'. That way, if your kids ever get out without you knowing, you'll be alerted right away. Crisis averted. Does that make sense?"
+- Free indoor camera: "I'm also going to give you a free indoor camera. It's live with HD recording, night vision, two-way audio, and a motion sensor. So, wherever you are, you'll always have eyes and ears in your home."
+  - If kids: Pitch the mobile camera angle — move it room to room to watch kids
+  - If pets: "Even if you're at work, you can easily check your pet from your phone and even say hi"
+- Touchscreen panel: "I'm also getting you a 7-inch colored touchscreen panel to connect everything and run the system. With cellular connections, even if there's no power or Wi-Fi, you're still protected. With 24/7 live monitoring, including police, medical, and fire support, you're covered no matter what. Does that make sense?"
+- Yard sign & stickers: "I'm also getting you a yard sign and window stickers. This way, everyone knows you have security in place."
+- Smartphone access: "With smartphone access, you can arm and disarm your system, view the camera, speak through it, and access your system from your phone, no matter where you are."
+- Smoke detector (optional): "I'm also going to get you a smoke detector... a fully monitored smoke detector connected to your system. Unlike a standard smoke alarm, our monitored detectors immediately alert both you and the fire department."
+  - If pets: "If there's ever a fire while you're at work, we're sending the fire department right away. Your pet will have the highest chance of getting out safely."
+- Optional cameras: doorbell camera, outdoor cameras
+- Optional key fob: arm/disarm without going to the panel
 - RULE: Present each item ONCE then move on. Do NOT repeat equipment already covered. Save the full list for recap.
 
 STAGE: recap
-- Walk through everything added: "Let me quickly recap everything..."
-- Guide customer to add items to cart one by one
-- Ask: "Is there anything else you were hoping I could add?"
+- If on website: "Great! Let me quickly recap everything to make sure we've got exactly what you need. Since you're already on the Cove website, please add these items to your cart."
+- If not on website: "Alright, let me quickly recap everything. Could you please open the Cove website and add these items to your cart?"
+- Walk through each item one by one, asking customer to add to cart and confirm after each
+- "Personally, I believe we've got you fully protected but is there anything else you were hoping I could add for you?"
 
 STAGE: closing
-- "Awesome! I'm able to get you a lot of extra discounts."
-- No contract, no installation fee, wireless equipment sent to them
-- Setup takes ~20 minutes
-- State monthly monitoring fee ($32.99)
-- State equipment cost and discount applied
+- "Awesome! It looks like I'll be able to get you a lot of extra discounts."
+- No contract, one of the best customer services in the industry
+- No installation charge — everything is wireless, sent to customer, ~20 minutes setup
+- Monthly monitoring cost: ___ per month
+- Equipment usually $600 but discounted to ___
 - "Does that sound like it will work for you?"
-- On yes: "Congratulations and welcome to the Cove family!"
+- On yes: "Congratulations and welcome to the Cove family!" + onboarding details (tracking, setup instructions, alarm certificate for insurance discount)
 
 ═══════════════════════════════
 APPROVED OBJECTION REBUTTALS
@@ -187,13 +219,15 @@ Pull from their specific words — their household, their fear, their situation.
 Paint a picture — give them a relatable scenario so they can SEE how it helps them.
 
 Examples:
-- Customer has TEENAGERS (they specifically said "teenagers") → "What's great is with you having teenagers, these have the chime feature — so even when the system's unarmed and one of your teenagers tries to sneak out or something like that, not that they would, it'll alert you right away. You'll always know who's coming and going. Does that make sense, [NAME]?"
-- Customer has LITTLE KIDS (they specifically said "little kids", "toddler", etc.) → "With you having little ones, the chime feature is huge — even when the system's unarmed it says 'front door open' every time a door opens, so if one of your kids were to get outside you'd know right away. Does that make sense, [NAME]?"
-- Customer mentioned KIDS but didn't specify age → Use generic "kids" language: "With kids in the house, the chime feature is great — anytime a door opens it'll say 'front door open', so you always know who's coming and going. Does that make sense, [NAME]?" Do NOT mention teenagers or sneaking out unless they specifically said they have teenagers.
-- Customer works away from home → "So imagine you're out of town or at work — you'll always be able to pull up your camera right on your phone and see what's going on no matter where you are. It'll give you that peace of mind. Does that make sense, [NAME]?"
-- Customer mentioned a break-in nearby → "Given what happened down the street, I want to make sure every entry point is covered for you — how many doors go in and out of the home?"
+- Customer has TEENAGERS (they specifically said "teenagers") → "With all those door and window sensors, when the system is armed, they'll trigger the alarm. But when the system is unarmed, they'll activate the chime feature — 'Front door open' or 'Bedroom window open'. That way, if one of your teenagers ever tries to sneak out, not that they would, you'll be alerted right away. Crisis averted. Does that make sense, [NAME]?"
+- Customer has LITTLE KIDS (they specifically said "little kids", "toddler", etc.) → "With you having little ones, the chime feature is huge — when the system is unarmed it says 'Front door open' every time a door opens. That way, if your kids ever get out without you knowing, you'll be alerted right away and can bring them back inside. Crisis averted. Does that make sense, [NAME]?"
+- Customer mentioned KIDS but didn't specify age → Use generic "kids" language: "With all those door and window sensors, when the system is unarmed, they'll activate the chime feature — 'Front door open' or 'Bedroom window open'. That way, if your kids ever get out without you knowing, you'll be alerted right away. Crisis averted. Does that make sense, [NAME]?" Do NOT mention teenagers or sneaking out unless they specifically said they have teenagers.
+- Customer has KIDS + indoor camera → "On top of that, this is a mobile camera. This means that if you're in the living room watching a movie and the kids want to play in another room, you can move the camera there and still keep an eye on them. Do you think one is enough, or would you like to add another?"
+- Customer works away from home → "So wherever you are, you'll always have eyes and ears in your home. You can pull up the camera right on your phone and see what's going on no matter where you are. Does that make sense, [NAME]?"
+- Customer mentioned a break-in nearby → "Given what happened, I want to make sure every entry point is covered for you — how many doors are there that go in and out of the house?"
 - Customer mentioned spouse home alone → "This way your [wife/husband] has eyes and ears on the whole house even when you're not there."
-- Customer mentioned pets → "The sensors can be positioned above your [dog/dogs]' reach so they won't set anything off."
+- Customer mentioned pets + camera → "That way, even if you're at work, you can easily check your pet from your phone and even say hi if you'd like."
+- Customer mentioned pets + smoke detector → "This way, if there's ever a fire in your home while you're at work, you'll know we're sending the fire department right away. Your pet will have the highest chance of getting out safely, and you'll always have peace of mind. Fair enough?"
 
 RULES:
 - Never suggest generic equipment. Always tie it to a specific detail the customer gave you.
@@ -255,7 +289,7 @@ Example without objection (note: no opener fluff, direct, ends with question):
 Example for intro (combine acknowledgement + next question — flow into discovery naturally):
 {
   "call_stage": "intro",
-  "next_step": "Perfect, well I'll be the one to walk you through the process and help you get set up. Have you ever had a security system before?",
+  "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website?",
   "triggered": false
 }
 
@@ -269,7 +303,7 @@ Example for routine info (brief acknowledgement + next question):
 Example for build_system (confirm what customer said + move to next item):
 {
   "call_stage": "build_system",
-  "next_step": "Five doors, I'm gonna get you five door sensors that way all those doors are covered for you. And how many ground-floor windows do you have?",
+  "next_step": "I'm going to give you five door sensors, in that way all the doors are covered for you. How many windows are on the ground floor of the house?",
   "triggered": false
 }
 
@@ -313,7 +347,7 @@ QUESTION_TOPICS = {
     "had_system_before": {
         "rep_asks": ["had a security system", "had a system before", "ever had a security", "ever had a system",
                      "ever had security", "had security before", "had a security before",
-                     "security system before", "system before"],
+                     "security system before", "system before", "let me ask you"],
         "customer_answers": ["never had", "first time", "no i haven", "i had", "i was with", "i used to have",
                              "we had", "i've had", "had one with", "had adt", "had alder", "had ring",
                              "had simplisafe", "had vivint", "this would be",
@@ -430,12 +464,12 @@ QUESTION_TOPICS = {
                           "where are we setting", "the address you"],
     },
     "how_many_doors": {
-        "rep_asks": ["how many doors", "doors go in and out"],
+        "rep_asks": ["how many doors", "doors go in and out", "doors are there that go"],
         "customer_answers": [],  # customer gives a number
         "output_detect": ["how many doors", "doors go in and out"],
     },
     "how_many_windows": {
-        "rep_asks": ["how many windows", "windows on the ground", "ground floor windows"],
+        "rep_asks": ["how many windows", "windows on the ground", "ground floor windows", "windows are on the ground"],
         "customer_answers": [],
         "output_detect": ["how many windows", "windows on the ground", "ground floor windows"],
     },
