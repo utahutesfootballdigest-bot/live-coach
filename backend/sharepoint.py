@@ -124,31 +124,46 @@ async def append_sale_row(sale: dict) -> dict:
     base = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/worksheets('{encoded_sheet}')"
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # First, try to find an existing table on the sheet
-        tables_resp = await client.get(f"{base}/tables", headers=headers)
-        print(f"[sharepoint] tables check: {tables_resp.status_code} {tables_resp.text[:300]}")
+        # Find the next empty row by checking a batch of cells near the expected end.
+        # Read column A from a range that should cover the last entries.
+        # Start from a high row and scan downward in chunks to find the last used row.
+        next_row = 2  # fallback
 
-        if tables_resp.status_code == 200 and tables_resp.json().get("value"):
-            # Table exists — append row to it
-            table_id = tables_resp.json()["value"][0]["id"]
-            add_url = f"{base}/tables/{table_id}/rows"
-            resp = await client.post(add_url, headers=headers, json={"values": row})
-        else:
-            # No table — use the used range to find the next empty row and write directly
-            range_resp = await client.get(f"{base}/usedRange", headers=headers)
-            print(f"[sharepoint] usedRange: {range_resp.status_code} {range_resp.text[:300]}")
+        # Check a range of rows to find where data ends.
+        # Start by reading A4750:A5000 — should cover current data ending ~4799
+        scan_start = 4750
+        scan_end = 5200
+        scan_range = f"A{scan_start}:A{scan_end}"
+        scan_url = f"{base}/range(address='{scan_range}')"
+        scan_resp = await client.get(scan_url, headers=headers)
 
-            if range_resp.status_code == 200:
-                used = range_resp.json()
-                next_row = used.get("rowCount", 1) + 1
-                print(f"[sharepoint] next_row={next_row}")
+        if scan_resp.status_code == 200:
+            values = scan_resp.json().get("values", [])
+            # Find the last non-empty cell in this range
+            last_used_offset = -1
+            for i, cell_row in enumerate(values):
+                if cell_row[0] not in (None, "", " "):
+                    last_used_offset = i
+            if last_used_offset >= 0:
+                next_row = scan_start + last_used_offset + 1
             else:
-                next_row = 2
+                # All empty in this range — data might be earlier, try A1:A100
+                early_resp = await client.get(f"{base}/range(address='A1:A100')", headers=headers)
+                if early_resp.status_code == 200:
+                    early_vals = early_resp.json().get("values", [])
+                    for i, cell_row in enumerate(early_vals):
+                        if cell_row[0] not in (None, "", " "):
+                            last_used_offset = i
+                    next_row = last_used_offset + 2 if last_used_offset >= 0 else 2
+            print(f"[sharepoint] scan found next_row={next_row}")
+        else:
+            print(f"[sharepoint] scan failed: {scan_resp.status_code} {scan_resp.text[:300]}")
+            next_row = 4800  # best guess based on screenshot
 
-            cell_range = f"A{next_row}:E{next_row}"
-            write_url = f"{base}/range(address='{cell_range}')"
-            print(f"[sharepoint] writing to {cell_range}")
-            resp = await client.patch(write_url, headers=headers, json={"values": row})
+        cell_range = f"A{next_row}:E{next_row}"
+        write_url = f"{base}/range(address='{cell_range}')"
+        print(f"[sharepoint] writing to {cell_range}")
+        resp = await client.patch(write_url, headers=headers, json={"values": row})
 
         print(f"[sharepoint] write response: {resp.status_code} {resp.text[:500]}")
         if resp.status_code in (200, 201):
