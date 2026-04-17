@@ -760,6 +760,9 @@ def _extract_email(text: str) -> str:
             result_parts.append("".join(current_spell))
         return " ".join(result_parts)
     t = _collapse_spelled(t)
+    # Fix speech-to-text for uncommon domains
+    t = t.replace("proton mail", "protonmail").replace("proton dot me", "proton.me")
+    t = t.replace("i cloud", "icloud")
     # Replace spoken email patterns
     t = t.replace(" at ", "@").replace(" dot ", ".")
     # Handle "at" attached to words: "johnat gmail" or "john at gmail"
@@ -769,7 +772,9 @@ def _extract_email(text: str) -> str:
     # This handles STT dropping "at" — e.g. "kyle alder dot com" → "kyle@alder.com"
     if "@" not in t:
         for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
-                        "icloud.com", "live.com", "msn.com", "me.com", "protonmail.com"]:
+                        "icloud.com", "live.com", "msn.com", "me.com", "protonmail.com",
+                        "proton.me", "comcast.net", "att.net", "verizon.net", "cox.net",
+                        "sbcglobal.net", "bellsouth.net", "charter.net"]:
             if domain in t:
                 idx = t.index(domain)
                 # Find the space before the domain to insert @
@@ -784,7 +789,8 @@ def _extract_email(text: str) -> str:
                 break
         else:
             # Try domain without .com attached: "john gmail dot com"
-            for provider in ["gmail", "yahoo", "hotmail", "outlook", "aol", "icloud"]:
+            for provider in ["gmail", "yahoo", "hotmail", "outlook", "aol", "icloud",
+                            "proton", "protonmail", "comcast", "verizon", "att"]:
                 if provider in t and "@" not in t:
                     idx = t.index(provider)
                     before = t[:idx].rstrip()
@@ -2301,6 +2307,7 @@ class Session:
                 self.current_stage = "discovery"
                 self.intro_turns = 2
                 self.coach._topics_done.add("existing_customer")
+                self.coach._topics_done.add("on_website")  # asked in this same prompt
                 opener = _quick_opener(text, "discovery")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "discovery",
@@ -2409,8 +2416,12 @@ class Session:
             _has_phone_digits = _digit_count >= 4  # lowered from 7 to capture partial numbers
             _has_email = "@" in _combined_lower or any(w in _combined_lower for w in [
                 "gmail", "yahoo", "hotmail", "aol", "outlook",
-                "dot com", "at gmail", "at yahoo", "at hotmail",
-                "at aol", "at outlook"])
+                "proton", "protonmail", "icloud", "live.com", "msn",
+                "comcast", "att.net", "verizon", "cox.net", "sbcglobal",
+                "dot com", "dot me", "dot org", "dot net", "dot co",
+                "dot edu", "dot io",
+                "at gmail", "at yahoo", "at hotmail",
+                "at aol", "at outlook", "at proton", "at icloud"])
             _has_address = any(w in _combined_lower for w in [
                 "street", "drive", "avenue", "road", "lane", "boulevard",
                 "way", "circle", "court", "north", "south", "east", "west",
