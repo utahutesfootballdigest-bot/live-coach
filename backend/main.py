@@ -2298,27 +2298,13 @@ class Session:
                 await self.send(guidance)
                 await self.send_checklist()
                 return
-            # ── Mid-call join detection ──
-            # If customer says something that looks like a name, number, or address
-            # (not a greeting), we likely reconnected mid-call. Jump to collect_info.
-            _GREETING_WORDS = {"hi", "hey", "hello", "good", "fine", "great", "well",
-                               "doing", "pretty", "morning", "afternoon", "evening",
-                               "how", "are", "you", "thanks", "thank"}
+            # Mid-call join detection REMOVED — it was too aggressive and caused
+            # stage skipping (e.g. "from my house" detected as a name, jumping
+            # from intro to collect_info). If a rep reconnects mid-call, they can
+            # manually click the stage pill to advance.
             stripped = text.strip()
             _words = stripped.lower().split()
-            _is_greeting = all(w in _GREETING_WORDS for w in _words) or len(_words) == 0
-            _has_digits = any(c.isdigit() for c in stripped)
-            _is_name_like = (len(_words) <= 3 and stripped.replace(" ", "").isalpha()
-                             and not _is_greeting and len(stripped) >= 3)
-
-            if (_has_digits or _is_name_like) and not _is_greeting:
-                # Looks like a mid-call reconnection — customer is giving info
-                print(f"[intro] mid-call join detected (customer giving info): {text[:40]}")
-                self.current_stage = "collect_info"
-                # Re-process this text through the collect_info fast-track
-                # by NOT returning — let it fall through to the collect_info handler below
-                pass
-            elif len(_words) <= 3 and self.intro_turns < 6:
+            if len(_words) <= 3 and self.intro_turns < 6:
                 # Short greeting — show intro prompt
                 opener = _quick_opener(text, "intro")
                 self.coach.set_opener(opener)
