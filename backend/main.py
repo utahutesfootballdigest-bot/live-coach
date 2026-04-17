@@ -92,7 +92,7 @@ async def post_feedback(request: Request):
 
 @app.post("/api/claim-sale")
 async def claim_sale(request: Request):
-    """Record a claimed sale. Stores locally and will push to SharePoint when configured."""
+    """Record a claimed sale. Stores locally and pushes to SharePoint Excel."""
     body = await request.json()
     rep = body.get("rep", "").strip()
     account_id = body.get("account_id", "").strip()
@@ -102,7 +102,6 @@ async def claim_sale(request: Request):
     if not rep or not account_id or not channel:
         return {"error": "rep, account_id, and channel are required."}, 400
 
-    from datetime import datetime, timezone
     sale = {
         "rep": rep,
         "date": datetime.now(timezone.utc).strftime("%m/%d/%Y"),
@@ -126,7 +125,22 @@ async def claim_sale(request: Request):
         f.write(json.dumps(existing, indent=2))
 
     print(f"[sale] claimed: {rep} | {account_id} | {phone} | {channel}")
-    return {"ok": True, "sale": sale}
+
+    # Push to SharePoint Excel
+    sharepoint_result = {"ok": False, "error": "not configured"}
+    try:
+        from sharepoint import append_sale_row, is_configured
+        if is_configured():
+            sharepoint_result = await append_sale_row(sale)
+            if not sharepoint_result["ok"]:
+                print(f"[sale] SharePoint write failed: {sharepoint_result.get('error')}")
+        else:
+            print("[sale] SharePoint not configured, skipping")
+    except Exception as e:
+        print(f"[sale] SharePoint error: {e}")
+        sharepoint_result = {"ok": False, "error": str(e)}
+
+    return {"ok": True, "sale": sale, "sharepoint": sharepoint_result}
 
 
 @app.get("/api/claimed-sales")

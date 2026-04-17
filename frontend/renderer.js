@@ -335,7 +335,7 @@ async function handleStatus(state) {
     pill.classList.add("processing");
     statusText.textContent = "THINKING";
   } else if (state === "idle") {
-    if (userRequestedStop && transcriptLog.length > 0) {
+    if (userRequestedStop) {
       showCallEndedScreen();
       userRequestedStop = false;
     } else if (transcriptLog.length > 0) {
