@@ -588,10 +588,10 @@ def _trim_long_suggestion(text: str, max_words: int = 120) -> str:
 def _stage_transition(stage: str) -> str:
     """Return a natural transition opener when moving to a new stage."""
     transitions = {
-        "discovery": "Let me learn a little more about your situation.",
-        "collect_info": "Alright, I'm just going to grab some info from you before we get started.",
-        "build_system": "Great. It looks like we have fantastic coverage out there so we can definitely help you out.",
-        "closing": "Ok great news. I think I'm going to be able to get you a lot of extra discounts. Let me see what I can do for you.",
+        "discovery": "I'm glad you decided to get a security system; it's a smart move. I'm here to make sure you get the protection and peace of mind you deserve.",
+        "collect_info": "Alright! I'm just going to get some information from you before we start building out your system.",
+        "build_system": "Perfect! We have great coverage out there, so let's dive right in.",
+        "closing": "Awesome! It looks like I'll be able to get you a lot of extra discounts.",
     }
     return transitions.get(stage, "")
 
@@ -987,32 +987,36 @@ def _get_discovery_context(coach) -> dict:
 
 
 def _personalize_chime(ctx: dict, name: str) -> str:
-    """Generate a personalized chime feature description."""
+    """Generate a personalized chime feature description matching the real script."""
     suffix = f", {name}" if name else ""
+    base = ("With all those door and window sensors, obviously, when the system is armed, they'll trigger the alarm. "
+            "But when the system is unarmed, they'll activate the chime feature. "
+            "This is the feature that says, 'Front door open' or 'Bedroom window open'. ")
     if ctx.get("kids") == "little":
-        return f"With you having little ones, the chime feature is huge — even when the system's unarmed, it'll say 'front door open' every time a door opens. So if one of your kids were to get outside without you knowing, you'd be alerted right away. Crisis averted. Does that make sense{suffix}?"
+        return f"{base}That way, if your kids ever get out without you knowing, you'll be alerted right away and can bring them back inside. Crisis averted. Does that make sense{suffix}?"
     if ctx.get("kids") == "teens":
-        return f"With teenagers in the house, the chime feature is really helpful — even when the system's unarmed, it'll say 'front door open' or 'back door open' anytime someone comes or goes. So if one of your teenagers tries to sneak out, not that they would, you'll know right away. Does that make sense{suffix}?"
+        return f"{base}That way, if your kids ever get out without you knowing, you'll be alerted right away and can bring them back inside. Crisis averted. Does that make sense{suffix}?"
+    if ctx.get("kids"):
+        return f"{base}That way, if your kids ever get out without you knowing, you'll be alerted right away and can bring them back inside. Crisis averted. Does that make sense{suffix}?"
     if ctx.get("baby"):
-        return f"With a baby at home, the chime feature gives you that extra peace of mind — even when the system's unarmed, it'll say 'front door open' anytime someone comes or goes. You'll always know who's entering or leaving. Does that make sense{suffix}?"
-    if ctx.get("spouse") and ctx.get("away_often"):
-        return f"The chime feature is great for when you're away — even when the system's unarmed, it'll say 'front door open' or 'back door open' anytime someone comes or goes. That way you always know what's happening at home. Does that make sense{suffix}?"
-    return f"Now with all those door and window sensors, when the system is armed they'll trigger the alarm. But even when the system is unarmed, they activate the chime feature — so it'll say 'front door open' or 'back door open' anytime someone comes or goes. Does that make sense{suffix}?"
+        return f"{base}That way, if anyone opens a door or window, you'll be alerted right away. Crisis averted. Does that make sense{suffix}?"
+    return f"{base}That way, you'll always know when a door or window opens, even when the system is unarmed. Does that make sense{suffix}?"
 
 
 def _personalize_camera(ctx: dict, name: str) -> str:
-    """Generate a personalized indoor camera description."""
+    """Generate a personalized indoor camera description matching the real script."""
     suffix = f", {name}" if name else ""
-    base = "I'm also going to give you a free indoor camera — it's live HD with recording, night vision, two-way audio, and a built-in motion sensor."
+    base = ("I'm also going to give you a free indoor camera. It's live with HD recording, night vision, "
+            "two-way audio, and a motion sensor. So, wherever you are, you'll always have eyes and ears in your home.")
     if ctx.get("kids"):
-        return f"{base} With your kids at home, you'll always have eyes and ears on the house — so whether you're at work or running errands, you can check in anytime right from your phone. Does that make sense{suffix}?"
-    if ctx.get("baby"):
-        return f"{base} With a new baby at home, this is perfect — you can check in on them from anywhere, hear what's going on, and even talk through the camera. Does that make sense{suffix}?"
+        return (f"{base} On top of that, this is a mobile camera. This means that if you're in the living room "
+                f"watching a movie and the kids want to play in another room, you can move the camera there and "
+                f"still keep an eye on them. Do you think one is enough, or would you like to add another{suffix}?")
+    if ctx.get("pets"):
+        return f"{base} That way, even if you're at work, you can easily check your pet from your phone and even say hi if you'd like. Does that make sense{suffix}?"
     if ctx.get("away_often"):
-        return f"{base} Since you travel a lot, this is huge — you'll always be able to pull up your camera right on your phone and see what's going on at home no matter where you are. Does that make sense{suffix}?"
-    if ctx.get("lives_alone"):
-        return f"{base} Living on your own, having that extra set of eyes gives you real peace of mind — you can check in on your place from anywhere. Does that make sense{suffix}?"
-    return f"{base} So wherever you are, you'll always have eyes and ears on your home. Does that make sense{suffix}?"
+        return f"{base} So wherever you are, you can pull up the camera right on your phone and see what's going on no matter where you are. Does that make sense{suffix}?"
+    return f"{base} Does that make sense{suffix}?"
 
 
 def _inject_personalization(text: str, coach) -> str:
@@ -1049,13 +1053,11 @@ def _inject_personalization(text: str, coach) -> str:
 
 
 def _personalize_panel(ctx: dict, name: str) -> str:
-    """Generate a personalized panel/hub description."""
+    """Generate a personalized panel/hub description matching the real script."""
     suffix = f", {name}" if name else ""
-    base = "I'm also going to get you the hub — that's the brain of the system that connects everything. It runs on cellular, so even if your power or Wi-Fi goes down, your home is still protected 24/7 with police, medical, and fire support. And you'll get a 7-inch color touchscreen panel to navigate everything."
-    if ctx.get("kids"):
-        return f"{base} With kids in the house, knowing you've got 24/7 backup even during a power outage is huge. Does that make sense{suffix}?"
-    if ctx.get("break_in"):
-        return f"{base} Given what happened in your neighborhood, having that cellular backup means your home is always protected — even if someone cuts your power or internet. Does that make sense{suffix}?"
+    base = ("I'm also getting you a 7-inch colored touchscreen panel to connect everything and run the system. "
+            "With cellular connections, even if there's no power or Wi-Fi, you're still protected. "
+            "With 24/7 live monitoring, including police, medical, and fire support, you're covered no matter what.")
     return f"{base} Does that make sense{suffix}?"
 
 
@@ -1063,23 +1065,23 @@ def _personalize_panel(ctx: dict, name: str) -> str:
 # This is the single source of truth for what the Then box should show.
 _CHECKLIST_PROMPTS = {
     # Discovery
-    "existing_customer": "Are you already a Cove customer, or are you looking to get a security system?",
-    "had_system_before": "Have you ever had a security system before?",
-    "why_security": "What has you looking into security? Did something happen, did you just move, what's going on?",
-    "who_protecting": "Who are we looking to protect — is it just you or is there anyone else living there with you?",
-    "kids_age": "Are we talking about little kids or teenagers?",
-    "on_website": "Are you currently on the Cove website? If not — no problem, go ahead and pull up covesmart.com so I can walk you through the process.",
+    "existing_customer": "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?",
+    "had_system_before": "Let me ask you, have you ever had a security system before?",
+    "why_security": "What has you looking into security? Did something happen, did you just move, or is there something else going on?",
+    "who_protecting": "Who are we looking to protect? Is it just you, or is there anyone else living there with you?",
+    "kids_age": "Are we talking about little kids or teenagers? I can relate to that because...",
+    "on_website": "Are you currently on the Cove website?",
     # Collect info
     "full_name": "Could you please spell your first and last name for me?",
-    "phone_number": "And what's your best phone number?",
-    "email": "And your email so I can send all this information over to you?",
-    "address": "What's the address you're looking to get the security set up at?",
+    "phone_number": "And the best phone number for you?",
+    "email": "And an email so I can send all this information over to you at the end of the call?",
+    "address": "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?",
     # Build system
-    "door_sensors": "How many doors go in and out of your home?",
-    "window_sensors": "How many windows are on the ground floor of your house that are accessible?",
-    "extra_equip": "We also have a motion detector, glass break detector, and carbon monoxide detector. Do you think you'd need any of those?",
+    "door_sensors": "How many doors are there that go in and out of the house?",
+    "window_sensors": "How many windows are on the ground floor of the house?",
+    "extra_equip": "I'm also going to get you a smoke detector. I know you may already have a regular one in place, which only makes a noise when there's a fire, but what I'm getting you is a fully monitored smoke detector connected to your system. Unlike a standard smoke alarm, our monitored detectors immediately alert both you and the fire department, ensuring that help will arrive quickly.",
     "indoor_camera": None,  # uses personalization — filled dynamically
-    "outdoor_camera": "We also have a doorbell camera and a solar-powered outdoor camera. The outdoor camera is 50% off right now. Would you like to add either of those?",
+    "outdoor_camera": "We also have a doorbell camera and outdoor cameras. Would you like to add any of those?",
     "panel_hub": None,  # uses personalization — filled dynamically
     "yard_sign": None,  # UNUSED — merged into recap_done
     # Recap (includes yard sign + stickers + smartphone + equipment list + question)
@@ -1089,11 +1091,11 @@ _CHECKLIST_PROMPTS = {
     "closing_pricing": None,  # UNUSED — merged into closing_pitch
     "closing_cart": "Have you already put all the equipment in your cart, or do you need me to read it all back to you?",
     "closing_checkout": "Go ahead and put your payment info in on the website. Let me know once you've placed the order and I'll confirm everything on my side.",
-    "closing_welcome": ("Congratulations and welcome to the Cove family! "
+    "closing_welcome": ("Congratulations and welcome to the Cove family! Let me share a few quick details about your onboarding process. "
                         "You'll get tracking information as soon as your package ships, so you'll know exactly when it's on the way. "
                         "Once your equipment arrives, you'll find simple, step-by-step setup instructions inside. "
                         "If you need help, our friendly customer service team is just a call away. "
-                        "Be sure to install your system as soon as it arrives so you can get your alarm certificate quickly — "
+                        "Be sure to install your system as soon as it arrives so you can get your alarm certificate quickly; "
                         "that certificate might even help you qualify for a discount on your home insurance. "
                         "Enjoy your system, and remember, we're always here if you need anything."),
 }
@@ -1414,13 +1416,13 @@ def _build_recap_prompt(session) -> str:
     suffix = f", {name}" if name else ""
 
     return (
-        "I'm also getting you a yard sign and window stickers — this way, everyone knows "
-        "that you have security in place. With smartphone access, you can arm and disarm "
-        "your system, view the camera, speak through it, and access your system from your phone, "
-        "no matter where you are. "
-        f"So let me quickly recap what I have for you: {equip_list}, a yard sign and window stickers, "
-        f"and full smartphone access. Personally, I believe we've got you fully protected — "
-        f"but is there anything else you were hoping I could add for you{suffix}?"
+        "I'm also getting you a yard sign and window stickers. This way, everyone knows that you have security in place. "
+        "With smartphone access, you can arm and disarm your system, view the camera, speak through it, "
+        "and access your system from your phone, no matter where you are. "
+        f"Let me quickly recap everything to make sure we've got exactly what you need: {equip_list}, "
+        f"a yard sign and window stickers, and smartphone access. I also include a 7-inch color touchscreen panel "
+        f"to connect and control everything. "
+        f"Personally, I believe we've got you fully protected but is there anything else you were hoping I could add for you{suffix}?"
     )
 
 
@@ -1988,9 +1990,9 @@ class Session:
     _COLLECT_INFO_SEQUENCE = ["full_name", "phone_number", "email", "address"]
     _COLLECT_INFO_PROMPTS = {
         "full_name": "Could you please spell your first and last name for me?",
-        "phone_number": "And what's your best phone number?",
-        "email": "And your email so I can send all this information over to you?",
-        "address": "What's the address you're looking to get the security set up at?",
+        "phone_number": "And the best phone number for you?",
+        "email": "And an email so I can send all this information over to you at the end of the call?",
+        "address": "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?",
     }
 
     async def go_back(self):
@@ -2092,11 +2094,11 @@ class Session:
                 if not cleaned_next:
                     # Last resort: generic stage-appropriate prompt
                     cleaned_next = {
-                        "intro": "Are you already a Cove customer, or are you looking to get a security system?",
-                        "discovery": "Is there anything else about your situation I should know before we move on?",
-                        "collect_info": "Let me verify I have everything — is there anything I missed?",
-                        "build_system": "Is there anything else you'd like to add to the system?",
-                        "recap": "Does everything look good? Is there anything else you'd like me to add?",
+                        "intro": "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?",
+                        "discovery": "I'll walk you through the process, help you get set up, and I'm going to take great care of you.",
+                        "collect_info": "Alright! I'm just going to get some information from you before we start building out your system. Could you please spell your first and last name for me?",
+                        "build_system": "Personally, I believe we've got you fully protected but is there anything else you were hoping I could add for you?",
+                        "recap": "Personally, I believe we've got you fully protected but is there anything else you were hoping I could add for you?",
                         "closing": "Does that sound like it will work for you?",
                     }.get(new_stage, "Is there anything else I can help you with?")
                 suggestion["next_step"] = cleaned_next
@@ -2286,7 +2288,7 @@ class Session:
                 opener = _quick_opener(text, "discovery")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "discovery",
-                    "next_step": "I'll be the one to help you with that, and I'm going to make sure you get a really good deal. Have you ever had a security system before?"}
+                    "next_step": "Perfect! I'll be the one to help you with that. Are you currently on the Cove website?"}
                 if opener:
                     guidance["opener"] = opener
                 await self.send(guidance)
@@ -2317,7 +2319,7 @@ class Session:
                 opener = _quick_opener(text, "intro")
                 self.coach.set_opener(opener)
                 guidance = {"type": "call_guidance", "call_stage": "intro",
-                    "next_step": "Are you already a Cove customer, or are you looking to get a security system?"}
+                    "next_step": "I'm excited to help you out. Are you already a Cove customer, or are you looking to get a security system?"}
                 if opener:
                     guidance["opener"] = opener
                 await self.send(guidance)
@@ -2437,7 +2439,7 @@ class Session:
                     # Use combined text if it has name context, otherwise just current turn
                     _name_source = _combined if _has_name_in_combined else text
                     self._profile["name"] = _extract_name(_name_source)
-                    next_step = "And what's your best phone number?"
+                    next_step = "And the best phone number for you?"
             elif "phone_number" not in self._collect_info_done:
                 if _has_phone_digits:
                     self._collect_info_done.add("phone_number")
@@ -2464,7 +2466,7 @@ class Session:
                         self._profile["phone"] = digits
                     else:
                         self._profile["phone"] = _combined.strip()
-                    next_step = "And your email so I can send all this information over to you by the end of the call?"
+                    next_step = "And an email so I can send all this information over to you at the end of the call?"
             elif "email" not in self._collect_info_done:
                 if _has_email:
                     self._collect_info_done.add("email")
@@ -2483,7 +2485,7 @@ class Session:
                         extracted_email = guess
                         print(f"[email] built from name + domain: {extracted_email}")
                     self._profile["email"] = extracted_email
-                    next_step = "And before we get ahead of ourselves, I just want to verify we have coverage. What's the address you're looking to get the security set up at?"
+                    next_step = "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?"
             elif "address" not in self._collect_info_done:
                 if _has_address:
                     self._collect_info_done.add("address")
@@ -2506,13 +2508,13 @@ class Session:
                     self._profile["address"] = _spoken_numbers_to_numerals(addr.strip())
                     # Don't auto-advance to build_system — rep must click
                     # "INFO COMPLETE" to advance. Just show coverage confirmation.
-                    opener = _pick(["Perfect, we actually have fantastic coverage in your area so I can definitely help you out.",
-                                    "Great news — we have great coverage out there, so I can definitely take care of you.",
-                                    "Awesome — we can definitely service that area, so you're in great shape."])
+                    opener = _pick(["Perfect! We have great coverage out there, so let's dive right in.",
+                                    "Great news — we have great coverage out there, so let's dive right in.",
+                                    "Awesome — we have great coverage out there, so let's dive right in."])
                     if not opener:
-                        opener = "Perfect, we have great coverage in your area."
+                        opener = "Perfect! We have great coverage out there, so let's dive right in."
                     self.coach.set_opener(opener)
-                    next_step = "Let's go ahead and build your system. How many doors go in and out of your home?"
+                    next_step = "How many doors are there that go in and out of the house?"
                     self.coach._topics_done.add("full_name")
                     self.coach._topics_done.add("phone_number")
                     self.coach._topics_done.add("email")
@@ -2612,8 +2614,8 @@ class Session:
                     self.coach._equipment_mentioned.append("door sensor")
                 self._equipment_counts["door_sensors"] = _cust_number
                 suffix = f", {name}" if name else ""
-                next_step = (f"{_cust_number} doors — I'll get you {_cust_number} door sensors so all your entry points are covered. "
-                             f"And how many windows are on the ground floor of your house that are accessible{suffix}?")
+                next_step = (f"I'm going to give you {_cust_number} door sensors, in that way all the doors are covered for you. "
+                             f"How many windows are on the ground floor of the house{suffix}?")
                 self._build_current_item = "window_sensors"
                 self._build_item_pitched = True  # doors pitch includes windows question
                 build_handled = True
@@ -2625,8 +2627,8 @@ class Session:
                     self.coach._equipment_mentioned.append("window sensor")
                 self._equipment_counts["window_sensors"] = _cust_number
                 chime = _personalize_chime(ctx, name)
-                next_step = (f"{_cust_number} windows — I'll get you {_cust_number} window sensors as well, "
-                             f"that way every entry point is covered and monitored. {chime}")
+                next_step = (f"I'm going to give you {_cust_number} window sensors, in that way all the windows downstairs are also covered for you. "
+                             f"{chime}")
                 self._build_current_item = "extra_equip"
                 self._build_item_pitched = False  # rep hasn't asked about extras yet
                 build_handled = True
