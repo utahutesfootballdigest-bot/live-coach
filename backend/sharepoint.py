@@ -14,7 +14,7 @@ CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET", "")
 # SharePoint site and file identifiers (resolved on first call)
 SITE_HOST = "alarmprotection.sharepoint.com"
 SITE_PATH = "/sites/insidesalesph"
-SHEET_NAME = "Sales Data Cove"
+SHEET_NAME = "SALES DATA | COVE"
 
 _token_cache = {"access_token": None, "expires_at": 0}
 _file_info_cache = {"drive_id": None, "item_id": None}
