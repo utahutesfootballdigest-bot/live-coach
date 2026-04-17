@@ -58,6 +58,18 @@ async def serve_index():
     return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
 
 
+@app.post("/api/tts")
+async def tts_endpoint(request: Request):
+    """Generate TTS audio for tutorial narration."""
+    body = await request.json()
+    text = body.get("text", "")
+    voice = body.get("voice", "aura-athena-en")
+    if not text:
+        return {"error": "text required"}
+    audio_b64 = await _tts(text, voice)
+    return {"audio_b64": audio_b64}
+
+
 @app.post("/api/feedback")
 async def post_feedback(request: Request):
     """Receive post-call feedback via REST (reliable even after WebSocket session ends).

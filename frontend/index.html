@@ -143,6 +143,146 @@
     </div>
   </div>
 
+  <!-- Tutorial overlay -->
+  <div id="tutorial-screen" class="screen" style="display:none">
+    <div class="tutorial-overlay">
+      <button id="tutorial-close" class="tutorial-close">&times;</button>
+      <div class="tutorial-container">
+        <div class="tutorial-progress">
+          <div class="tutorial-progress-fill" id="tutorial-progress-fill"></div>
+        </div>
+        <div class="tutorial-slides" id="tutorial-slides">
+
+          <div class="tutorial-slide" data-step="1">
+            <div class="tutorial-icon">
+              <svg width="64" height="72" viewBox="0 0 40 44" fill="none">
+                <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#tShield1)"/>
+                <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs><linearGradient id="tShield1" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5ecfc2"/><stop offset="100%" stop-color="#3ebeb0"/></linearGradient></defs>
+              </svg>
+            </div>
+            <h2 class="tutorial-title">Welcome to Cove Sales Coach</h2>
+            <p class="tutorial-desc">Your real-time coaching assistant that listens to your calls and guides you through every step of the Cove security sales process.</p>
+            <div class="tutorial-highlight">Coaching suggestions, objection rebuttals, and script guidance -- all in real time.</div>
+          </div>
+
+          <div class="tutorial-slide" data-step="2" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 1: Set Up Audio</h2>
+            <p class="tutorial-desc">Before each call, grant microphone access for your voice and share the customer's audio source (browser tab or app).</p>
+            <div class="tutorial-steps">
+              <div class="tutorial-step-item"><span class="tutorial-step-num">1</span> Click <strong>Grant Mic Access</strong> and allow your microphone</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num">2</span> Click <strong>Share Audio Source</strong> and select where customer audio plays</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num">3</span> Make sure to check <strong>"Share audio"</strong> in the dialog</div>
+            </div>
+          </div>
+
+          <div class="tutorial-slide" data-step="3" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 2: Live Transcript</h2>
+            <p class="tutorial-desc">The left panel shows a real-time transcript of the conversation. Your speech appears in <span style="color:#3ebeb0">teal</span> and the customer's in <span style="color:#7dd6ce">light teal</span>.</p>
+            <div class="tutorial-highlight">The transcript updates as you speak -- no typing needed. Just focus on the conversation.</div>
+          </div>
+
+          <div class="tutorial-slide" data-step="4" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 3: Stage Progress</h2>
+            <p class="tutorial-desc">The stage bar at the top tracks where you are in the call flow. It moves through each stage automatically as you follow the script.</p>
+            <div class="tutorial-steps">
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">1</span> <strong>Intro</strong> -- Greet and determine if new or existing customer</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">2</span> <strong>Discovery</strong> -- Why they want security, who's in the home</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">3</span> <strong>Info</strong> -- Collect name, phone, email, address</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">4</span> <strong>Build</strong> -- Build the system with doors, windows, cameras, etc.</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">5</span> <strong>Closing</strong> -- Present pricing, discounts, and close the sale</div>
+            </div>
+          </div>
+
+          <div class="tutorial-slide" data-step="5" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 4: Coaching Suggestions</h2>
+            <p class="tutorial-desc">The <strong>SUGGESTION</strong> card shows you exactly what to say next, pulled directly from the Cove sales script. Just read it naturally.</p>
+            <div class="tutorial-highlight">Suggestions update in real time based on what the customer says. The system tracks which questions have been asked so it never repeats.</div>
+          </div>
+
+          <div class="tutorial-slide" data-step="6" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 5: Objection Handling</h2>
+            <p class="tutorial-desc">When a customer pushes back, the system instantly detects the objection and shows you approved rebuttals with exact wording to use.</p>
+            <div class="tutorial-steps">
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Price concerns</strong> -- monthly vs upfront rebuttals</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Spouse approval</strong> -- 60-day trial angle</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Shopping around</strong> -- no-contract comparison</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Not sure they need it</strong> -- risk-free trial</div>
+            </div>
+          </div>
+
+          <div class="tutorial-slide" data-step="7" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 6: Customer Profile</h2>
+            <p class="tutorial-desc">The system automatically captures the customer's name, phone, email, and address as they speak. Equipment is tracked as you build the system.</p>
+            <div class="tutorial-highlight">You can click any field to manually correct it if the voice recognition got something wrong.</div>
+          </div>
+
+          <div class="tutorial-slide" data-step="8" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h2 class="tutorial-title">Step 7: Live Pricing</h2>
+            <p class="tutorial-desc">As you add equipment to the system, the pricing section updates in real time showing equipment costs, monthly monitoring, and any applicable discounts.</p>
+            <div class="tutorial-steps">
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Toggle between <strong>Cove Plus</strong> and <strong>Cove Basic</strong> plans</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Apply coupon codes for additional discounts</div>
+              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Equipment totals update automatically</div>
+            </div>
+          </div>
+
+          <div class="tutorial-slide" data-step="9" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h2 class="tutorial-title">Bonus: Practice Mode</h2>
+            <p class="tutorial-desc">Click <strong>Practice with AI</strong> from the setup screen to run practice calls with an AI customer. It simulates real scenarios with different personalities, objections, and home setups.</p>
+            <div class="tutorial-highlight">Practice mode uses the same coaching system as live calls, so you get the full experience without a real customer.</div>
+          </div>
+
+          <div class="tutorial-slide" data-step="10" style="display:none">
+            <div class="tutorial-icon">
+              <svg width="64" height="72" viewBox="0 0 40 44" fill="none">
+                <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#tShield2)"/>
+                <path d="M13 22l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs><linearGradient id="tShield2" x1="4" y1="2" x2="36" y2="44" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5ecfc2"/><stop offset="100%" stop-color="#3ebeb0"/></linearGradient></defs>
+              </svg>
+            </div>
+            <h2 class="tutorial-title">You're Ready!</h2>
+            <p class="tutorial-desc">That's everything you need to know. The Sales Coach is designed to make every call smoother, more consistent, and more confident.</p>
+            <div class="tutorial-highlight">Close this tutorial and click <strong>Start Live Session</strong> to begin your first coached call. Good luck!</div>
+          </div>
+
+        </div>
+        <div class="tutorial-nav">
+          <button class="tutorial-nav-btn" id="tutorial-prev" disabled>Back</button>
+          <div class="tutorial-dots" id="tutorial-dots"></div>
+          <button class="tutorial-nav-btn tutorial-nav-next" id="tutorial-next">Next</button>
+        </div>
+      </div>
+    </div>
+    <audio id="tutorial-music" loop preload="none">
+      <source src="https://cdn.pixabay.com/audio/2024/11/29/audio_a0a1bbe1f3.mp3" type="audio/mpeg">
+    </audio>
+  </div>
+
   <div id="setup-screen" class="screen">
     <div class="setup-card">
       <div class="setup-logo">
@@ -205,7 +345,10 @@
         </button>
       </div>
       <div id="setup-status" class="setup-status"></div>
-      <button id="insights-btn" style="margin-top:12px;background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:0.7">System Insights <span id="insights-badge" style="display:none;background:var(--accent);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px"></span></button>
+      <div style="display:flex;gap:20px;justify-content:center;margin-top:12px">
+        <button id="tutorial-btn" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:0.7">Sales Coach Tutorial</button>
+        <button id="insights-btn" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline;opacity:0.7">System Insights <span id="insights-badge" style="display:none;background:var(--accent);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px"></span></button>
+      </div>
     </div>
   </div>
 

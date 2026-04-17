@@ -1463,6 +1463,146 @@ function renderTracker(data) {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+// ── Tutorial ──────────────────────────────────────────────────────────────
+(function initTutorial() {
+  const TOTAL_SLIDES = 10;
+  let currentSlide = 1;
+  const screen = document.getElementById("tutorial-screen");
+  const slides = document.getElementById("tutorial-slides");
+  const prevBtn = document.getElementById("tutorial-prev");
+  const nextBtn = document.getElementById("tutorial-next");
+  const dotsEl = document.getElementById("tutorial-dots");
+  const progressFill = document.getElementById("tutorial-progress-fill");
+  const music = document.getElementById("tutorial-music");
+  let ttsAudio = null;
+
+  // Build dots
+  if (dotsEl) {
+    for (let i = 1; i <= TOTAL_SLIDES; i++) {
+      const dot = document.createElement("div");
+      dot.className = "tutorial-dot" + (i === 1 ? " active" : "");
+      dot.dataset.step = i;
+      dot.addEventListener("click", () => goToSlide(i));
+      dotsEl.appendChild(dot);
+    }
+  }
+
+  // Narration text for each slide (for TTS)
+  const NARRATIONS = {
+    1: "Welcome to Cove Sales Coach. Your real-time coaching assistant that listens to your calls and guides you through every step of the Cove security sales process.",
+    2: "Step 1: Set Up Audio. Before each call, grant microphone access for your voice and share the customer's audio source. Click Grant Mic Access, then Share Audio Source, and make sure to check Share Audio in the dialog.",
+    3: "Step 2: Live Transcript. The left panel shows a real-time transcript of the conversation. Your speech appears in teal and the customer's in light teal. It updates as you speak, no typing needed.",
+    4: "Step 3: Stage Progress. The stage bar tracks where you are in the call. It moves through Intro, Discovery, Info, Build, and Closing as you follow the script.",
+    5: "Step 4: Coaching Suggestions. The suggestion card shows you exactly what to say next, pulled directly from the Cove sales script. Suggestions update in real time based on what the customer says.",
+    6: "Step 5: Objection Handling. When a customer pushes back, the system detects the objection and shows you approved rebuttals with the exact wording to use.",
+    7: "Step 6: Customer Profile. The system automatically captures the customer's name, phone, email, and address as they speak. You can click any field to manually correct it.",
+    8: "Step 7: Live Pricing. As you add equipment, the pricing section updates in real time showing equipment costs, monthly monitoring, and any applicable discounts.",
+    9: "Bonus: Practice Mode. Click Practice with AI from the setup screen to run practice calls with an AI customer. It simulates real scenarios with different personalities and objections.",
+    10: "You're ready! The Sales Coach is designed to make every call smoother, more consistent, and more confident. Close this tutorial and click Start Live Session to begin."
+  };
+
+  async function speakSlide(step) {
+    // Stop any currently playing TTS
+    if (ttsAudio) {
+      ttsAudio.pause();
+      ttsAudio = null;
+    }
+    const text = NARRATIONS[step];
+    if (!text) return;
+    try {
+      // Use Deepgram Aura TTS via the backend proxy
+      const wsProto = location.protocol === "https:" ? "https:" : "http:";
+      const resp = await fetch(`${wsProto}//${location.host}/api/tts`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text, voice: "aura-athena-en"})
+      });
+      if (!resp.ok) throw new Error("TTS failed");
+      const data = await resp.json();
+      if (data.audio_b64) {
+        ttsAudio = new Audio("data:audio/mp3;base64," + data.audio_b64);
+        ttsAudio.volume = 0.9;
+        ttsAudio.play().catch(() => {});
+      }
+    } catch (e) {
+      console.log("[tutorial] TTS unavailable, skipping narration:", e.message);
+    }
+  }
+
+  function goToSlide(step) {
+    if (step < 1 || step > TOTAL_SLIDES) return;
+    currentSlide = step;
+    // Hide all slides, show current
+    slides.querySelectorAll(".tutorial-slide").forEach(s => {
+      s.style.display = s.dataset.step == step ? "block" : "none";
+      if (s.dataset.step == step) {
+        s.style.animation = "none";
+        s.offsetHeight; // trigger reflow
+        s.style.animation = "slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
+      }
+    });
+    // Update dots
+    dotsEl.querySelectorAll(".tutorial-dot").forEach(d => {
+      d.classList.toggle("active", d.dataset.step == step);
+    });
+    // Update progress
+    progressFill.style.width = (step / TOTAL_SLIDES * 100) + "%";
+    // Update buttons
+    prevBtn.disabled = step === 1;
+    nextBtn.textContent = step === TOTAL_SLIDES ? "Finish" : "Next";
+    // Narrate
+    speakSlide(step);
+  }
+
+  function openTutorial() {
+    screen.style.display = "flex";
+    goToSlide(1);
+    // Start music with fade in
+    if (music) {
+      music.volume = 0;
+      music.currentTime = 0;
+      music.play().catch(() => {});
+      let vol = 0;
+      const fadeIn = setInterval(() => {
+        vol = Math.min(vol + 0.01, 0.12);
+        music.volume = vol;
+        if (vol >= 0.12) clearInterval(fadeIn);
+      }, 50);
+    }
+  }
+
+  function closeTutorial() {
+    // Stop TTS
+    if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
+    // Fade out music
+    if (music && !music.paused) {
+      let vol = music.volume;
+      const fadeOut = setInterval(() => {
+        vol = Math.max(vol - 0.01, 0);
+        music.volume = vol;
+        if (vol <= 0) { clearInterval(fadeOut); music.pause(); }
+      }, 30);
+    }
+    screen.style.display = "none";
+  }
+
+  document.getElementById("tutorial-btn")?.addEventListener("click", openTutorial);
+  document.getElementById("tutorial-close")?.addEventListener("click", closeTutorial);
+  prevBtn?.addEventListener("click", () => goToSlide(currentSlide - 1));
+  nextBtn?.addEventListener("click", () => {
+    if (currentSlide === TOTAL_SLIDES) closeTutorial();
+    else goToSlide(currentSlide + 1);
+  });
+
+  // Keyboard navigation
+  document.addEventListener("keydown", (e) => {
+    if (screen.style.display === "none") return;
+    if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextBtn.click(); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); prevBtn.click(); }
+    if (e.key === "Escape") closeTutorial();
+  });
+})();
+
 // ── Init ──────────────────────────────────────────────────────────────────
 
 connect();
