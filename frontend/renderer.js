@@ -399,7 +399,8 @@ function showCallEndedScreen() {
   const acctInput = document.getElementById("claim-account-id");
   if (acctInput) acctInput.value = "";
   const phoneInput = document.getElementById("claim-phone");
-  if (phoneInput) phoneInput.value = "";
+  const profilePhone = document.getElementById("profile-phone")?.value?.trim() || "";
+  if (phoneInput) phoneInput.value = profilePhone;
   const channelSel = document.getElementById("claim-channel");
   if (channelSel) channelSel.selectedIndex = 0;
   prefillRepName();
