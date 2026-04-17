@@ -5,6 +5,7 @@ Appends claimed sales as rows to a shared Excel workbook.
 
 import os
 import httpx
+from urllib.parse import quote
 
 TENANT_ID = os.getenv("AZURE_TENANT_ID", "")
 CLIENT_ID = os.getenv("AZURE_CLIENT_ID", "")
@@ -119,52 +120,43 @@ async def append_sale_row(sale: dict) -> dict:
         sale["channel"],
     ]]
 
-    url = (
-        f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}"
-        f"/workbook/worksheets/{SHEET_NAME}/tables"
-    )
+    encoded_sheet = quote(SHEET_NAME, safe="")
+    base = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/worksheets('{encoded_sheet}')"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         # First, try to find an existing table on the sheet
-        tables_resp = await client.get(url, headers=headers)
+        tables_resp = await client.get(f"{base}/tables", headers=headers)
+        print(f"[sharepoint] tables check: {tables_resp.status_code} {tables_resp.text[:300]}")
 
         if tables_resp.status_code == 200 and tables_resp.json().get("value"):
             # Table exists — append row to it
             table_id = tables_resp.json()["value"][0]["id"]
-            add_url = (
-                f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}"
-                f"/workbook/worksheets/{SHEET_NAME}/tables/{table_id}/rows"
-            )
+            add_url = f"{base}/tables/{table_id}/rows"
             resp = await client.post(add_url, headers=headers, json={"values": row})
         else:
             # No table — use the used range to find the next empty row and write directly
-            range_url = (
-                f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}"
-                f"/workbook/worksheets/{SHEET_NAME}/usedRange"
-            )
-            range_resp = await client.get(range_url, headers=headers)
+            range_resp = await client.get(f"{base}/usedRange", headers=headers)
+            print(f"[sharepoint] usedRange: {range_resp.status_code} {range_resp.text[:300]}")
 
             if range_resp.status_code == 200:
                 used = range_resp.json()
-                # rowCount tells us how many rows are used; next row is rowCount + 1
                 next_row = used.get("rowCount", 1) + 1
+                print(f"[sharepoint] next_row={next_row}")
             else:
-                next_row = 2  # fallback: assume row 1 is header
+                next_row = 2
 
             cell_range = f"A{next_row}:E{next_row}"
-            write_url = (
-                f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}"
-                f"/workbook/worksheets/{SHEET_NAME}/range(address='{cell_range}')"
-            )
+            write_url = f"{base}/range(address='{cell_range}')"
+            print(f"[sharepoint] writing to {cell_range}")
             resp = await client.patch(write_url, headers=headers, json={"values": row})
 
+        print(f"[sharepoint] write response: {resp.status_code} {resp.text[:500]}")
         if resp.status_code in (200, 201):
             print(f"[sharepoint] row added for {sale['rep']} | {sale['account_id']}")
             return {"ok": True}
         else:
-            error = resp.text
-            print(f"[sharepoint] error: {resp.status_code} {error}")
-            return {"ok": False, "error": error}
+            print(f"[sharepoint] error: {resp.status_code} {resp.text[:500]}")
+            return {"ok": False, "error": resp.text}
 
 
 def is_configured() -> bool:
