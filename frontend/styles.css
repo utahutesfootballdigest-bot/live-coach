@@ -189,7 +189,7 @@ html, body {
 /* ── Main Layout ─────────────────────────────────────────────────────────── */
 .main-layout {
   display: grid;
-  grid-template-columns: 42% 58%;
+  grid-template-columns: 30% 70%;
   width: 100%;
   flex: 1;
   min-height: 0;
@@ -448,6 +448,14 @@ html, body {
   border: 1px solid rgba(255, 107, 107, 0.3);
   border-radius: var(--radius);
   padding: 20px 22px;
+}
+.objection-card.objection-pulse {
+  animation: objectionPulse 0.6s ease-out;
+}
+@keyframes objectionPulse {
+  0% { border-color: rgba(255, 71, 87, 1); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.5); }
+  50% { border-color: rgba(255, 71, 87, 1); box-shadow: 0 0 16px 4px rgba(255, 71, 87, 0.3); }
+  100% { border-color: rgba(255, 107, 107, 0.3); box-shadow: none; }
 }
 .objection-label {
   font-size: 10px;
@@ -808,6 +816,20 @@ html, body {
 .profile-input:focus {
   border-bottom-color: var(--accent);
 }
+.profile-copy-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.profile-row:hover .profile-copy-btn { opacity: 1; }
+.profile-copy-btn:hover { color: var(--accent); background: rgba(94,207,194,0.1); }
+.profile-copy-btn.copied { color: var(--accent); opacity: 1; }
 .profile-input::placeholder {
   color: var(--text-dim);
 }

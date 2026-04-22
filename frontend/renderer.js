@@ -266,8 +266,8 @@ document.getElementById("transcript-toggle")?.addEventListener("click", () => {
   localStorage.setItem("transcriptCollapsed", collapsed ? "1" : "0");
 });
 
-// Restore transcript state from localStorage
-if (localStorage.getItem("transcriptCollapsed") === "1") {
+// Restore transcript state from localStorage (default: collapsed)
+if (localStorage.getItem("transcriptCollapsed") !== "0") {
   document.getElementById("transcript-panel")?.classList.add("collapsed");
   document.querySelector(".main-layout")?.classList.add("transcript-collapsed");
   const icon = document.getElementById("transcript-toggle-icon");
@@ -582,7 +582,14 @@ function handleCoaching(msg) {
     list.appendChild(card);
   });
 
-  // Transitions (Move Forward) section removed from UI
+  // Visual alert: pulse animation + auto-scroll to objection card
+  const objCard = content.querySelector(".objection-card");
+  if (objCard) {
+    objCard.classList.remove("objection-pulse");
+    void objCard.offsetWidth; // force reflow to restart animation
+    objCard.classList.add("objection-pulse");
+    objCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 function handleScoreUpdate(msg) {
@@ -1068,6 +1075,21 @@ function renderEquipmentList(equipment) {
     const field = id.replace("profile-", "");
     const value = document.getElementById(id).value;
     send({ action: "update_profile", field, value });
+  });
+});
+
+// ── Click-to-copy on profile fields ──────────────────────────────────────
+document.querySelectorAll(".profile-copy-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const fieldId = btn.dataset.field;
+    const value = document.getElementById(fieldId)?.value?.trim();
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      btn.classList.add("copied");
+      const origHTML = btn.innerHTML;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = origHTML; }, 1200);
+    });
   });
 });
 
