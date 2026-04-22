@@ -21,6 +21,26 @@ OBJECTION_REBUTTALS = {
         "suggestions": [{"label": "Personal Info Rebuttal", "text": "I totally understand being careful with your information. How about this \u2014 let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."}],
         "transitions": ["Does that work for you?", "Should we look at the equipment first?"],
     },
+    # ── Cart already built (customer built their system on the website already) ──
+    "cart_ready": {
+        "signals": [
+            "already build the system", "already built the system",
+            "already built my system", "already have my system",
+            "already built my cart", "already have my cart",
+            "already have everything in my cart", "already added everything",
+            "already picked out", "already picked my equipment",
+            "already selected", "already chose", "already have the equipment",
+            "i have everything in the cart", "everything in my cart",
+            "my cart is ready", "cart is already done", "system is already built",
+            "already know what i need", "already know what i want",
+            "i built my system", "i built the system",
+            "equipment that i need", "equipment i need already",
+        ],
+        "type": "Cart Already Built",
+        "summary": "Customer already built their system on the website",
+        "suggestions": [{"label": "Confirm Cart", "text": "That's awesome that you already have your system built! Let me pull up what you've got in your cart so I can make sure everything looks good and get you the best deal. Could you walk me through what equipment you've added?"}],
+        "transitions": ["What equipment do you have in your cart?", "Let me make sure we get you the best price on that."],
+    },
     # ── Price inquiry (early call — customer asking about price, NOT reacting to one) ──
     "price_inquiry": {
         "signals": [
@@ -182,6 +202,11 @@ OBJECTION_REBUTTALS = {
             "someone come out", "send somebody", "come set it up",
             "i'm not good with technology", "not tech savvy",
             "not a techy", "not techy", "i'm not techy",
+            "not a techie", "not the techie", "techie person",
+            "tech you person", "not a tech you", "not tech you",
+            "send someone to help", "help me with the installation",
+            "help me install", "help me set it up", "help with installation",
+            "help with the install", "someone to help me",
             "technician come out", "have a technician",
             "technician that can come", "technician to come",
             "can't install", "don't know how to install",
