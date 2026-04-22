@@ -2325,7 +2325,7 @@ class Session:
             # Skip very short fragments (< 4 words) to avoid false positives
             # on partial utterances like "okay" or "hold on"
             if len(_obj_text.split()) >= 4:
-                _obj = self.coach.detect_objection(_obj_text)
+                _obj = self.coach.detect_objection(_obj_text, stage=self.current_stage)
                 if _obj:
                     print(f"[objection] INSTANT detected: {_obj['objection_type']} — {text[:60]}")
                     # Send rebuttal to frontend immediately
@@ -2345,7 +2345,7 @@ class Session:
                 if _prev_cust:
                     _combined_obj = " ".join(_prev_cust) + " " + _obj_text
                     if len(_combined_obj.split()) >= 4:
-                        _obj = self.coach.detect_objection(_combined_obj)
+                        _obj = self.coach.detect_objection(_combined_obj, stage=self.current_stage)
                         if _obj:
                             print(f"[objection] INSTANT detected (combined): {_obj['objection_type']} — {_combined_obj[:80]}")
                             await self.send({"type": "coaching", **_obj,
