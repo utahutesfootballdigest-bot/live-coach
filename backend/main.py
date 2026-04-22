@@ -933,13 +933,16 @@ def _extract_name(text: str) -> str:
         _FILLER = {"my", "is", "the", "yeah", "yes", "it", "its", "be",
                    "that", "then", "yep", "okay", "ok", "and", "gonna",
                    "would", "will", "just", "well", "so", "a", "an", "of",
-                   "to", "for", "i", "i'm", "i'd", "let", "me", "hi"}
+                   "to", "for", "i", "i'm", "i'd", "let", "me", "hi",
+                   "sure", "right", "alright", "good", "great", "fine",
+                   "no", "nope", "sir", "ma'am", "hey", "hello"}
         words = [w.capitalize() for w in parts if w.isalpha() and len(w) >= 2
                  and w.lower() not in _FILLER]
         if words:
             return " ".join(words).strip()
 
-    return text.strip()
+    # No recognizable name found — return empty so profile doesn't get junk
+    return ""
 
 
 def _customer_mentioned_kids(coach) -> bool:
@@ -1504,6 +1507,7 @@ class Session:
         self.customer_buffer: list[str] = []
         self.rep_buffer: list[str] = []
         self.pending_rep_buffer: list[str] = []
+        self._recent_finals: list[tuple[str, str, float]] = []  # (speaker, text, timestamp) for dedup
         self._coach_task: asyncio.Task | None = None
         self._roleplay_task: asyncio.Task | None = None
         self.pending_evaluation: dict | None = None
@@ -1636,6 +1640,7 @@ class Session:
         self.customer_buffer = []
         self.rep_buffer = []
         self.pending_rep_buffer = []
+        self._recent_finals = []
         self.pending_evaluation = None
         self.session_scores = []
         self.current_stage = "intro"
@@ -1833,6 +1838,12 @@ class Session:
                 self.coach.customer_name = first_name
                 print(f"[profile] synced customer_name to coach: {first_name}")
 
+    # Optional items that should NOT appear in the equipment list unless
+    # the customer explicitly accepted them (i.e., they have an entry in
+    # _equipment_counts with qty > 0).
+    _OPTIONAL_EQUIPMENT = {"motion_sensor", "glass_break", "co_detector",
+                           "smoke_detector", "key_fob", "medical_pendant"}
+
     def _build_equipment_list(self) -> list[dict]:
         """Build structured equipment list with quantities from coach state."""
         if not self.coach:
@@ -1862,9 +1873,17 @@ class Session:
             }
             info = _MAP.get(e)
             if info:
-                qty = self._equipment_counts.get(info["key"], 1)
-                items.append({"key": info["key"], "label": info["label"], "qty": qty})
-                seen.add(info["key"])
+                key = info["key"]
+                # Optional items only appear if customer explicitly confirmed
+                # (has an entry in _equipment_counts with qty > 0)
+                if key in self._OPTIONAL_EQUIPMENT:
+                    qty = self._equipment_counts.get(key, 0)
+                    if qty <= 0:
+                        continue  # skip unconfirmed optional items
+                else:
+                    qty = self._equipment_counts.get(key, 1)
+                items.append({"key": key, "label": info["label"], "qty": qty})
+                seen.add(key)
         # Also include items from _equipment_counts that weren't in _equipment_mentioned
         # (e.g., rep manually added via "Add Equipment" button)
         _COUNTS_MAP = {
@@ -2154,6 +2173,22 @@ class Session:
             await self.send_profile()
             await self.send_pricing()
 
+            # Fallback: if Claude didn't trigger but keyword detector finds
+            # an objection in recent customer speech, inject the rebuttal
+            if not suggestion.get("triggered") and self.coach:
+                _recent_cust = " ".join(
+                    h["text"] for h in self.coach._history[-6:]
+                    if h["speaker"] == "customer"
+                )
+                _fallback = self.coach.detect_objection(_recent_cust)
+                if _fallback:
+                    print(f"[coach] FALLBACK objection detected: {_fallback['objection_type']}")
+                    suggestion["triggered"] = True
+                    suggestion["objection_type"] = _fallback["objection_type"]
+                    suggestion["objection_summary"] = _fallback["objection_summary"]
+                    suggestion["suggestions"] = _fallback["suggestions"]
+                    suggestion["transitions"] = _fallback["transitions"]
+
             if suggestion.get("triggered"):
                 await self.send({"type": "coaching", **suggestion})
                 self.coach.mark_addressed(suggestion.get("objection_type", ""))
@@ -2276,6 +2311,25 @@ class Session:
                 return
 
         await self.send({"type": "transcript", "speaker": speaker, "text": text, "is_final": is_final})
+
+        # ── Deepgram duplicate deduplication ──
+        # Deepgram sometimes sends the same speech_final twice. Detect and skip
+        # the duplicate to prevent double-processing (double topic tracking,
+        # premature stage advances, coaching loops).
+        import time as _time_mod
+        if is_final:
+            _now = _time_mod.monotonic()
+            _dedup_text = text.strip().lower()
+            # Check if we saw this exact text from same speaker within 3 seconds
+            for _prev_spk, _prev_txt, _prev_ts in self._recent_finals:
+                if (_prev_spk == speaker and _prev_txt == _dedup_text
+                        and _now - _prev_ts < 3.0):
+                    print(f"[dedup] skipping duplicate {speaker} is_final: {text[:60]}")
+                    return  # already displayed in transcript above, skip processing
+            # Record this final and prune old entries
+            self._recent_finals.append((speaker, _dedup_text, _now))
+            self._recent_finals = [(s, t2, ts) for s, t2, ts in self._recent_finals
+                                   if _now - ts < 5.0]
 
         # ── Fast-track intro ──
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro":
@@ -2454,7 +2508,9 @@ class Session:
                     "my name is", "first name", "last name", "name is"])
                 _looks_like_name = (
                     _has_name_words or _has_name_in_combined or
-                    (_is_short_alpha and not _has_phone_digits and not _has_email
+                    (_is_short_alpha and not _all_filler
+                     and t.strip().lower() not in _NOT_NAMES
+                     and not _has_phone_digits and not _has_email
                      and not _has_address and _digit_count == 0
                      and not any(w in t.split() for w in _EQUIP_WORDS))
                 )
@@ -2556,8 +2612,20 @@ class Session:
             else:
                 # Customer said something during collect_info that didn't match
                 # the expected info type (e.g. "yes sir" confirming a spelling).
-                # Suppress Claude coaching to prevent it jumping ahead to
-                # build_system while we're still collecting info.
+                # Re-show the current prompt so the rep isn't left with nothing.
+                _COLLECT_PROMPTS = {
+                    "full_name": "Could you please spell your first and last name for me?",
+                    "phone_number": "And the best phone number for you?",
+                    "email": "And an email so I can send all this information over to you at the end of the call?",
+                    "address": "And before we get ahead of ourselves, I just want to verify that we have coverage. What is the address you're looking to get the security set up at?",
+                }
+                # Find the current expected field
+                for _field in ["full_name", "phone_number", "email", "address"]:
+                    if _field not in self._collect_info_done:
+                        _retry_step = _COLLECT_PROMPTS[_field]
+                        await self.send({"type": "call_guidance", "call_stage": self.current_stage,
+                                         "next_step": _retry_step})
+                        break
                 return
 
         # ── Fast-track build_system ──
@@ -2593,8 +2661,8 @@ class Session:
                 _nums = _re3.findall(r'\d+', t)
                 if _nums:
                     _cust_number = int(_nums[0])
-            if _cust_number is None and len(words) <= 3:
-                # Try homophones only for very short responses
+            if _cust_number is None and len(words) <= 5:
+                # Try homophones for short responses (e.g. "i got to only")
                 for word, val in _HOMOPHONE_NUMS.items():
                     if word in words:
                         _cust_number = val
@@ -2633,6 +2701,11 @@ class Session:
                 "wait", "hold on", "slow down", "what about", "can you explain",
                 "i'm confused", "that doesn't", "i'm not interested", "not right now",
                 "let me think", "i need to", "three seventy five", "price",
+                # Closing-stage objections (shopping, spouse, urgency)
+                "talk to my wife", "talk to my husband", "check with my",
+                "shopping around", "other companies", "compare", "send me a quote",
+                "call you back", "think about it", "sleep on it", "not ready",
+                "do some research", "due diligence", "hear them out",
             ]
             _is_objection = any(sig in t for sig in _OBJECTION_SIGNALS)
             if _is_objection and _cust_number is None:

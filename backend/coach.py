@@ -484,6 +484,242 @@ QUESTION_TOPICS = {
 }
 
 
+# ── Keyword-based objection fallback ─────────────────────────────────────
+# When Claude fails to return triggered=true, this lookup provides the
+# approved rebuttal so the rep ALWAYS sees objection coaching.
+OBJECTION_REBUTTALS = {
+    "price_general": {
+        "signals": [
+            # Textbook
+            "too expensive", "too much money", "that's a lot", "can't afford",
+            "costs a lot", "pricey", "cost too much", "lot of money",
+            "that's expensive", "kind of expensive", "kinda expensive",
+            "pretty expensive", "really expensive", "so expensive",
+            # Conversational / confused
+            "just want the price", "just wanted the price", "just wanted to know the price",
+            "only wanted the price", "just want to know how much",
+            "what's the total", "what is the total", "how much is it",
+            "how much does it cost", "how much is everything", "how much total",
+            "what's the price", "what is the price", "what's the cost",
+            "what am i paying", "what do i pay", "what would i pay",
+            "just give me the price", "it doesn't matter i just",
+            "skip to the price", "get to the price",
+            # Sticker shock after hearing price
+            "why do i have to pay", "why am i paying", "why is it",
+            "i thought it was free", "thought the equipment was free",
+            "are for free", "said it was free", "was supposed to be free",
+            "that's more than", "more than i expected", "wasn't expecting",
+            "didn't expect to pay", "didn't think i'd have to pay",
+        ],
+        "type": "Price / General Expense",
+        "summary": "Customer is concerned about the price",
+        "suggestions": [{"label": "Price Rebuttal", "text": "I understand where you're coming from; it can definitely seem expensive at first. Just to clarify, are you referring to the upfront cost or the monthly fee?"}],
+        "transitions": ["Does that make sense?", "Would you like to try it for the 60-day trial?"],
+    },
+    "upfront_cost": {
+        "signals": [
+            "upfront cost", "up front cost", "equipment cost", "pay that much today",
+            "that much upfront", "that much up front", "down payment",
+            # Conversational
+            "pay for the equipment", "pay for equipment", "equipment is how much",
+            "why do i have to pay for the equipment", "that much for equipment",
+            "hundred dollars", "ninety nine dollars", "two hundred",
+            "three hundred", "pay all that", "pay that today",
+            "that's a lot for equipment", "a lot just for equipment",
+        ],
+        "type": "Upfront Cost",
+        "summary": "Customer thinks the upfront equipment cost is too high",
+        "suggestions": [{"label": "Upfront Cost Rebuttal", "text": "I hear you, upfront costs can feel like a lot. Keep in mind, this covers everything you need: the equipment, app access, account setup, and more. Let me ask, what price were you hoping for? Maybe we can find a way to meet you halfway and make this work for you."}],
+        "transitions": ["What price were you hoping for?", "Would the 60-day trial help?"],
+    },
+    "monthly_bill": {
+        "signals": [
+            "monthly fee is", "per month is too", "a month is too", "monthly cost",
+            "monthly is too", "monthly is a lot", "thirty three a month",
+            "thirty two a month",
+            # Conversational
+            "a month for monitoring", "month just for monitoring",
+            "every month on top", "monthly on top of", "plus a monthly",
+            "and then monthly", "monthly too", "pay every month too",
+        ],
+        "type": "Monthly Bill",
+        "summary": "Customer thinks the monthly monitoring fee is too much",
+        "suggestions": [{"label": "Monthly Fee Rebuttal", "text": "I hear you; the monthly monitoring fee is $32.99. Honestly, that's one of the most affordable rates on the market, especially considering all the equipment included in your system. That's basically just about a dollar a day for full protection for your family. It's peace of mind that's hard to put a price on."}],
+        "transitions": ["Does that sound reasonable?", "Would you like to try it for the 60-day trial?"],
+    },
+    "spouse": {
+        "signals": [
+            "talk to my wife", "talk to my husband", "ask my wife", "ask my husband",
+            "check with my wife", "check with my husband", "talk to my partner",
+            "run it by my", "discuss with my", "talk to my spouse",
+            "my wife needs to", "my husband needs to", "wife first",
+            "husband first", "partner first",
+            # Conversational
+            "let me ask my wife", "let me ask my husband", "my wife would",
+            "my husband would", "without my wife", "without my husband",
+            "wife is not here", "husband is not here", "wife isn't here",
+            "husband isn't here", "need my wife", "need my husband",
+        ],
+        "type": "Spouse",
+        "summary": "Customer wants to talk to their partner first",
+        "suggestions": [{"label": "Spouse Rebuttal", "text": "Sure, I completely understand, I'd want to check with my partner too before making a big decision like this. Just a heads up, the discount ends tonight, and I wouldn't want you to miss out. But don't worry, we have a 60-day return policy with a full refund, so you can try it and see if this system is the right fit for your needs."}],
+        "transitions": ["Does that sound fair?", "Would the 60-day trial help with that decision?"],
+    },
+    "no_urgency": {
+        "signals": [
+            "call you back", "think about it", "let me think", "need to think",
+            "want to think", "sleep on it", "not ready yet", "not sure yet",
+            "give me some time", "come back later", "i'll get back",
+            "get back to you", "call back later", "maybe later",
+            "not right now", "not today",
+            # Conversational
+            "i'll call back", "call back tomorrow", "call back another",
+            "need some time", "give me a day", "give me a few days",
+            "think it over", "think on it", "sit on it", "mull it over",
+            "need a minute", "need a moment", "let me process",
+            "let me look into", "need to do more research",
+        ],
+        "type": "No Urgency",
+        "summary": "Customer wants to think about it or call back later",
+        "suggestions": [{"label": "No Urgency Rebuttal", "text": "No worries, you can definitely call us back when the time comes. Just keep in mind, the discount ends tonight, and I wouldn't want you to miss out. Is there anything else you'd like to know to help make your decision?"}],
+        "transitions": ["Is there anything else I can help clarify?", "Would the 60-day trial help?"],
+    },
+    "shopping_around": {
+        "signals": [
+            "shopping around", "other companies", "calling other", "few different companies",
+            "do some research", "do my research", "due diligence", "look around",
+            "check other", "other options", "other quotes", "send me a quote",
+            "send over a quote", "looking at other", "hear them out",
+            "compare prices", "comparing", "shop around", "check around",
+            "talk to other", "see what else", "other providers",
+            # Conversational
+            "look at other", "checking out other", "trying other",
+            "want to see other", "looking at adt", "looking at ring",
+            "looking at simplisafe", "looking at vivint",
+            "what about adt", "what about ring", "what about simplisafe",
+            "checked with", "spoke with", "talking to", "been looking at",
+        ],
+        "type": "Shopping Around",
+        "summary": "Customer wants to compare with other companies",
+        "suggestions": [{"label": "Shopping Around Rebuttal", "text": "I totally understand \u2014 it's smart to compare. Just so you know, a lot of people compare us with the big names and end up choosing Cove because of the no-contract, the pricing, and the customer service. And with the 60-day trial, you can try it risk-free. If it's not the right fit, you send it back for a full refund."}],
+        "transitions": ["Does that make sense?", "Would you like to go ahead and try it risk-free?"],
+    },
+    "needs": {
+        "signals": [
+            "not sure i need", "don't think i need", "do i really need",
+            "is it worth", "don't know if i need", "not convinced",
+            "don't really need",
+            # Conversational
+            "do i need all this", "do i need all that", "that's a lot of stuff",
+            "seems like a lot", "is all that necessary", "do i need that many",
+            "more than i need", "i don't need all",
+        ],
+        "type": "Needs",
+        "summary": "Customer isn't sure they need the system",
+        "suggestions": [{"label": "Needs Rebuttal", "text": "No worries! We have a 60-day return policy with a full refund, so you can try it and see if this system is the right fit for your needs."}],
+        "transitions": ["Would you like to try it risk-free?", "Does that sound fair?"],
+    },
+    "technician": {
+        "signals": [
+            "install it myself", "too hard to install", "can someone install",
+            "send someone to install", "need a technician", "want a technician",
+            "professional install", "hard to set up",
+            # Conversational
+            "how do i set it up", "who installs it", "who sets it up",
+            "i'm not good with", "not good with technology", "not tech savvy",
+            "someone come out", "send somebody", "come set it up",
+        ],
+        "type": "Technician / DIY",
+        "summary": "Customer has concerns about installation",
+        "suggestions": [{"label": "DIY Rebuttal", "text": "Most of our customers install the equipment themselves because it's really easy. This is a DIY system with wireless equipment. You can try installing it on your own, but if you need help, we also have a third-party technician service starting at $129."}],
+        "transitions": ["Does that sound doable?", "Would you like to give it a try?"],
+    },
+    "no_monitoring": {
+        "signals": [
+            "self monitor", "self-monitor", "don't want monitoring",
+            "no monitoring", "monitor myself", "don't need monitoring",
+            "without monitoring",
+            # Conversational
+            "just use the app", "just the cameras", "use my phone",
+            "monitor from my phone", "i'll monitor it myself",
+            "do i have to have monitoring", "is monitoring required",
+        ],
+        "type": "Doesn't Want Monitoring",
+        "summary": "Customer doesn't want professional monitoring",
+        "suggestions": [{"label": "Monitoring Rebuttal", "text": "At Cove, we don't offer self-monitoring because we want to make sure our customers are fully protected 24/7, with police, fire, and medical support included. The monthly monitoring fee is just $32.99, about a dollar a day, for complete peace of mind that keeps your family safe without compromise."}],
+        "transitions": ["Does that make sense?", "Would you like to try it for 60 days?"],
+    },
+    "only_cameras": {
+        "signals": [
+            "just want cameras", "only want cameras", "just the cameras",
+            "only need cameras", "cameras only", "just cameras",
+            # Conversational
+            "only interested in cameras", "came for the cameras",
+            "don't need sensors", "don't need the sensors",
+            "don't want sensors", "skip the sensors",
+        ],
+        "type": "Only Wants Cameras",
+        "summary": "Customer only wants cameras without the full system",
+        "suggestions": [{"label": "Cameras Only Rebuttal", "text": "I understand where you're coming from. Cameras are great for keeping an eye on your home, but with our full system, including sensors, you get 24/7 protection with police, fire, and medical response, even when you're not watching."}],
+        "transitions": ["Does that make sense?", "Would you like the full protection?"],
+    },
+    "personal_info": {
+        "signals": [
+            "don't want to give", "why do you need my", "don't give out my",
+            "not comfortable giving", "rather not give my",
+            # Conversational
+            "skip that part", "can we skip", "just want the price first",
+            "it doesn't matter", "that's not important", "not giving you my",
+            "don't need my information", "why do you need that",
+        ],
+        "type": "Personal Info Resistance",
+        "summary": "Customer doesn't want to share personal information yet",
+        "suggestions": [{"label": "Personal Info Rebuttal", "text": "I totally understand being careful with your information. How about this \u2014 let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."}],
+        "transitions": ["Does that work for you?", "Should we look at the equipment first?"],
+    },
+    "payment_declined": {
+        "signals": [
+            "card declined", "card didn't work", "payment failed", "won't go through",
+            "didn't go through", "card not working", "card was declined",
+            # Conversational
+            "not going through", "keeps declining", "says declined",
+            "error with my card", "card isn't working", "payment won't",
+        ],
+        "type": "Payment Declined",
+        "summary": "Customer's payment method was declined",
+        "suggestions": [{"label": "Payment Rebuttal", "text": "Oh no problem \u2014 we accept any standard Visa, Mastercard, or Discover credit or debit card. Unfortunately we can't accept prepaid cards, Cash App cards, or PayPal. Do you have another card you could use?"}],
+        "transitions": ["Do you have another card?", "Would you like to try a different payment method?"],
+    },
+    "existing_system": {
+        "signals": [
+            "already have a system", "use my existing", "keep my current",
+            "already have equipment", "use the equipment i have",
+            "existing equipment",
+            # Conversational
+            "already have cameras", "already have sensors", "already installed",
+            "equipment from before", "keep what i have", "use what i have",
+        ],
+        "type": "Existing System",
+        "summary": "Customer wants to use their existing security equipment",
+        "suggestions": [{"label": "Existing System Rebuttal", "text": "Great news \u2014 you can actually keep using the equipment that's already installed there. What we'll do is set you up with a new account, get you a new hub and panel, and then we'll reset the existing cameras and sensors to connect to your new account."}],
+        "transitions": ["Does that make sense?", "Should we get that set up for you?"],
+    },
+    "autopay": {
+        "signals": [
+            "when do i get charged", "billing date", "when is the payment",
+            "autopay", "auto pay", "when does it charge", "first payment",
+            # Conversational
+            "when do they charge", "when does billing start",
+            "when is the first charge", "what day do i pay",
+        ],
+        "type": "Autopay / Billing",
+        "summary": "Customer has questions about billing date or autopay",
+        "suggestions": [{"label": "Autopay Rebuttal", "text": "The autopay runs on the 5th of each month by default, but if you need a different billing date, you can call our customer service team after setup and they'll adjust it for you. Today you just pay for the equipment, and the monthly monitoring starts after your first month."}],
+        "transitions": ["Does that work for you?", "Should we go ahead and get you set up?"],
+    },
+}
+
+
 class CoachingEngine:
     def __init__(self, api_key: str):
         self._api_key = api_key
@@ -527,7 +763,11 @@ class CoachingEngine:
                 self._rep_questions.append(text.strip())
             # Don't track equipment during recap/closing — the rep is reading
             # back items already in the system, not pitching new ones.
-            _in_recap_or_closing = self.current_stage in ("closing",) or "recap_done" in self._topics_done
+            # Also guard when _section_build_system is done (rep is in recap
+            # territory even if the stage hasn't formally advanced yet).
+            _in_recap_or_closing = (self.current_stage in ("closing",)
+                                    or "recap_done" in self._topics_done
+                                    or "_section_build_system" in self._topics_done)
             # Don't track equipment when the rep is ASKING about it
             # ("we have a motion detector... do you think you'd need any?")
             # Only track when the rep is CONFIRMING/ADDING it.
@@ -677,7 +917,15 @@ class CoachingEngine:
                                 break
             # Try to extract customer's first name
             if not self.customer_name:
-                t_lower = text.lower()
+                # Strip leading fillers so "yeah my name is Thomas" parses correctly
+                _cleaned = text.strip()
+                for _filler_prefix in ["yeah ", "yes ", "yep ", "sure ", "okay ", "ok ",
+                                        "alright ", "so ", "um ", "uh ", "well ",
+                                        "yeah so ", "yes so ", "ok so "]:
+                    if _cleaned.lower().startswith(_filler_prefix):
+                        _cleaned = _cleaned[len(_filler_prefix):]
+                        break
+                t_lower = _cleaned.lower()
                 # Common words that follow "I'm" but are NOT names
                 _NOT_NAMES = {"fine", "good", "great", "well", "ok", "okay", "alright",
                               "doing", "interested", "looking", "calling", "here", "ready",
@@ -703,7 +951,7 @@ class CoachingEngine:
                               "windows", "doors", "gonna", "hundred", "thousand"}
                 for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
                     if prefix in t_lower:
-                        after = text[t_lower.index(prefix) + len(prefix):].strip()
+                        after = _cleaned[t_lower.index(prefix) + len(prefix):].strip()
                         first_word = after.split()[0] if after.split() else ""
                         # Basic validation: capitalize, skip very short or non-alpha or common words
                         if (len(first_word) >= 2 and first_word.isalpha()
@@ -830,6 +1078,23 @@ class CoachingEngine:
     def mark_addressed(self, objection_type: str):
         if objection_type and objection_type not in self._addressed:
             self._addressed.append(objection_type)
+
+    def detect_objection(self, text: str) -> dict | None:
+        """Fast keyword-based objection detection as fallback when Claude misses.
+        Returns rebuttal data dict if an objection is found, None otherwise."""
+        t = text.lower()
+        for _key, data in OBJECTION_REBUTTALS.items():
+            if any(sig in t for sig in data["signals"]):
+                if data["type"] in self._addressed:
+                    continue
+                return {
+                    "triggered": True,
+                    "objection_type": data["type"],
+                    "objection_summary": data["summary"],
+                    "suggestions": data["suggestions"],
+                    "transitions": data["transitions"],
+                }
+        return None
 
     async def get_suggestion(self) -> dict:
         recent = self._history[-24:]
