@@ -504,6 +504,9 @@ OBJECTION_REBUTTALS = {
             "what am i paying", "what do i pay", "what would i pay",
             "just give me the price", "it doesn't matter i just",
             "skip to the price", "get to the price",
+            "wanted to know the price", "want to know the price",
+            "wanted to know the total", "want to know the total",
+            "just the price", "tell me the price", "give me the price",
             # Sticker shock after hearing price
             "why do i have to pay", "why am i paying", "why is it",
             "i thought it was free", "thought the equipment was free",

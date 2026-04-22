@@ -2173,22 +2173,8 @@ class Session:
             await self.send_profile()
             await self.send_pricing()
 
-            # Fallback: if Claude didn't trigger but keyword detector finds
-            # an objection in recent customer speech, inject the rebuttal
-            if not suggestion.get("triggered") and self.coach:
-                _recent_cust = " ".join(
-                    h["text"] for h in self.coach._history[-6:]
-                    if h["speaker"] == "customer"
-                )
-                _fallback = self.coach.detect_objection(_recent_cust)
-                if _fallback:
-                    print(f"[coach] FALLBACK objection detected: {_fallback['objection_type']}")
-                    suggestion["triggered"] = True
-                    suggestion["objection_type"] = _fallback["objection_type"]
-                    suggestion["objection_summary"] = _fallback["objection_summary"]
-                    suggestion["suggestions"] = _fallback["suggestions"]
-                    suggestion["transitions"] = _fallback["transitions"]
-
+            # Objection detection is now handled upstream in _on_transcript
+            # (instant, before fast-tracks). Claude can still trigger too.
             if suggestion.get("triggered"):
                 await self.send({"type": "coaching", **suggestion})
                 self.coach.mark_addressed(suggestion.get("objection_type", ""))
@@ -2330,6 +2316,45 @@ class Session:
             self._recent_finals.append((speaker, _dedup_text, _now))
             self._recent_finals = [(s, t2, ts) for s, t2, ts in self._recent_finals
                                    if _now - ts < 5.0]
+
+        # ── Instant objection detection (runs in ALL stages) ──────────────
+        # This fires BEFORE any fast-track so objections are never swallowed.
+        # Pure keyword matching — zero latency, no Claude dependency.
+        if speaker == "customer" and is_final and self.coach is not None:
+            _obj_text = text.strip()
+            # Skip very short fragments (< 4 words) to avoid false positives
+            # on partial utterances like "okay" or "hold on"
+            if len(_obj_text.split()) >= 4:
+                _obj = self.coach.detect_objection(_obj_text)
+                if _obj:
+                    print(f"[objection] INSTANT detected: {_obj['objection_type']} — {text[:60]}")
+                    # Send rebuttal to frontend immediately
+                    await self.send({"type": "coaching", **_obj,
+                                     "call_stage": self.current_stage})
+                    self.coach.mark_addressed(_obj["objection_type"])
+                    self.pending_evaluation = {
+                        "objection_type": _obj["objection_type"],
+                        "objection_summary": _obj["objection_summary"],
+                    }
+            else:
+                # For short utterances (2-3 words), also check if combined with
+                # the previous customer turn it forms an objection.
+                # e.g. turn1: "that's too" turn2: "expensive"
+                _prev_cust = [h["text"] for h in (self.coach._history[-3:] if self.coach._history else [])
+                              if h["speaker"] == "customer"]
+                if _prev_cust:
+                    _combined_obj = " ".join(_prev_cust) + " " + _obj_text
+                    if len(_combined_obj.split()) >= 4:
+                        _obj = self.coach.detect_objection(_combined_obj)
+                        if _obj:
+                            print(f"[objection] INSTANT detected (combined): {_obj['objection_type']} — {_combined_obj[:80]}")
+                            await self.send({"type": "coaching", **_obj,
+                                             "call_stage": self.current_stage})
+                            self.coach.mark_addressed(_obj["objection_type"])
+                            self.pending_evaluation = {
+                                "objection_type": _obj["objection_type"],
+                                "objection_summary": _obj["objection_summary"],
+                            }
 
         # ── Fast-track intro ──
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro":
