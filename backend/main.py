@@ -2320,41 +2320,30 @@ class Session:
         # ── Instant objection detection (runs in ALL stages) ──────────────
         # This fires BEFORE any fast-track so objections are never swallowed.
         # Pure keyword matching — zero latency, no Claude dependency.
+        # Always combines recent customer turns to catch split objections
+        # (e.g. "a monitoring" + "is it possible" + "expensive").
         if speaker == "customer" and is_final and self.coach is not None:
             _obj_text = text.strip()
-            # Skip very short fragments (< 4 words) to avoid false positives
-            # on partial utterances like "okay" or "hold on"
-            if len(_obj_text.split()) >= 4:
+            # Build combined text from last 4 customer turns + current
+            _prev_cust = [h["text"] for h in (self.coach._history[-8:] if self.coach._history else [])
+                          if h["speaker"] == "customer"]
+            _prev_cust.append(_obj_text)
+            _combined_obj = " ".join(_prev_cust[-4:])  # last 4 customer turns
+
+            # Check combined text first (catches split objections), then single
+            _obj = self.coach.detect_objection(_combined_obj, stage=self.current_stage)
+            if not _obj and len(_obj_text.split()) >= 3:
                 _obj = self.coach.detect_objection(_obj_text, stage=self.current_stage)
-                if _obj:
-                    print(f"[objection] INSTANT detected: {_obj['objection_type']} — {text[:60]}")
-                    # Send rebuttal to frontend immediately
-                    await self.send({"type": "coaching", **_obj,
-                                     "call_stage": self.current_stage})
-                    self.coach.mark_addressed(_obj["objection_type"])
-                    self.pending_evaluation = {
-                        "objection_type": _obj["objection_type"],
-                        "objection_summary": _obj["objection_summary"],
-                    }
-            else:
-                # For short utterances (2-3 words), also check if combined with
-                # the previous customer turn it forms an objection.
-                # e.g. turn1: "that's too" turn2: "expensive"
-                _prev_cust = [h["text"] for h in (self.coach._history[-3:] if self.coach._history else [])
-                              if h["speaker"] == "customer"]
-                if _prev_cust:
-                    _combined_obj = " ".join(_prev_cust) + " " + _obj_text
-                    if len(_combined_obj.split()) >= 4:
-                        _obj = self.coach.detect_objection(_combined_obj, stage=self.current_stage)
-                        if _obj:
-                            print(f"[objection] INSTANT detected (combined): {_obj['objection_type']} — {_combined_obj[:80]}")
-                            await self.send({"type": "coaching", **_obj,
-                                             "call_stage": self.current_stage})
-                            self.coach.mark_addressed(_obj["objection_type"])
-                            self.pending_evaluation = {
-                                "objection_type": _obj["objection_type"],
-                                "objection_summary": _obj["objection_summary"],
-                            }
+
+            if _obj:
+                print(f"[objection] INSTANT detected: {_obj['objection_type']} — {_combined_obj[:80]}")
+                await self.send({"type": "coaching", **_obj,
+                                 "call_stage": self.current_stage})
+                self.coach.mark_addressed(_obj["objection_type"])
+                self.pending_evaluation = {
+                    "objection_type": _obj["objection_type"],
+                    "objection_summary": _obj["objection_summary"],
+                }
 
         # ── Fast-track intro ──
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro":
