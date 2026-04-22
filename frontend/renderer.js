@@ -581,14 +581,7 @@ function handleCoaching(msg) {
     list.appendChild(card);
   });
 
-  const transList = document.getElementById("transitions-list");
-  transList.innerHTML = "";
-  (msg.transitions || []).forEach((t) => {
-    const el = document.createElement("div");
-    el.className = "transition-card";
-    el.textContent = t;
-    transList.appendChild(el);
-  });
+  // Transitions (Move Forward) section removed from UI
 }
 
 function handleScoreUpdate(msg) {
@@ -950,7 +943,6 @@ function showCoachingIdle() {
   document.getElementById("coaching-idle").style.display = "flex";
   document.getElementById("coaching-content").style.display = "none";
   document.getElementById("suggestions-list").innerHTML = "";
-  document.getElementById("transitions-list").innerHTML = "";
   document.getElementById("score-card").style.display = "none";
   document.getElementById("stage-checklist").style.display = "none";
   document.getElementById("customer-profile").style.display = "none";

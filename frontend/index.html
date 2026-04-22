@@ -413,6 +413,34 @@
           <div class="stage-pill" id="stage-closing">CLOSING</div>
         </div>
 
+        <!-- Objection rebuttal — at the TOP so rep sees it immediately -->
+        <div id="coaching-content" class="coaching-content" style="display:none">
+          <div class="objection-card">
+            <div class="objection-card-inner">
+              <div class="objection-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#ff4757" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/></svg>
+                <span class="objection-label">OBJECTION DETECTED</span>
+              </div>
+              <div class="objection-type" id="objection-type"></div>
+              <div class="objection-summary" id="objection-summary"></div>
+            </div>
+          </div>
+
+          <div class="suggestions-label">HOW TO RESPOND</div>
+          <div class="suggestions-list" id="suggestions-list"></div>
+
+          <div class="score-card" id="score-card" style="display:none">
+            <div class="score-card-top">
+              <div class="score-card-left">
+                <div class="score-card-label">REP SCORE</div>
+                <div class="score-card-value" id="score-card-value">--</div>
+              </div>
+              <div class="score-card-bars" id="score-card-bars"></div>
+            </div>
+            <div class="score-card-feedback" id="score-card-feedback"></div>
+          </div>
+        </div>
+
         <!-- Opener bubble (hidden for now) -->
         <div class="opener-card" id="opener-card" style="display:none">
           <div class="opener-top">
@@ -429,7 +457,7 @@
           <div class="opener-text" id="opener-text"></div>
         </div>
 
-        <!-- Next step card — at the top so the rep always sees it first -->
+        <!-- Next step card -->
         <div class="next-step-card" id="next-step-card" style="display:none">
           <div class="next-step-label">SUGGESTION</div>
           <div class="next-step-text" id="next-step-text"></div>
@@ -489,36 +517,6 @@
           </div>
           <div class="idle-text">Ready to handle objections</div>
           <div class="idle-sub">Rebuttal suggestions will fire the moment a customer pushes back.</div>
-        </div>
-
-        <div id="coaching-content" class="coaching-content" style="display:none">
-          <div class="objection-card">
-            <div class="objection-card-inner">
-              <div class="objection-header">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#ff4757" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="#ff4757" stroke-width="2" stroke-linecap="round"/></svg>
-                <span class="objection-label">OBJECTION DETECTED</span>
-              </div>
-              <div class="objection-type" id="objection-type"></div>
-              <div class="objection-summary" id="objection-summary"></div>
-            </div>
-          </div>
-
-          <div class="suggestions-label">HOW TO RESPOND</div>
-          <div class="suggestions-list" id="suggestions-list"></div>
-
-          <div class="suggestions-label" style="margin-top:8px">MOVE FORWARD</div>
-          <div class="transitions-list" id="transitions-list"></div>
-
-          <div class="score-card" id="score-card" style="display:none">
-            <div class="score-card-top">
-              <div class="score-card-left">
-                <div class="score-card-label">REP SCORE</div>
-                <div class="score-card-value" id="score-card-value">--</div>
-              </div>
-              <div class="score-card-bars" id="score-card-bars"></div>
-            </div>
-            <div class="score-card-feedback" id="score-card-feedback"></div>
-          </div>
         </div>
 
         </div><!-- /coaching-panel-scroll -->
