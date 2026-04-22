@@ -59,8 +59,10 @@ OBJECTION_REBUTTALS = {
             "that's more than", "more than i expected", "wasn't expecting",
             "didn't expect to pay", "didn't think i'd have to pay",
             "what am i paying", "what do i pay", "what would i pay",
-            # Short signals (unambiguous in closing context)
-            "expensive", "it's expensive", "that's too much", "too much",
+            # Short signals — require clear price context
+            "it's expensive", "it is expensive", "that's expensive",
+            "that is expensive", "so expensive",
+            "that's too much", "it's too much", "it is too much", "way too much",
             "how much should it cost", "how much will it cost",
             "how much does that cost", "what does it cost",
             "what can you do about it", "can you do something about",

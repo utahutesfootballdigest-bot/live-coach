@@ -112,7 +112,8 @@ async def claim_sale(request: Request):
     channel = body.get("channel", "").strip()
 
     if not rep or not account_id or not channel:
-        return {"error": "rep, account_id, and channel are required."}, 400
+        from starlette.responses import JSONResponse
+        return JSONResponse({"error": "rep, account_id, and channel are required."}, status_code=400)
 
     sale = {
         "rep": rep,
@@ -247,7 +248,7 @@ def _preprocess_tts(text: str) -> str:
     import re
     text = text.replace("—", ", ").replace("–", ", ")
     text = text.replace("...", ",").replace("…", ",")
-    text = re.sub(r'\ba\b', 'a,', text)
+    # Removed: re.sub(r'\ba\b', 'a,', text) — was inserting pauses before every "a"
     text = re.sub(r',\s*,', ',', text)
     text = re.sub(r' {2,}', ' ', text)
     return text.strip()
@@ -935,7 +936,9 @@ def _extract_name(text: str) -> str:
                    "would", "will", "just", "well", "so", "a", "an", "of",
                    "to", "for", "i", "i'm", "i'd", "let", "me", "hi",
                    "sure", "right", "alright", "good", "great", "fine",
-                   "no", "nope", "sir", "ma'am", "hey", "hello"}
+                   "no", "nope", "sir", "ma'am", "hey", "hello",
+                   "me", "ma", "pa", "do", "go", "am", "as", "at",
+                   "by", "if", "in", "on", "or", "up", "us", "we"}
         words = [w.capitalize() for w in parts if w.isalpha() and len(w) >= 2
                  and w.lower() not in _FILLER]
         if words:
@@ -1130,6 +1133,7 @@ _STAGE_ITEM_ORDER = {
     "discovery": ["existing_customer", "had_system_before", "why_security", "who_protecting", "kids_age", "on_website"],
     "collect_info": ["full_name", "phone_number", "email", "address"],
     "build_system": ["door_sensors", "window_sensors", "indoor_camera", "panel_hub", "extra_equip", "outdoor_camera", "recap_done"],
+    "recap": ["recap_done"],
     "closing": ["closing_pitch", "closing_cart", "closing_checkout", "closing_welcome"],
 }
 
@@ -2205,7 +2209,7 @@ class Session:
                     await asyncio.sleep(1.5)
             await self._fire_coaching()
         except asyncio.CancelledError:
-            await self.send({"type": "status", "state": "recording"})
+            pass  # Don't send status — a new coaching task is replacing this one
         except Exception:
             await self.send({"type": "status", "state": "recording"})
 
@@ -2346,12 +2350,14 @@ class Session:
                 }
 
         # ── Fast-track intro ──
+        _turn_already_added = False  # prevents double add_turn if intro falls through
         if speaker == "customer" and is_final and self.coach is not None and self.current_stage == "intro":
             # Always check for "wants system" regardless of intro_turns.
             # Deepgram duplicate transcripts can exhaust intro_turns before the real answer arrives.
             self.intro_turns += 1
             self.coach.current_stage = self.current_stage  # sync for topic gating
             self.coach.add_turn(speaker, text)
+            _turn_already_added = True
             self.customer_buffer = []  # clear so _fire_coaching doesn't also fire
             # Cancel any pending coaching task to prevent it overwriting our guidance
             if self._coach_task and not self._coach_task.done():
@@ -2503,7 +2509,9 @@ class Session:
                 "new york", "new jersey", "washington", "pennsylvania", "massachusetts",
                 "orem", "provo", "zip code", "zip is",
                 "thousand", "eighty", "forty", "fifty", "sixty", "seventy",
-                "ninety"]) or _digit_count >= 4
+                "ninety"]) or (_digit_count >= 4 and "address" not in self._collect_info_done
+                              and "full_name" in self._collect_info_done
+                              and "phone_number" in self._collect_info_done)
 
             # Only advance if the customer gave the expected info type
             opener = _quick_opener(text, "collect_info")
@@ -2677,8 +2685,10 @@ class Session:
                     _cust_number = int(_nums[0])
             if _cust_number is None and len(words) <= 5:
                 # Try homophones for short responses (e.g. "i got to only")
+                # Only match if the homophone is the first or last word to avoid
+                # false positives like "I want to know" parsing "to" as 2
                 for word, val in _HOMOPHONE_NUMS.items():
-                    if word in words:
+                    if words and (words[0] == word or words[-1] == word):
                         _cust_number = val
                         break
 
@@ -2926,7 +2936,8 @@ class Session:
         # ── Customer final ──
         if speaker == "customer":
             self.coach.current_stage = self.current_stage  # sync for topic gating
-            self.coach.add_turn(speaker, text)
+            if not _turn_already_added:
+                self.coach.add_turn(speaker, text)
             # Send checklist immediately so topic detection from add_turn
             # shows up right away (don't wait for slow Claude response)
             await self.send_checklist()
@@ -3141,12 +3152,13 @@ class Session:
                         if bw in _SPOKEN_NUMS_EQ:
                             _eq_num = _SPOKEN_NUMS_EQ[bw]
                             break
-                    if _eq_num is not None and _eq_num > 0:
-                        if eq_key not in self._equipment_counts or self._equipment_counts[eq_key] <= 1:
-                            self._equipment_counts[eq_key] = _eq_num
-                            print(f"[equipment] qty from rep speech: {eq_key} = {_eq_num}")
-                            self._profile["equipment"] = self._build_equipment_list()
-                            await self.send_profile()
+                # Save qty from either digit or spoken-word match
+                if _eq_num is not None and _eq_num > 0:
+                    if eq_key not in self._equipment_counts or self._equipment_counts[eq_key] <= 1:
+                        self._equipment_counts[eq_key] = _eq_num
+                        print(f"[equipment] qty from rep speech: {eq_key} = {_eq_num}")
+                        self._profile["equipment"] = self._build_equipment_list()
+                        await self.send_profile()
 
         # ── Track pitch keywords in ANY stage so we can skip closing_pitch if already covered ──
         if is_final:

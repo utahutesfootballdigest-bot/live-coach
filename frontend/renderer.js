@@ -390,6 +390,8 @@ function showCallEndedScreen() {
   document.getElementById("call-ended-duration").textContent = `Duration: ${h}:${m}:${s}`;
   stopTimer();
   stopAudioCapture();
+  // Save profile phone BEFORE showCoachingIdle wipes the fields
+  const _savedPhone = document.getElementById("profile-phone")?.value?.trim() || "";
   showCoachingIdle();
   // Reset claim form and pre-fill rep name
   const claimBtn = document.getElementById("claim-sale-btn");
@@ -399,8 +401,7 @@ function showCallEndedScreen() {
   const acctInput = document.getElementById("claim-account-id");
   if (acctInput) acctInput.value = "";
   const phoneInput = document.getElementById("claim-phone");
-  const profilePhone = document.getElementById("profile-phone")?.value?.trim() || "";
-  if (phoneInput) phoneInput.value = profilePhone;
+  if (phoneInput) phoneInput.value = _savedPhone;
   const channelSel = document.getElementById("claim-channel");
   if (channelSel) channelSel.selectedIndex = 0;
   prefillRepName();
@@ -857,18 +858,30 @@ function handleChecklistUpdate(msg) {
         }
       }
     }
+    // Check if any _show_ flags changed (conditional items need full re-render)
+    let _needsRerender = false;
+    for (const [key, val] of Object.entries(msg.topics)) {
+      if (key.startsWith("_show_") && val !== _currentChecklist[key]) {
+        _needsRerender = true;
+      }
+    }
     Object.assign(_currentChecklist, msg.topics);
     // Update visible checkboxes if checklist is showing
     const container = document.getElementById("stage-checklist");
     if (container.style.display !== "none") {
-      Array.from(container.children).forEach((row) => {
-        const cb = row.querySelector("input[type=checkbox]");
-        const key = row.dataset.key;
-        if (cb && key && _currentChecklist[key] !== undefined) {
-          cb.checked = _currentChecklist[key];
-          row.classList.toggle("checked", _currentChecklist[key]);
-        }
-      });
+      if (_needsRerender && _viewingStage) {
+        // Full re-render to show/hide conditional items
+        renderChecklist(_viewingStage);
+      } else {
+        Array.from(container.children).forEach((row) => {
+          const cb = row.querySelector("input[type=checkbox]");
+          const key = row.dataset.key;
+          if (cb && key && _currentChecklist[key] !== undefined) {
+            cb.checked = _currentChecklist[key];
+            row.classList.toggle("checked", _currentChecklist[key]);
+          }
+        });
+      }
       // NOTE: No auto-advance from AI checklist updates.
       // Rep must say the transition phrase or click section-complete.
     }
@@ -896,7 +909,7 @@ function handleCallGuidance(msg) {
 
   if (call_stage) {
     // Always show profile panel during active calls
-    document.getElementById("customer-profile").style.display = "flex";
+    document.getElementById("customer-profile").style.display = "block";
 
     const stageChanged = _currentCallStage !== call_stage;
     _currentCallStage = call_stage;

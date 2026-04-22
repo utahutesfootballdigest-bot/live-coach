@@ -862,6 +862,16 @@ class CoachingEngine:
             if any(sig in t for sig in data["signals"]):
                 if data["type"] in self._addressed:
                     continue
+                # Suppress competitor_switch during discovery if rep recently
+                # asked about prior providers — the answer is normal conversation
+                if _key == "competitor_switch" and stage == "discovery":
+                    _recent_rep = [h["text"].lower() for h in self._history[-6:]
+                                   if h["speaker"] == "rep"]
+                    if any(any(p in rt for p in ["who did you have", "who were you with",
+                                                  "had a security system", "had security",
+                                                  "ever had a security"])
+                           for rt in _recent_rep):
+                        continue
                 return {
                     "triggered": True,
                     "objection_type": data["type"],
