@@ -44,6 +44,7 @@ OBJECTION_REBUTTALS = {
     # ── Price inquiry (early call — customer asking about price, NOT reacting to one) ──
     "price_inquiry": {
         "signals": [
+            "want to know the price", "wanted to know the price",
             "just wanted to know the price", "just want to know the price",
             "just wanted the price", "just want the price",
             "wanted to know the prices", "want to know the prices",
@@ -59,11 +60,14 @@ OBJECTION_REBUTTALS = {
             "a quote", "get a quote", "a prices", "your prices",
             "how much does it cost", "how much is it", "how much is everything",
             "what's the total", "what is the total",
+            # Upfront cost questions during early call
+            "upfront cost", "pay upfront", "pay up front",
+            "is there an upfront", "any upfront", "what's the upfront",
         ],
         "stages": ["intro", "discovery", "collect_info"],
         "type": "Wants Pricing First",
         "summary": "Customer wants to skip ahead to pricing",
-        "suggestions": [{"label": "Redirect to Discovery", "text": "Absolutely, I'll get you the pricing! To give you an accurate quote, I just need to know what equipment you'll need for your home. Let me ask you a couple quick questions so I can build out the right system and get you the best price \u2014 it'll only take a minute."}],
+        "suggestions": [{"label": "Redirect to Discovery", "text": "I understand you want to know the price right away. To give you the most accurate pricing, I need to first know what equipment you'll need for your home \u2014 and I may even be able to get you an extra discount. Let me ask you a couple quick questions to build out the right system."}],
         "transitions": ["What has you looking into security?", "Have you ever had a security system before?"],
     },
     # ── Price objection (after price has been quoted — sticker shock) ──
@@ -207,7 +211,9 @@ OBJECTION_REBUTTALS = {
             "send someone to help", "help me with the installation",
             "help me install", "help me set it up", "help with installation",
             "help with the install", "someone to help me",
-            "technician come out", "have a technician",
+            "technician come out", "have a technician", "have technician",
+            "sent technician", "send technician", "you have technician",
+            "if you have technician", "do you have a technician",
             "technician that can come", "technician to come",
             "can't install", "don't know how to install",
             "someone to set it up", "someone to install",
