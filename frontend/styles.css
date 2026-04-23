@@ -1336,3 +1336,45 @@ html, body {
   box-shadow: 0 0 8px rgba(94,207,194,0.4);
   transform: scale(1.2);
 }
+
+/* ── Tutorial mockup components ── */
+.tutorial-mockup-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 20px;
+  text-align: left;
+}
+.tutorial-mockup {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.tutorial-mockup-text {
+  flex: 1;
+  min-width: 160px;
+}
+.tm-speaker {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  margin-bottom: 2px;
+}
+.tm-speaker.rep { color: var(--rep-color); }
+.tm-speaker.cust { color: var(--cust-color); }
+.tm-bubble {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 8px;
+  max-width: 90%;
+}
+.tm-bubble.rep { background: rgba(62,190,176,0.1); }
+.tm-bubble.cust { background: rgba(125,214,206,0.08); }
+@media (max-width: 600px) {
+  .tutorial-mockup-row { flex-direction: column; align-items: center; }
+  .tutorial-mockup { max-width: 100% !important; width: 100%; }
+}

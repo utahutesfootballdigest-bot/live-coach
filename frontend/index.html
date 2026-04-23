@@ -153,6 +153,7 @@
         </div>
         <div class="tutorial-slides" id="tutorial-slides">
 
+          <!-- Slide 1: Welcome -->
           <div class="tutorial-slide" data-step="1">
             <div class="tutorial-icon">
               <svg width="64" height="72" viewBox="0 0 40 44" fill="none">
@@ -166,98 +167,224 @@
             <div class="tutorial-highlight">Coaching suggestions, objection rebuttals, and script guidance -- all in real time.</div>
           </div>
 
+          <!-- Slide 2: Setup Audio -->
           <div class="tutorial-slide" data-step="2" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg>
-            </div>
             <h2 class="tutorial-title">Step 1: Set Up Audio</h2>
-            <p class="tutorial-desc">Before each call, grant microphone access for your voice and share the customer's audio source (browser tab or app).</p>
-            <div class="tutorial-steps">
-              <div class="tutorial-step-item"><span class="tutorial-step-num">1</span> Click <strong>Grant Mic Access</strong> and allow your microphone</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num">2</span> Click <strong>Share Audio Source</strong> and select where customer audio plays</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num">3</span> Make sure to check <strong>"Share audio"</strong> in the dialog</div>
+            <p class="tutorial-desc">Before each call, grant microphone access and share the customer's audio source.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup">
+                <div style="padding:16px 14px;text-align:center">
+                  <div style="font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:14px">Set up your audio</div>
+                  <div style="display:flex;gap:10px;justify-content:center">
+                    <div style="flex:1">
+                      <div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1.5px;margin-bottom:4px"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--rep-color);margin-right:3px"></span>YOUR MIC</div>
+                      <div style="background:rgba(62,190,176,0.15);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;font-size:9px;color:var(--accent);font-weight:600">Mic Granted</div>
+                    </div>
+                    <div style="flex:1">
+                      <div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1.5px;margin-bottom:4px"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--cust-color);margin-right:3px"></span>CUSTOMER</div>
+                      <div style="background:rgba(62,190,176,0.15);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;font-size:9px;color:var(--accent);font-weight:600">Audio Shared</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:14px;background:var(--accent);color:#0f1a1a;border-radius:8px;padding:8px;font-size:10px;font-weight:700">Start Live Session</div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  <strong>1.</strong> Click <strong>Grant Mic Access</strong> and allow your microphone<br>
+                  <strong>2.</strong> Click <strong>Share Audio Source</strong> and select the tab where customer audio plays<br>
+                  <strong>3.</strong> Make sure to check <strong>"Share audio"</strong> in the dialog
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- Slide 3: Live Transcript -->
           <div class="tutorial-slide" data-step="3" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            </div>
             <h2 class="tutorial-title">Step 2: Live Transcript</h2>
-            <p class="tutorial-desc">The left panel shows a real-time transcript of the conversation. Your speech appears in <span style="color:#3ebeb0">teal</span> and the customer's in <span style="color:#7dd6ce">light teal</span>.</p>
-            <div class="tutorial-highlight">The transcript updates as you speak -- no typing needed. Just focus on the conversation.</div>
+            <p class="tutorial-desc">The left panel shows a real-time transcript. Your speech in <span style="color:var(--rep-color)">teal</span>, customer in <span style="color:var(--cust-color)">light teal</span>.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:260px">
+                <div style="padding:6px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--panel-border)">
+                  <span style="font-size:8px;font-weight:700;color:var(--text-dim);letter-spacing:1.5px">TRANSCRIPT</span>
+                  <span style="font-size:10px;color:var(--text-muted);font-weight:600">00:02:34</span>
+                </div>
+                <div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div><div class="tm-speaker rep">REP</div><div class="tm-bubble rep">Hi, this is Ben with Cove Security on a recorded line. How are you doing today?</div></div>
+                  <div><div class="tm-speaker cust">CUSTOMER</div><div class="tm-bubble cust">I'm doing good, thanks for asking.</div></div>
+                  <div><div class="tm-speaker rep">REP</div><div class="tm-bubble rep">Are you already a Cove customer or looking to get a security system?</div></div>
+                  <div><div class="tm-speaker cust">CUSTOMER</div><div class="tm-bubble cust">I'm looking to get one for my new house.</div></div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  The transcript updates as you speak -- no typing needed. Just focus on the conversation.<br><br>
+                  Click the <strong>+/-</strong> button to expand or collapse the transcript panel.
+                </div>
+              </div>
+            </div>
           </div>
 
+          <!-- Slide 4: Stage Progress + Checklist -->
           <div class="tutorial-slide" data-step="4" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-            </div>
             <h2 class="tutorial-title">Step 3: Stage Progress</h2>
-            <p class="tutorial-desc">The stage bar at the top tracks where you are in the call flow. It moves through each stage automatically as you follow the script.</p>
-            <div class="tutorial-steps">
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">1</span> <strong>Intro</strong> -- Greet and determine if new or existing customer</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">2</span> <strong>Discovery</strong> -- Why they want security, who's in the home</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">3</span> <strong>Info</strong> -- Collect name, phone, email, address</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">4</span> <strong>Build</strong> -- Build the system with doors, windows, cameras, etc.</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">5</span> <strong>Closing</strong> -- Present pricing, discounts, and close the sale</div>
+            <p class="tutorial-desc">The stage bar tracks where you are in the call. The checklist shows what's been covered.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:380px">
+                <div style="display:flex;align-items:center;gap:4px;padding:8px 14px;font-size:8px;font-weight:700;letter-spacing:1.5px">
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(62,190,176,0.15);color:var(--accent)">INTRO</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(62,190,176,0.15);color:var(--accent)">DISCOVERY</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:var(--accent);color:#0f1a1a">INFO</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-dim)">BUILD</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-dim)">CLOSING</span>
+                </div>
+                <div style="padding:4px 14px 10px;display:flex;flex-direction:column;gap:4px">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text-dim);text-decoration:line-through"><span style="width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><span style="display:block;width:4px;height:7px;border:solid #0f1a1a;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);margin-top:-2px"></span></span> Full name</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text-dim);text-decoration:line-through"><span style="width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><span style="display:block;width:4px;height:7px;border:solid #0f1a1a;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);margin-top:-2px"></span></span> Phone number</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text-muted)"><span style="width:12px;height:12px;border-radius:3px;border:1px solid var(--text-dim);flex-shrink:0"></span> Email</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text-muted)"><span style="width:12px;height:12px;border-radius:3px;border:1px solid var(--text-dim);flex-shrink:0"></span> Address</div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  <strong>Intro</strong> -- Greet and qualify<br>
+                  <strong>Discovery</strong> -- Why they want security<br>
+                  <strong>Info</strong> -- Name, phone, email, address<br>
+                  <strong>Build</strong> -- Doors, windows, cameras, sensors<br>
+                  <strong>Closing</strong> -- Pricing, discounts, and close
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- Slide 5: Suggestion Card -->
           <div class="tutorial-slide" data-step="5" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
             <h2 class="tutorial-title">Step 4: Coaching Suggestions</h2>
-            <p class="tutorial-desc">The <strong>SUGGESTION</strong> card shows you exactly what to say next, pulled directly from the Cove sales script. Just read it naturally.</p>
-            <div class="tutorial-highlight">Suggestions update in real time based on what the customer says. The system tracks which questions have been asked so it never repeats.</div>
+            <p class="tutorial-desc">The SUGGESTION card shows exactly what to say next, pulled from the Cove sales script.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:380px">
+                <div style="display:flex;align-items:center;gap:4px;padding:8px 14px;font-size:8px;font-weight:700;letter-spacing:1.5px">
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(62,190,176,0.15);color:var(--accent)">INTRO</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:var(--accent);color:#0f1a1a">DISCOVERY</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-dim)">INFO</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-dim)">BUILD</span>
+                  <span style="color:var(--text-dim)">></span>
+                  <span style="padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--text-dim)">CLOSING</span>
+                </div>
+                <div style="margin:8px 14px;padding:10px 14px;background:rgba(62,190,176,0.06);border:1px solid rgba(62,190,176,0.2);border-radius:8px">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:2px;color:var(--accent);margin-bottom:4px">SUGGESTION</div>
+                  <div style="font-size:10px;color:var(--text-primary);line-height:1.5">That's great to hear you just moved -- congratulations! I'm glad you decided to get a security system; it's a smart move. Let me ask you, have you ever had a security system before?</div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  Suggestions update in real time based on what the customer says.<br><br>
+                  The system tracks which questions have been asked so it <strong>never repeats</strong>. Just read it naturally.
+                </div>
+              </div>
+            </div>
           </div>
 
+          <!-- Slide 6: Objection Handling -->
           <div class="tutorial-slide" data-step="6" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </div>
             <h2 class="tutorial-title">Step 5: Objection Handling</h2>
-            <p class="tutorial-desc">When a customer pushes back, the system instantly detects the objection and shows you approved rebuttals with exact wording to use.</p>
-            <div class="tutorial-steps">
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Price concerns</strong> -- monthly vs upfront rebuttals</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Spouse approval</strong> -- 60-day trial angle</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Shopping around</strong> -- no-contract comparison</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#ff6b6b">!</span> <strong>Not sure they need it</strong> -- risk-free trial</div>
+            <p class="tutorial-desc">When a customer pushes back, the system instantly detects it and shows approved rebuttals.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:380px">
+                <div style="margin:10px 14px;padding:10px 14px;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.3);border-radius:8px">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:7px;font-weight:700;letter-spacing:2px;color:var(--warn-color);margin-bottom:6px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#ff4757" stroke-width="2.5" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="17" r="0.5" fill="#ff4757"/></svg>
+                    OBJECTION DETECTED
+                  </div>
+                  <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:3px">Shopping Around</div>
+                  <div style="font-size:9px;color:var(--text-muted);font-style:italic">"I'm calling a few different companies to compare"</div>
+                </div>
+                <div style="margin:6px 14px 12px;padding:8px 12px;background:rgba(62,190,176,0.04);border:1px solid rgba(62,190,176,0.15);border-radius:8px">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:2px;color:var(--accent);margin-bottom:4px">HOW TO RESPOND</div>
+                  <div style="font-size:9px;color:var(--text-primary);line-height:1.5">I totally understand -- it's smart to compare. Just so you know, a lot of people compare us with the big names and end up choosing Cove because of the no-contract, the pricing, and the customer service. And with the 60-day trial, you can try it risk-free.</div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  The rebuttal card <strong>pulses red</strong> to grab your attention instantly.<br><br>
+                  Covers: price concerns, spouse approval, shopping around, technician questions, monitoring, and more.
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- Slide 7: Customer Profile + Pricing -->
           <div class="tutorial-slide" data-step="7" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+            <h2 class="tutorial-title">Step 6: Profile & Pricing</h2>
+            <p class="tutorial-desc">Customer info is captured automatically. Equipment and pricing update as you build the system.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:300px">
+                <div style="margin:8px 10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--panel-border);border-radius:8px">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:2px;color:var(--text-dim);margin-bottom:4px">CUSTOMER</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><span style="font-size:8px;font-weight:600;color:var(--text-dim);width:36px">Name</span><span style="font-size:9px;color:var(--text-primary)">Scott Brennan</span></div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><span style="font-size:8px;font-weight:600;color:var(--text-dim);width:36px">Phone</span><span style="font-size:9px;color:var(--text-primary)">678-770-8210</span></div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><span style="font-size:8px;font-weight:600;color:var(--text-dim);width:36px">Email</span><span style="font-size:9px;color:var(--text-primary)">scottb@gmail.com</span></div>
+                  <div style="display:flex;align-items:center;gap:6px"><span style="font-size:8px;font-weight:600;color:var(--text-dim);width:36px">Addr</span><span style="font-size:9px;color:var(--text-primary)">68 Vernon St, Oakland CA</span></div>
+                </div>
+                <div style="margin:0 10px 10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--panel-border);border-radius:8px">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:2px;color:var(--text-dim);margin-bottom:4px">PRICING</div>
+                  <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-bottom:2px"><span>Door sensors x4</span><span>$59.96</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-bottom:2px"><span>Window sensors x3</span><span>$41.97</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-bottom:2px"><span>Indoor camera</span><span>$0.00</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--text-primary);margin-top:4px;padding-top:4px;border-top:1px solid var(--panel-border)"><span>Equipment Total</span><span>$181.92</span></div>
+                  <div style="font-size:9px;color:var(--accent);margin-top:4px;text-align:center">$17.99/mo first 3 months, then $32.99/mo</div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  Hover over any field to see the <strong>copy</strong> button -- one click copies to clipboard.<br><br>
+                  Toggle <strong>Cove Plus</strong> / <strong>Basic</strong> plans and apply coupon codes. The closing pitch includes these <strong>exact numbers</strong>.
+                </div>
+              </div>
             </div>
-            <h2 class="tutorial-title">Step 6: Customer Profile</h2>
-            <p class="tutorial-desc">The system automatically captures the customer's name, phone, email, and address as they speak. Equipment is tracked as you build the system.</p>
-            <div class="tutorial-highlight">You can click any field to manually correct it if the voice recognition got something wrong.</div>
           </div>
 
+          <!-- Slide 8: Claim Sale -->
           <div class="tutorial-slide" data-step="8" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </div>
-            <h2 class="tutorial-title">Step 7: Live Pricing</h2>
-            <p class="tutorial-desc">As you add equipment to the system, the pricing section updates in real time showing equipment costs, monthly monitoring, and any applicable discounts.</p>
-            <div class="tutorial-steps">
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Toggle between <strong>Cove Plus</strong> and <strong>Cove Basic</strong> plans</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Apply coupon codes for additional discounts</div>
-              <div class="tutorial-step-item"><span class="tutorial-step-num" style="background:#3ebeb0">$</span> Equipment totals update automatically</div>
+            <h2 class="tutorial-title">Step 7: Claim Your Sale</h2>
+            <p class="tutorial-desc">When you close a sale, claim it right here -- no need to open a separate spreadsheet.</p>
+            <div class="tutorial-mockup-row">
+              <div class="tutorial-mockup" style="max-width:300px">
+                <div style="padding:12px 14px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span style="font-weight:700;font-size:12px">Claim Sale</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <div><div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1px;margin-bottom:2px">SALES REP</div><div style="background:rgba(255,255,255,0.06);border:1px solid var(--panel-border);border-radius:4px;padding:5px 8px;font-size:9px;color:var(--text-primary)">Ben</div></div>
+                    <div><div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1px;margin-bottom:2px">ACCOUNT ID</div><div style="background:rgba(255,255,255,0.06);border:1px solid var(--panel-border);border-radius:4px;padding:5px 8px;font-size:9px;color:var(--text-primary)">478211</div></div>
+                    <div><div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1px;margin-bottom:2px">PHONE</div><div style="background:rgba(255,255,255,0.06);border:1px solid var(--panel-border);border-radius:4px;padding:5px 8px;font-size:9px;color:var(--text-primary)">678-770-8210</div></div>
+                    <div><div style="font-size:7px;font-weight:700;color:var(--text-dim);letter-spacing:1px;margin-bottom:2px">CHANNEL</div><div style="background:rgba(255,255,255,0.06);border:1px solid var(--panel-border);border-radius:4px;padding:5px 8px;font-size:9px;color:var(--text-primary)">Inbound</div></div>
+                    <div style="background:var(--accent);color:#0f1a1a;border-radius:6px;padding:7px;font-size:10px;font-weight:700;text-align:center;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:4px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      Claim Sale
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="tutorial-mockup-text">
+                <div class="tutorial-highlight" style="margin-top:0;text-align:left">
+                  After the call ends, the <strong>Claim Sale</strong> form appears automatically.<br><br>
+                  The phone number is pre-filled from the customer profile. Just enter the Account ID, select your name and channel, and click <strong>Claim Sale</strong>.<br><br>
+                  No more switching to spreadsheets -- it's all right here.
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- Slide 9: You're Ready -->
           <div class="tutorial-slide" data-step="9" style="display:none">
-            <div class="tutorial-icon">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#5ecfc2" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <h2 class="tutorial-title">Bonus: Practice Mode</h2>
-            <p class="tutorial-desc">Click <strong>Practice with AI</strong> from the setup screen to run practice calls with an AI customer. It simulates real scenarios with different personalities, objections, and home setups.</p>
-            <div class="tutorial-highlight">Practice mode uses the same coaching system as live calls, so you get the full experience without a real customer.</div>
-          </div>
-
-          <div class="tutorial-slide" data-step="10" style="display:none">
             <div class="tutorial-icon">
               <svg width="64" height="72" viewBox="0 0 40 44" fill="none">
                 <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="url(#tShield2)"/>

@@ -1492,7 +1492,7 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s; re
 
 // ── Tutorial ──────────────────────────────────────────────────────────────
 (function initTutorial() {
-  const TOTAL_SLIDES = 10;
+  const TOTAL_SLIDES = 9;
   let currentSlide = 1;
   const screen = document.getElementById("tutorial-screen");
   const slides = document.getElementById("tutorial-slides");
@@ -1516,16 +1516,15 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s; re
 
   // Narration text for each slide (for TTS)
   const NARRATIONS = {
-    1: "Welcome to Cove Sales Coach. Your real-time coaching assistant that listens to your calls and guides you through every step of the Cove security sales process.",
-    2: "Step 1: Set Up Audio. Before each call, grant microphone access for your voice and share the customer's audio source. Click Grant Mic Access, then Share Audio Source, and make sure to check Share Audio in the dialog.",
-    3: "Step 2: Live Transcript. The left panel shows a real-time transcript of the conversation. Your speech appears in teal and the customer's in light teal. It updates as you speak, no typing needed.",
-    4: "Step 3: Stage Progress. The stage bar tracks where you are in the call. It moves through Intro, Discovery, Info, Build, and Closing as you follow the script.",
-    5: "Step 4: Coaching Suggestions. The suggestion card shows you exactly what to say next, pulled directly from the Cove sales script. Suggestions update in real time based on what the customer says.",
-    6: "Step 5: Objection Handling. When a customer pushes back, the system detects the objection and shows you approved rebuttals with the exact wording to use.",
-    7: "Step 6: Customer Profile. The system automatically captures the customer's name, phone, email, and address as they speak. You can click any field to manually correct it.",
-    8: "Step 7: Live Pricing. As you add equipment, the pricing section updates in real time showing equipment costs, monthly monitoring, and any applicable discounts.",
-    9: "Bonus: Practice Mode. Click Practice with AI from the setup screen to run practice calls with an AI customer. It simulates real scenarios with different personalities and objections.",
-    10: "You're ready! The Sales Coach is designed to make every call smoother, more consistent, and more confident. Close this tutorial and click Start Live Session to begin."
+    1: "Welcome to Cove Sales Coach. Your real-time coaching assistant that listens to your calls and guides you through every step of the Cove security sales process. Let me walk you through how it works.",
+    2: "Step 1: Set Up Audio. Before each call, you'll need to grant microphone access for your voice and share the customer's audio source. Click Grant Mic Access, then Share Audio Source, and make sure to check Share Audio in the dialog. Once both are connected, click Start Live Session.",
+    3: "Step 2: Live Transcript. As you talk, the left panel shows a real-time transcript of the conversation. Your speech appears in teal and the customer's appears in light teal. It updates automatically as you speak, so you can focus entirely on the conversation.",
+    4: "Step 3: Stage Progress. The stage bar at the top tracks where you are in the call. It moves through Intro, Discovery, Info, Build, and Closing. The checklist below it shows which items have been covered and which ones you still need to ask about.",
+    5: "Step 4: Coaching Suggestions. This is the heart of the system. The suggestion card shows you exactly what to say next, pulled directly from the Cove sales script. It updates in real time based on what the customer says, and it tracks which questions have been asked so it never repeats. Just read it naturally.",
+    6: "Step 5: Objection Handling. When a customer pushes back, the system instantly detects the objection and shows you the approved rebuttal with the exact wording to use. The card pulses red to grab your attention. It covers price concerns, spouse approval, shopping around, technician questions, and more.",
+    7: "Step 6: Profile and Pricing. The system automatically captures the customer's name, phone, email, and address as they speak. You can hover over any field and click the copy button to copy it to your clipboard. As you build the system, equipment and pricing update in real time. The closing pitch will include these exact dollar amounts.",
+    8: "Step 7: Claim Your Sale. When you close a sale, you can claim it right here in the Sales Coach, no need to open a separate spreadsheet. After the call ends, the Claim Sale form appears automatically with the customer's phone number pre-filled. Just enter the Account ID, select your name and sales channel, and click Claim Sale. It's that easy.",
+    9: "You're all set! The Sales Coach is designed to make every call smoother, more consistent, and more confident. Close this tutorial and click Start Live Session to begin your first coached call. Good luck!"
   };
 
   async function speakSlide(step) {
