@@ -2376,7 +2376,13 @@ class Session:
                 "already a customer", "existing customer", "i already have",
                 "already have cove", "current customer",
             ])
-            if _wants_system or _is_existing:
+            if _is_existing:
+                # Existing customer — instant objection already showed transfer card.
+                # Don't advance to discovery. Just mark the topic and return.
+                self.coach._topics_done.add("existing_customer")
+                self.intro_turns = 2
+                return
+            if _wants_system:
                 # Customer said they want a system — advance to discovery
                 self.current_stage = "discovery"
                 self.intro_turns = 2

@@ -334,9 +334,10 @@ COVE PRODUCT KNOWLEDGE BASE
 Use this information to answer customer questions accurately. When a customer asks a question, include the answer in next_step, then transition back to the script.
 
 MONITORING PLANS:
-- Basic Plan: $19.99/month — 24/7 professional monitoring, environmental monitoring, cellular connection, smartphone app, 1-year equipment warranty, no contract
-- Plus Plan: $29.99/month — Everything in Basic PLUS lifetime equipment warranty, Alexa/Google Home integration, $5/month equipment credit, camera support (up to 10 cameras), lifetime rate-lock guarantee, no contract
-- Promotional rate: First 6 months at discounted rate, then standard rate
+- Basic Plan: $17.99/month (standard $22.99/month) — 24/7 professional monitoring, environmental monitoring, cellular connection, smartphone app, 1-year equipment warranty, no contract
+- Plus Plan: $29.99/month for first 6 months, then $32.99/month — Everything in Basic PLUS lifetime equipment warranty, Alexa/Google Home integration, $5/month equipment credit, camera support (up to 10 cameras), lifetime rate-lock guarantee, no contract
+- The $29.99 promotional rate applies for the first 6 months, then the standard $32.99 rate begins
+- $32.99/month is the standard Plus plan rate — NO discounts on the monthly rate
 
 EQUIPMENT PRICES (before promotions):
 - Touch Panel (7" touchscreen): $150 | Hub (cellular communicator): $150

@@ -5,23 +5,7 @@
 # "stages" field (optional): if present, the objection only fires when the
 # current call stage is in this list. Omit for objections valid in any stage.
 OBJECTION_REBUTTALS = {
-    # ── Personal info resistance (checked FIRST — more specific than price_inquiry) ──
-    "personal_info": {
-        "signals": [
-            "don't want to give my", "why do you need my information",
-            "why do you need my name", "why do you need my number",
-            "don't give out my", "not comfortable giving",
-            "rather not give my", "not giving you my",
-            "do you really need my information",
-            "do you really need to ask my information",
-            "don't need my information", "why do you need that information",
-        ],
-        "type": "Personal Info Resistance",
-        "summary": "Customer doesn't want to share personal information yet",
-        "suggestions": [{"label": "Personal Info Rebuttal", "text": "I totally understand being careful with your information. How about this \u2014 let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."}],
-        "transitions": ["Does that work for you?", "Should we look at the equipment first?"],
-    },
-    # ── Existing customer (already has Cove — transfer to support) ──
+    # ── Existing customer (checked FIRST — takes priority over all other categories) ──
     "existing_customer": {
         "signals": [
             "current customer", "existing customer", "i'm already a customer",
@@ -40,6 +24,22 @@ OBJECTION_REBUTTALS = {
         "summary": "Customer is already a Cove customer — transfer to support",
         "suggestions": [{"label": "Transfer to Support", "text": "Ok perfect, let me get you to the right spot. I'm going to transfer you over to our customer service team and they'll be able to help you out right away. Just hold on for me one moment."}],
         "transitions": ["Let me transfer you to customer service.", "Hold on one moment while I get you to the right team."],
+    },
+    # ── Personal info resistance (checked before price_inquiry) ──
+    "personal_info": {
+        "signals": [
+            "don't want to give my", "why do you need my information",
+            "why do you need my name", "why do you need my number",
+            "don't give out my", "not comfortable giving",
+            "rather not give my", "not giving you my",
+            "do you really need my information",
+            "do you really need to ask my information",
+            "don't need my information", "why do you need that information",
+        ],
+        "type": "Personal Info Resistance",
+        "summary": "Customer doesn't want to share personal information yet",
+        "suggestions": [{"label": "Personal Info Rebuttal", "text": "I totally understand being careful with your information. How about this \u2014 let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."}],
+        "transitions": ["Does that work for you?", "Should we look at the equipment first?"],
     },
     # ── Cart already built (customer built their system on the website already) ──
     "cart_ready": {
