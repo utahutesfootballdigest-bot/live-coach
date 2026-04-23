@@ -21,6 +21,26 @@ OBJECTION_REBUTTALS = {
         "suggestions": [{"label": "Personal Info Rebuttal", "text": "I totally understand being careful with your information. How about this \u2014 let me walk you through the equipment and pricing first so you can see if it's the right fit, and then we can get your information once you're ready to move forward."}],
         "transitions": ["Does that work for you?", "Should we look at the equipment first?"],
     },
+    # ── Existing customer (already has Cove — transfer to support) ──
+    "existing_customer": {
+        "signals": [
+            "current customer", "existing customer", "i'm already a customer",
+            "i already have cove", "already have an account",
+            "i'm a cove customer", "already a customer",
+            "i have cove", "i have an account with you",
+            "i already have a system", "already have the system",
+            "already have your system", "i bought the system",
+            "already purchased", "already have service",
+            "i'm calling about my account", "calling about my order",
+            "i placed an order", "when does my equipment arrive",
+            "where is my order", "tracking number",
+        ],
+        "stages": ["intro"],
+        "type": "Existing Customer",
+        "summary": "Customer is already a Cove customer — transfer to support",
+        "suggestions": [{"label": "Transfer to Support", "text": "Ok perfect, let me get you to the right spot. I'm going to transfer you over to our customer service team and they'll be able to help you out right away. Just hold on for me one moment."}],
+        "transitions": ["Let me transfer you to customer service.", "Hold on one moment while I get you to the right team."],
+    },
     # ── Cart already built (customer built their system on the website already) ──
     "cart_ready": {
         "signals": [
@@ -140,6 +160,12 @@ OBJECTION_REBUTTALS = {
             "without my wife", "without my husband",
             "wife is not here", "husband is not here",
             "need my wife", "need my husband",
+            # Generic him/her (doesn't specify relationship)
+            "talk to him about it", "talk to her about it",
+            "check with him", "check with her",
+            "ask him first", "ask her first",
+            "run it by him", "run it by her",
+            "let him know", "let her know",
         ],
         "stages": ["build_system", "closing"],
         "type": "Spouse",
