@@ -1848,12 +1848,15 @@ class Session:
     async def update_profile_field(self, field: str, value: str):
         """Rep edited a profile field."""
         if field in self._profile:
+            # Capitalize name parts so profile displays properly
+            if field == "name" and value.strip():
+                value = " ".join(w.capitalize() for w in value.strip().split())
             self._profile[field] = value
             self._profile_edits.add(field)
             print(f"[profile] rep edited {field}: {value[:30]}")
             # Sync name to coach so [NAME] replacement works in suggestions
             if field == "name" and self.coach and value.strip():
-                first_name = value.strip().split()[0].capitalize()
+                first_name = value.strip().split()[0]
                 self.coach.customer_name = first_name
                 print(f"[profile] synced customer_name to coach: {first_name}")
 
