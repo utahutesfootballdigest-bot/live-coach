@@ -344,6 +344,25 @@ OBJECTION_REBUTTALS = {
         "suggestions": [{"label": "Provider Switch", "text": "Great news \u2014 you're going to love Cove! We don't do any contracts, so it's month-to-month and you can cancel anytime. We also include a lifetime warranty on all equipment with our Plus plan, a 60-day risk-free trial with a full refund, and our monthly monitoring starts at just $29.99. A lot of customers who switch from other providers tell us they wish they'd found us sooner."}],
         "transitions": ["What made you want to switch?", "Is there anything specific you're looking for that your current provider doesn't offer?"],
     },
+    "not_ready_timing": {
+        "signals": [
+            "renovating", "renovation", "not ready to install",
+            "not ready yet", "haven't moved in", "haven't moved yet",
+            "moving in a few months", "moving in a couple months",
+            "not living there yet", "still being built",
+            "construction", "under construction",
+            "not moved in", "haven't closed yet", "closing soon",
+            "a month or two", "a few months",
+            "can i start it later", "can i delay",
+            "postpone the monitoring", "delay the monitoring",
+            "start it when i move in", "activate it later",
+        ],
+        "stages": ["build_system", "closing"],
+        "type": "Not Ready / Timing",
+        "summary": "Customer isn't ready to install yet (renovation, hasn't moved in)",
+        "suggestions": [{"label": "Timing Rebuttal", "text": "I totally understand — that's actually a great question. The monthly monitoring does start on the purchase date, so if you're still a few months out from moving in, it might make more sense to give us a call when you're closer to that date. That way you're not paying for monitoring on a system that isn't set up yet. I can send you a text so you have my info, and when you're ready, I'll make sure to get you the best deal we have available. How does that sound?"}],
+        "transitions": ["When are you expecting to move in?", "Would you like me to send you my info so you can reach out when you're ready?"],
+    },
     "autopay": {
         "signals": [
             "when do i get charged", "billing date", "when is the payment",

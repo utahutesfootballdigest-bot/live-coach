@@ -1533,6 +1533,8 @@ class Session:
         self._plan: str = "plus"  # "plus" or "basic"
         self._user_feedback: str = ""  # post-call feedback from rep
         self._opener_feedback: list[dict] = []  # [{opener, rating}] from rep thumbs up/down
+        self._bye_speakers: set[str] = set()  # speakers who said goodbye
+        self._call_ended: bool = False  # True after both speakers said goodbye
         # opener tracking is now global (_active_opener_set) to survive WS reconnections
 
     async def send(self, msg: dict):
@@ -1604,12 +1606,17 @@ class Session:
             self.intro_turns = 0
             self._collect_info_done = set()
             self._rep_overrides = set()
+            self._profile = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
             self._profile_edits = set()
             self._build_current_item = None
             self._equipment_counts = {}
             self._equipment_edits = set()
             self._closing_pitch_groups_said = set()
             self._plan = "plus"
+            self._user_feedback = ""
+            self._opener_feedback = []
+            self._bye_speakers = set()
+            self._call_ended = False
             return
 
         # ── Save transcript immediately (feedback attached later via REST) ──
@@ -1652,10 +1659,18 @@ class Session:
         self.intro_turns = 0
         self._collect_info_done = set()
         self._rep_overrides = set()
+        self._profile = {"name": "", "phone": "", "email": "", "address": "", "equipment": []}
+        self._profile_edits = set()
         self._build_current_item = None
         self._build_item_pitched = False
         self._equipment_counts = {}
+        self._equipment_edits = set()
         self._closing_pitch_groups_said = set()
+        self._plan = "plus"
+        self._user_feedback = ""
+        self._opener_feedback = []
+        self._bye_speakers = set()
+        self._call_ended = False
 
         if self.mic_queue:
             self.mic_queue.put_nowait(None)
@@ -2348,6 +2363,30 @@ class Session:
                     "objection_type": _obj["objection_type"],
                     "objection_summary": _obj["objection_summary"],
                 }
+
+        # ── Call-end detection ──
+        # When both speakers say goodbye, stop processing further turns to avoid
+        # capturing off-topic chatter after the call ends.
+        if is_final and self.coach is not None and not self.roleplay_mode:
+            _BYE_PHRASES = [
+                "bye bye", "bye-bye", "goodbye", "good bye", "have a great day",
+                "have a good day", "have a good one", "take care", "bye for now",
+                "goodbye for now", "bye now", "talk to you later", "thanks bye",
+                "thank you bye",
+            ]
+            t_lower = text.strip().lower().rstrip(".,!?")
+            _is_bye = any(bp in t_lower for bp in _BYE_PHRASES) or t_lower in ("bye", "buh bye")
+            if _is_bye:
+                if not hasattr(self, '_bye_speakers'):
+                    self._bye_speakers = set()
+                self._bye_speakers.add(speaker)
+                if len(self._bye_speakers) >= 2:
+                    print(f"[call-end] both speakers said goodbye — stopping transcript capture")
+                    self._call_ended = True
+                    await self.send({"type": "call_ended"})
+            # If call already ended, skip all further processing
+            if getattr(self, '_call_ended', False):
+                return
 
         # ── Fast-track intro ──
         _turn_already_added = False  # prevents double add_turn if intro falls through

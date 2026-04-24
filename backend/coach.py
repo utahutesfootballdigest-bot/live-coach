@@ -370,6 +370,8 @@ CAMERAS:
 - Indoor camera: HD, night vision, two-way audio, motion detection
 - Outdoor solar camera: battery-powered, optional solar panel, 2K resolution, built-in siren
 - Doorbell camera: motion alerts, two-way audio, HD video
+- IMPORTANT: Cove does NOT monitor camera feeds. Cameras are smart cameras — customer has full access to watch live, get motion alerts, and review recordings from their phone. Only SENSORS are professionally monitored (trigger police/fire/medical dispatch).
+- Doorbell and outdoor cameras are WIRELESS with built-in rechargeable batteries — not hardwired. Customer charges them manually.
 
 SMART HOME:
 - Works with: Alexa, Google Assistant (Plus plan), August smart locks, Nest thermostat
@@ -380,8 +382,12 @@ COMMON CUSTOMER QUESTIONS:
 - "Do I need Wi-Fi?" → Panel and sensors work on cellular. Cameras need Wi-Fi for live feed.
 - "Can I use my existing equipment?" → Cove monitoring only works with Cove-provided equipment.
 - "How do I cancel?" → Call 855-268-3669 or use the online portal. No fees, no hassle.
-- "When does monitoring start?" → Subscription starts on purchase date. Equipment warranty starts on delivery date.
+- "When does monitoring start?" → Subscription starts on purchase date. Equipment warranty starts on delivery date. Monthly monitoring fee starts immediately and CANNOT be postponed even if equipment isn't installed yet.
 - "Can someone install it for me?" → Yes, HelloTech professional installation for $129. Or DIY in under 30 minutes.
+- "Are the cameras monitored?" → No, Cove does not monitor camera feeds. You have full access to watch live, get alerts, and review recordings from your phone. Only the sensors are professionally monitored.
+- "Is the doorbell camera hardwired?" → No, all outdoor cameras and doorbell cameras are wireless with rechargeable batteries. No hardwiring needed.
+- "Can I add more equipment later?" → Yes, once your account is set up (24-48 hours), you can purchase additional sensors/equipment. Promotional discounts may still be available.
+- "I'm renovating / not ready to install yet" → Monthly monitoring starts on purchase date regardless. If you're months away from being ready, it may be better to call back closer to your move-in date. We always have promotions available, though exact discounts may vary.
 """
 
 
@@ -535,8 +541,8 @@ QUESTION_TOPICS = {
         "rep_asks": ["on the website", "on the cove website", "on covesmart", "pull up the website",
                      "are you on the site", "on the site right now"],
         "customer_answers": ["yes i'm on", "yeah i'm on", "i'm on the website", "i'm looking at it",
-                             "i have it up", "i have it pulled up", "not yet", "not on the website",
-                             "no i'm not", "i can pull it up", "i'll pull it up", "let me pull it up"],
+                             "i have it up", "i have it pulled up", "not on the website",
+                             "i can pull it up", "i'll pull it up", "let me pull it up"],
         "output_detect": ["on the website", "on the cove website", "on covesmart", "pull up the website"],
     },
 }
@@ -777,7 +783,9 @@ class CoachingEngine:
                               "zero", "one", "two", "three", "four", "five", "six",
                               "seven", "eight", "nine", "ten", "eleven", "twelve",
                               "windows", "doors", "gonna", "hundred", "thousand"}
-                for prefix in ["my name is ", "my first name is ", "first name is ", "i'm ", "this is ", "it's "]:
+                # Only extract from explicit name statements — "i'm" / "this is" / "it's"
+                # are too broad and capture verbs like "i'm bringing", "it's gotten"
+                for prefix in ["my name is ", "my first name is ", "first name is ", "name is "]:
                     if prefix in t_lower:
                         after = _cleaned[t_lower.index(prefix) + len(prefix):].strip()
                         first_word = after.split()[0] if after.split() else ""
